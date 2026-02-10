@@ -1,0 +1,28 @@
+<section class="info-container py-20 bg-light dark:bg-dark-light">
+  <div class="max-w-4xl mx-auto">
+    <div class="mb-10 p-6 bg-white dark:bg-dark-body rounded-lg shadow">
+      <h3 class="text-2xl font-bold mb-4">My Skills Growth</h3>
+      <div class="progress-bar-bg w-full h-4 bg-gray-200 rounded-full overflow-hidden">
+        <div class="progress-bar w-0 h-full bg-primary"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  import { gsap } from "gsap";
+  import { ScrollTrigger } from "gsap/ScrollTrigger";
+
+  gsap.registerPlugin(ScrollTrigger);
+
+  // สั่งให้เส้นกราฟวิ่งเมื่อเลื่อนมาถึง
+  gsap.to(".progress-bar", {
+    width: "90%", 
+    duration: 1.5,
+    scrollTrigger: {
+      trigger: ".info-container",
+      start: "top 80%", // เริ่มเล่นเมื่อส่วนบนของ Container อยู่ที่ 80% ของหน้าจอ
+      toggleActions: "play none none reverse", 
+    }
+  });
+</script>
