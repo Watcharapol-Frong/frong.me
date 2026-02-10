@@ -1,0 +1,48 @@
+<section class="first-screen h-screen flex items-center justify-center bg-gray-100">
+  <h1 class="text-4xl font-bold text-gray-800">ลองเลื่อนเมาส์ลงข้างล่างสิ...</h1>
+</section>
+
+<section class="scroll-section h-screen bg-slate-900 flex flex-col items-center justify-center overflow-hidden relative">
+  <div class="container max-w-2xl text-center text-white">
+    <h2 class="title text-5xl font-bold mb-8 opacity-0">นี่คือความลับของผลงานฉัน</h2>
+    
+    <div class="infographic-box opacity-0 scale-50 bg-primary p-10 rounded-2xl shadow-2xl">
+      <p class="text-xl">โปรเจกต์นี้ใช้เวลาพัฒนา <span class="counter font-mono text-4xl text-secondary">0</span> ชั่วโมง</p>
+      <div class="mt-4 h-2 w-0 bg-white rounded-full progress-line"></div>
+    </div>
+  </div>
+</section>
+
+<section class="h-screen bg-gray-100 flex items-center justify-center">
+  <h1 class="text-3xl">จบการสาธิตแบบง่ายๆ</h1>
+</section>
+
+<script>
+  import { gsap } from "gsap";
+  import { ScrollTrigger } from "gsap/ScrollTrigger";
+
+  // 1. ลงทะเบียน Plugin
+  gsap.registerPlugin(ScrollTrigger);
+
+  // 2. สร้าง Timeline สำหรับ Scroll
+  const tl = gsap.timeline({
+    scrollTrigger: {
+      trigger: ".scroll-section", // จุดเริ่มต้น
+      start: "top top",            // เมื่อส่วนบนของ Section แตะขอบบนจอ
+      end: "+=2000",               // ให้ค้างหน้าจอนี้ไว้อีก 2000px
+      scrub: 1,                    // เลื่อนตามนิ้ว (ค่า 1 คือมีความหน่วงให้นุ่มนวล)
+      pin: true,                   // ตรึงหน้าจอไว้!
+      markers: true,               // เปิด Markers เพื่อดูจุดเริ่ม/จบ (ลบออกตอนทำจริง)
+    }
+  });
+
+  // 3. กำหนดลำดับการเล่น
+  tl.to(".title", { opacity: 1, y: -20 })
+    .to(".infographic-box", { opacity: 1, scale: 1, duration: 1 })
+    .to(".progress-line", { width: "100%", duration: 2 })
+    .to(".counter", { 
+      innerText: 150, 
+      snap: { innerText: 1 }, // ให้ตัวเลขเพิ่มขึ้นทีละ 1 (ไม่เอาทศนิยม)
+      duration: 2 
+    }, "<"); // เครื่องหมาย "<" คือให้เริ่มเล่นพร้อมกับ Animation ก่อนหน้า
+</script>
