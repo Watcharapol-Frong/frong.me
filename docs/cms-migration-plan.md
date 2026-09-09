@@ -38,7 +38,7 @@
 | 2 | ตัวตนที่ต้องการสื่อสาร | นักวิเคราะห์ข้อมูลที่เล่าเรื่องผ่าน interactive data visualization + เป็นนักพัฒนาและนักเขียน เข้าใจเทคโนโลยีและ AI |
 | 3 | ประเภทเนื้อหา | **บทความ** (Markdown) และ **โปรเจกต์ data viz** (MDX + interactive component) — แยกกันคนละประเภท |
 | 4 | ที่เก็บเนื้อหา | Cloudflare D1 ทั้งหมด **รวมถึงไฟล์ MDX ของโปรเจกต์** (ไม่เก็บใน GitHub) |
-| 5 | ภาษา | สองภาษา — ไทยเป็นหลัก (`/articles/x`) อังกฤษเป็นรอง (`/en/articles/x`) |
+| 5 | ภาษา | **ผสมกัน** — แต่ละชิ้นมีภาษาเดียว เขียนภาษาไหนก็ได้ (ไทยเป็นหลักโดยธรรมชาติ) ไม่บังคับว่าต้องมีคู่แปล · ไทย `/articles/x` · อังกฤษ `/en/articles/x` |
 | 6 | หน้าแรก | ฟีดรวมบทความ + โปรเจกต์ เรียงตามเวลา |
 | 7 | ความถี่เผยแพร่ | บทความสัปดาห์ละ 1 · โปรเจกต์เดือนละ 1-2 |
 | 8 | เสาหลักเนื้อหา (SEO) | 1) วิเคราะห์ข้อมูลเศรษฐกิจ/สังคมไทย 2) สอนเครื่องมือ/เทคนิค data 3) เส้นทางการเรียนรู้และเปลี่ยนสายงาน |
@@ -85,7 +85,7 @@
 
 - ระบบ CMS ที่เขียนเองบน Cloudflare (D1 + R2 + Access + Pages)
 - เนื้อหา 2 ประเภท: บทความ (Markdown) และโปรเจกต์ (MDX + interactive component)
-- รองรับสองภาษา ไทย/อังกฤษ
+- รองรับสองภาษาแบบผสม — แต่ละชิ้นมีภาษาเดียว (ไทยหรืออังกฤษ) ไม่บังคับว่าต้องมีคู่แปล
 - Email newsletter + RSS
 - AI Assistant แบบ BYOK
 - หน้า public คงดีไซน์และ UX เดิมทั้งหมด
@@ -359,7 +359,8 @@ CREATE TABLE posts (
   id                   TEXT PRIMARY KEY,
   type                 TEXT NOT NULL DEFAULT 'article',  -- article | project
   lang                 TEXT NOT NULL DEFAULT 'th',       -- th | en
-  translation_group_id TEXT NOT NULL,        -- ผูกเวอร์ชันภาษาเข้าด้วยกัน
+  translation_group_id TEXT,                 -- NULL = ชิ้นเดี่ยว (กรณีปกติ)
+                                             -- มีค่า = มีคู่แปลอีกภาษา (กรณียกเว้น)
   slug                 TEXT NOT NULL,
   title                TEXT NOT NULL,
   body                 TEXT NOT NULL,        -- Markdown (article) | MDX (project)
@@ -436,8 +437,8 @@ CREATE UNIQUE INDEX idx_models_unique ON ai_models(provider_id, model_id);
 | Route | Render | Access | หน้าที่ | Phase |
 |---|---|---|---|---|
 | `/` | static | public | ฟีดรวมบทความ + โปรเจกต์ | 1 |
-| `/articles/[slug]` | static | public | บทความ (ไทย) — canonical | 1 |
-| `/en/articles/[slug]` | static | public | บทความ (อังกฤษ) | 5 |
+| `/articles/[slug]` | static | public | บทความภาษาไทย | 1 |
+| `/en/articles/[slug]` | static | public | บทความภาษาอังกฤษ | 1 |
 | `/work/[slug]` | static | public | โปรเจกต์ data viz | 2 |
 | `/about` | static | public | เกี่ยวกับ (ทำหน้าที่เรซูเม่) | มีแล้ว |
 | `/404` | static | public | Not found | มีแล้ว |
@@ -447,15 +448,15 @@ CREATE UNIQUE INDEX idx_models_unique ON ai_models(provider_id, model_id);
 | `GET /api/unsubscribe` | endpoint | **public** | ยกเลิกการสมัคร | 4 |
 | `/earth` | `prerender=false` | 🔒 Access | Portal — รายการ draft/published |1|
 | `/earth/editor` | `prerender=false` | 🔒 Access | Editor เขียน/แก้ | 1 |
-| `/earth/settings` | `prerender=false` | 🔒 Access | ตั้งค่า (หลายแท็บ) | 6 |
+| `/earth/settings` | `prerender=false` | 🔒 Access | ตั้งค่า (หลายแท็บ) | 5 |
 | `POST /earth/api/draft` | endpoint | 🔒 Access | บันทึกฉบับร่าง | 1 |
 | `POST /earth/api/publish` | endpoint | 🔒 Access | เผยแพร่ + ยิง Deploy Hook | 1 |
 | `POST /earth/api/update` | endpoint | 🔒 Access | แก้ที่เผยแพร่แล้ว | 1 |
 | `DELETE /earth/api/post/[id]` | endpoint | 🔒 Access | ลบ | 1 |
 | `POST /earth/api/upload-image` | endpoint | 🔒 Access | อัปโหลดรูปไป R2 | 3 |
 | `POST /earth/api/send-newsletter` | endpoint | 🔒 Access | ส่งจดหมายข่าว | 4 |
-| `GET/POST/DELETE /earth/api/providers` | endpoint | 🔒 Access | จัดการ AI providers | 6 |
-| `POST /earth/api/ai/[task]` | endpoint | 🔒 Access | Proxy ไป ai-assistant-worker | 6 |
+| `GET/POST/DELETE /earth/api/providers` | endpoint | 🔒 Access | จัดการ AI providers | 5 |
+| `POST /earth/api/ai/[task]` | endpoint | 🔒 Access | Proxy ไป ai-assistant-worker | 5 |
 
 ---
 
@@ -470,18 +471,62 @@ CREATE UNIQUE INDEX idx_models_unique ON ai_models(provider_id, model_id);
 - **Sitemap** — มี `@astrojs/sitemap` อยู่แล้ว ต้องให้ครอบคลุมทั้ง `/articles/*` และ `/work/*`
 - URL slug เป็นภาษาอังกฤษ ตัวพิมพ์เล็ก คั่นด้วย `-` (โค้ด `generateSlug()` เดิมตัดอักษรไทยทิ้ง — **ต้องแก้** ดูข้อ 13)
 
-### 11.2 เมื่อทำสองภาษา (Phase 5)
+### 11.2 การจัดการภาษาแบบผสม
 
-- **`hreflang`** ในทุกหน้าที่มี 2 เวอร์ชัน:
-  ```html
-  <link rel="alternate" hreflang="th" href="https://frong.me/articles/x">
-  <link rel="alternate" hreflang="en" href="https://frong.me/en/articles/x">
-  <link rel="alternate" hreflang="x-default" href="https://frong.me/articles/x">
-  ```
-- canonical ของแต่ละเวอร์ชันชี้ที่ตัวเอง (ไม่ใช่ชี้ข้ามภาษา)
-- `<html lang="th">` / `<html lang="en">` ให้ถูกต้อง
+เนื่องจากแต่ละชิ้นมีภาษาเดียวและ**ส่วนใหญ่ไม่มีคู่แปล** กฎจึงต่างจากเว็บสองภาษาทั่วไป:
 
-### 11.3 ข้อแลกเปลี่ยนที่ยอมรับแล้ว
+| กรณี | สิ่งที่ต้องทำ |
+|---|---|
+| ทุกหน้า | `<html lang="th">` หรือ `<html lang="en">` ให้ตรงกับเนื้อหาจริง — **นี่คือสัญญาณหลักที่ Google ใช้ระบุภาษา** สำคัญกว่า URL |
+| ทุกหน้า | canonical ชี้ที่ตัวเอง |
+| ชิ้นเดี่ยว (กรณีปกติ) | **ไม่ต้องใส่ `hreflang` เลย** |
+| ชิ้นที่มีคู่แปล (กรณียกเว้น) | ใส่ `hreflang` ทั้งคู่ + `x-default` ชี้เวอร์ชันไทย |
+
+```html
+<!-- ใส่เฉพาะเมื่อ translation_group_id ไม่เป็น NULL และมีคู่แปลที่ published จริง -->
+<link rel="alternate" hreflang="th"        href="https://frong.me/articles/x">
+<link rel="alternate" hreflang="en"        href="https://frong.me/en/articles/x">
+<link rel="alternate" hreflang="x-default" href="https://frong.me/articles/x">
+```
+
+> ⚠️ **ห้ามใส่ `hreflang` ชี้ไปหน้าที่ไม่มีอยู่จริง** — เป็นข้อผิดพลาดที่ Google Search Console จะรายงานเป็น error
+> ต้องเช็คก่อนเสมอว่าคู่แปลนั้น `status='published'` จริง ไม่ใช่แค่มี `translation_group_id` ตรงกัน
+
+**ผลดีต่อ SEO ของการเลือกแบบผสม:** ไม่มีหน้าที่แปลแบบลวกๆ ไปทำให้คุณภาพเฉลี่ยของเว็บลดลง — Google ประเมินคุณภาพระดับเว็บด้วย เนื้อหาแปลด้วยเครื่องที่ไม่ได้เกลาถือเป็นความเสี่ยง การเขียนภาษาเดียวให้ดีจึงปลอดภัยกว่า
+
+### 11.3 ความเร็วเว็บไซต์
+
+พื้นฐานดีอยู่แล้ว (static + Cloudflare CDN) จุดที่จะทำให้ช้ามีอยู่ 3 จุด เรียงตามผลกระทบ:
+
+**1. ฟอนต์ — ต้นทุนหลักของเว็บที่มีภาษาไทย**
+
+ฟอนต์ไทยมีขนาดใหญ่กว่าฟอนต์ละตินมาก (มีสระบน-ล่าง วรรณยุกต์ รูปแบบผสม)
+
+- ใช้ `font-display: swap` เสมอ — ให้ข้อความแสดงทันทีด้วยฟอนต์สำรองระหว่างรอ
+- **โหลดเฉพาะฟอนต์ที่หน้านั้นใช้จริง** — หน้าภาษาอังกฤษไม่ควรโหลดฟอนต์ไทย
+- ใช้ `unicode-range` เพื่อให้เบราว์เซอร์ดาวน์โหลดเฉพาะช่วงอักขระที่ต้องใช้
+- `<link rel="preconnect">` ไปที่ `fonts.gstatic.com` (มีอยู่แล้วในโค้ดเดิม)
+- ลดจำนวน weight ที่โหลด — แต่ละ weight คือไฟล์แยก
+
+**2. รูปภาพ**
+
+- แปลงเป็น WebP ก่อนอัปโหลดขึ้น R2 (หรือแปลงตอนอัปโหลด)
+- ระบุ `width`/`height` ในแท็ก `<img>` เสมอ เพื่อกัน layout shift (คะแนน CLS)
+- `loading="lazy"` กับรูปที่อยู่ใต้ fold — **ยกเว้นรูปปก** ซึ่งควรโหลดทันที
+- ขนาดไฟล์จำกัดที่ 500KB ตามที่ออกแบบไว้แล้ว
+
+**3. JavaScript ของกราฟ — จุดที่เสี่ยงที่สุดในหน้าโปรเจกต์**
+
+ไลบรารีกราฟมีขนาดใหญ่ ถ้าโหลดผิดวิธีจะทำให้หน้าโปรเจกต์ช้ากว่าหน้าบทความหลายเท่า
+
+- ใช้ **Astro Islands** — `client:visible` ให้กราฟ hydrate เมื่อ scroll มาถึงเท่านั้น ไม่ใช่ `client:load`
+- **หน้าบทความต้องไม่โหลดไลบรารีกราฟเลย** (บทความไม่มีกราฟตามที่ตกลงกัน)
+- เลือกไลบรารีโดยดูขนาด bundle ด้วย ไม่ใช่ดูแค่ความสามารถ
+- ถ้ากราฟไม่ต้องโต้ตอบจริงๆ ให้ render เป็น SVG ตอน build ไปเลย — เร็วที่สุดและไม่ใช้ JS
+
+**การวัดผล:** ใช้ Cloudflare Web Analytics ที่ติดตั้งอยู่แล้ว ดู Core Web Vitals (LCP, CLS, INP) แยกตามหน้า เพื่อดูว่าหน้าโปรเจกต์ช้ากว่าหน้าบทความมากแค่ไหน
+
+### 11.4 ข้อแลกเปลี่ยนที่ยอมรับแล้ว
 
 **ไม่มีหน้า hub ของ 3 เสาหลัก** — Google จะไม่มีหน้าศูนย์กลางให้เข้าใจว่าเว็บนี้เชี่ยวชาญด้านไหน ทำให้การสร้าง topical authority ช้ากว่าที่ควร
 
@@ -499,14 +544,17 @@ CREATE UNIQUE INDEX idx_models_unique ON ai_models(provider_id, model_id);
 | Phase | ชื่อ | ชม. | ~สัปดาห์ | จบแล้วทำอะไรได้ |
 |---|---|---|---|---|
 | 0 | เตรียม Infrastructure | 2-3 | 0.5 | — |
-| **1** | **MVP — เขียนและเผยแพร่ได้** | **30-45** | **5-6** | **เริ่มเขียนบทความได้จริง** |
+| **1** | **MVP — เขียนและเผยแพร่ได้ (ไทย/อังกฤษ)** | **34-50** | **5-7** | **เริ่มเขียนบทความได้จริง ทั้งสองภาษา** |
 | 2 | โปรเจกต์ MDX + interactive viz | 15-22 | 2-3 | เผยแพร่งาน data viz ได้ |
 | 3 | อัปโหลดรูปไป R2 | 6-10 | 1-1.5 | ใส่รูปเองได้ ไม่ต้องพึ่ง URL ภายนอก |
 | 4 | ส่ง Newsletter | 10-15 | 1.5-2 | ส่งจดหมายข่าวถึงสมาชิกได้ |
-| 5 | ภาษาอังกฤษ | 10-15 | 1.5-2 | เว็บสองภาษาสมบูรณ์ |
-| 6 | AI Assistant + BYOK | 20-30 | 3-4 | มีผู้ช่วย AI ในหน้าเขียน |
-| 7 | ค้นหา + แบ่งหน้า | 8-12 | 1-1.5 | รองรับเนื้อหาจำนวนมาก |
-| — | รวม | **~100-150** | **~15-21** | |
+| 5 | AI Assistant + BYOK | 20-30 | 3-4 | มีผู้ช่วย AI ในหน้าเขียน |
+| 6 | ค้นหา + แบ่งหน้า | 8-12 | 1-1.5 | รองรับเนื้อหาจำนวนมาก |
+| — | รวม | **~95-142** | **~14-20** | |
+
+> **การเปลี่ยนจาก "ทุกชิ้นมี 2 ภาษา" เป็น "ภาษาผสม" ทำให้ Phase ภาษาอังกฤษเดิม (10-15 ชม.) หายไปทั้ง Phase**
+> เหลือแค่ ~4 ชม. ที่ย้ายไปรวมใน Phase 1 เพราะไม่ต้องมี UI จับคู่คำแปล ไม่ต้องมี workflow แปล
+> และ**จำนวนหน้าที่ต้อง build ลดลงครึ่งหนึ่ง** (50 บทความ = 50 หน้า ไม่ใช่ 100 หน้า) build เร็วขึ้นตาม
 
 ---
 
@@ -530,15 +578,15 @@ CF_API_TOKEN            # สิทธิ์ D1:Edit
 DEPLOY_HOOK_URL         # ยิงตอน publish
 TURNSTILE_SECRET_KEY    # ตรวจ token ฝั่ง server
 PUBLIC_TURNSTILE_SITE_KEY
-AI_WORKER_URL           # Phase 6
-AI_WORKER_SECRET        # Phase 6
-ENCRYPTION_KEY          # Phase 6 — master key เข้ารหัส API key
+AI_WORKER_URL           # Phase 5
+AI_WORKER_SECRET        # Phase 5
+ENCRYPTION_KEY          # Phase 5 — master key เข้ารหัส API key
 RESEND_API_KEY          # Phase 4
 ```
 
 ---
 
-### Phase 1 — MVP: เขียนและเผยแพร่ได้ ⭐
+### Phase 1 — MVP: เขียนและเผยแพร่ได้ (ไทย/อังกฤษ) ⭐
 
 > **เป้าหมายเดียวของ Phase นี้: ไปให้ถึงจุดที่เขียนบทความแล้วกด Publish แล้วมันขึ้นเว็บจริง**
 > ทุกอย่างที่ไม่จำเป็นต่อเป้าหมายนี้ถูกตัดออกหมด
@@ -552,7 +600,7 @@ RESEND_API_KEY          # Phase 4
 5. แก้ `extractHeadings()` ให้ parse heading จาก Markdown
 6. เปลี่ยน `index.astro` + `articles/[slug].astro` ให้ดึงจาก D1
 7. ถอด Sanity ออกทั้งหมด (config, dependencies, โฟลเดอร์ `sanity/`)
-   - ⚠️ **ก่อนลบ** — คัดลอก logic ของ `AIAssistantView.tsx` เก็บไว้ก่อน จะใช้ใน Phase 6
+   - ⚠️ **ก่อนลบ** — คัดลอก logic ของ `AIAssistantView.tsx` เก็บไว้ก่อน จะใช้ใน Phase 5
 8. Portal `/earth` — รายการ draft/published แบบเรียบง่าย
 9. Editor `/earth/editor` — title, slug, body (Markdown), excerpt, cover URL (**พิมพ์ URL เท่านั้น ยังไม่มี upload**), tags, บันทึกร่าง, เผยแพร่
 10. Auto-save: localStorage (1 วิ) + server (30 วิ) + `sendBeacon` ตอนปิดหน้า
@@ -560,9 +608,15 @@ RESEND_API_KEY          # Phase 4
 12. **RSS feed** (`@astrojs/rss` — ~1 ชม. แต่เริ่มเก็บผู้ติดตามได้ทันที)
 13. **ฟอร์มสมัคร newsletter + `POST /api/subscribe`** — เก็บอีเมลลง D1 พร้อม Turnstile
     (**ยังไม่ต้องส่งอีเมล** — แค่เก็บไว้ก่อน จะได้ไม่เสียผู้อ่านช่วงแรกไป)
+14. **รองรับสองภาษาแบบผสม (~4 ชม.)** — ทำตั้งแต่แรกเพราะถูกกว่าการกลับมาแก้ทีหลังมาก
+    - Editor มี dropdown เลือกภาษาของชิ้นนั้น (ไทย/อังกฤษ)
+    - route `/en/articles/[slug]` — `getStaticPaths` กรองด้วย `lang`
+    - `<html lang>` ใน `Layout.astro` เปลี่ยนตามภาษาของหน้า
+    - ป้าย `EN` เล็กๆ บนการ์ดในฟีด เพื่อให้ผู้อ่านรู้ก่อนคลิก
+    - **ยังไม่ต้องทำ:** ระบบจับคู่คำแปล, hreflang, ปุ่มสลับภาษา (ค่อยทำเมื่อมีคู่แปลจริงชิ้นแรก)
 
 **ตัดออกจาก Phase นี้ (อย่าเผลอทำ):**
-AI panel · BYOK settings · ภาษาอังกฤษ · โปรเจกต์ MDX · อัปโหลดรูป · ส่งอีเมลจริง · ค้นหา · แบ่งหน้า · คอมเมนต์ · เอฟเฟกต์ต่างๆ ใน editor (emoji, slash command, zen mode)
+AI panel · BYOK settings · ระบบจับคู่คำแปล · โปรเจกต์ MDX · อัปโหลดรูป · ส่งอีเมลจริง · ค้นหา · แบ่งหน้า · คอมเมนต์ · เอฟเฟกต์ต่างๆ ใน editor (emoji, slash command, zen mode)
 
 **เกณฑ์ตรวจรับ:**
 
@@ -574,6 +628,8 @@ AI panel · BYOK settings · ภาษาอังกฤษ · โปรเจ�
 - [ ] ปิดเบราว์เซอร์กลางคันขณะเขียน → เปิดใหม่แล้วข้อมูลยังอยู่
 - [ ] `/rss.xml` เปิดได้และมีบทความ
 - [ ] กรอกอีเมลในฟอร์มสมัคร → มีแถวใหม่ในตาราง `subscribers`
+- [ ] เขียนบทความภาษาอังกฤษ → ขึ้นที่ `/en/articles/[slug]` และ `<html lang="en">` ถูกต้อง
+- [ ] ฟีดหน้าแรกแสดงทั้งบทความไทยและอังกฤษ พร้อมป้ายบอกภาษา
 - [ ] ไม่มี dependency ของ Sanity เหลือใน `package.json`
 
 > 🎯 **จบ Phase 1 = เริ่มเขียนบทความสัปดาห์ละชิ้นได้ทันที** อย่ารอ Phase อื่น
@@ -626,19 +682,7 @@ AI panel · BYOK settings · ภาษาอังกฤษ · โปรเจ�
 
 ---
 
-### Phase 5 — ภาษาอังกฤษ
-
-1. Astro i18n routing — `/en/*`
-2. Editor: แท็บสลับ ไทย/อังกฤษ ผูกกันด้วย `translation_group_id`
-3. **เผยแพร่ภาษาเดียวก่อนได้** ไม่ต้องรอครบสองภาษา
-4. `hreflang` + `<html lang>` + canonical (ดูข้อ 11.2)
-5. ตัวสลับภาษาใน Navbar — แสดงเฉพาะเมื่อมีอีกภาษาจริง
-
-**เกณฑ์ตรวจรับ:** บทความที่มีทั้งสองภาษา → สลับไปมาได้ · บทความที่มีภาษาเดียว → ไม่แสดงปุ่มสลับและไม่มี hreflang ชี้ไปหน้าที่ไม่มีอยู่ · ตรวจ hreflang ด้วยเครื่องมือของ Google
-
----
-
-### Phase 6 — AI Assistant + BYOK
+### Phase 5 — AI Assistant + BYOK
 
 1. หน้า `/earth/settings` พร้อมระบบแท็บ
    - **แท็บ Profile** — อีเมลจาก Cloudflare Access (`Cf-Access-Jwt-Assertion` หรือ `/cdn-cgi/access/get-identity`), สรุปสถิติ
@@ -657,7 +701,8 @@ AI panel · BYOK settings · ภาษาอังกฤษ · โปรเจ�
    ```
 5. **ปิดช่องโหว่ตามข้อ 8.1**
 6. AI panel ในหน้า editor — เลือก provider → เห็นเฉพาะ model ที่ตั้งค่าไว้ → เลือก → ใช้เครื่องมือ
-7. **เพิ่ม task `translate`** — แปลร่างแรกไทย↔อังกฤษ (ทำให้ Phase 5 เป็นไปได้จริงในทางปฏิบัติ)
+7. **เพิ่ม task `translate`** — แปลร่างแรกไทย↔อังกฤษ สำหรับชิ้นที่อยากทำคู่แปลเป็นกรณีพิเศษ
+   (ไม่ใช่ workflow หลักอีกต่อไป เพราะเปลี่ยนเป็นภาษาผสมแล้ว — แปลเฉพาะชิ้นที่คุ้มค่าจริงๆ)
 
 **Endpoint ดึงรายชื่อ model แต่ละประเภท:**
 
@@ -674,7 +719,7 @@ AI panel · BYOK settings · ภาษาอังกฤษ · โปรเจ�
 
 ---
 
-### Phase 7 — ค้นหา + แบ่งหน้า
+### Phase 6 — ค้นหา + แบ่งหน้า
 
 **ทำเมื่อ:** มีเนื้อหาเกิน ~30 ชิ้น (ประมาณ 7-8 เดือนหลังเริ่มเขียน)
 
@@ -702,6 +747,8 @@ AI panel · BYOK settings · ภาษาอังกฤษ · โปรเจ�
 | 6 | ไลบรารีกราฟที่จะใช้ | D3 · Observable Plot · Recharts · เขียน SVG เอง | ยังไม่ตัดสินใจ — เลือกตอน Phase 2 |
 | 7 | จำกัดจำนวน draft/published | จำกัด · ไม่จำกัด | ไม่จำกัด (ใช้คนเดียว) |
 | 8 | License ของเนื้อหา | All rights reserved · CC BY-NC | ยังไม่ตัดสินใจ — เกี่ยวกับความกังวลเรื่องคนคัดลอกงาน |
+| 9 | เกณฑ์ว่าชิ้นไหนควรทำคู่แปล | แปลเฉพาะชิ้นที่คนอ่านเยอะ · แปลเฉพาะโปรเจกต์ · ไม่แปลเลย | **แปลเฉพาะชิ้นที่พิสูจน์แล้วว่ามีคนอ่าน** — ไม่แปลล่วงหน้า |
+| 10 | ฟอนต์สำหรับภาษาอังกฤษ | ใช้ฟอนต์เดียวกับไทย · แยกฟอนต์ตามภาษา | แยก — หน้าอังกฤษไม่โหลดฟอนต์ไทย (ดูข้อ 11.3) |
 
 ---
 
@@ -712,7 +759,9 @@ AI panel · BYOK settings · ภาษาอังกฤษ · โปรเจ�
 | **ใช้เวลาสร้างระบบนานจนไม่ได้เผยแพร่อะไรเลย** | 🔴 สูงสุด | Phase 1 ตัดทุกอย่างที่ไม่จำเป็นออก · จบ Phase 1 ต้องเริ่มเขียนทันทีไม่รอ Phase อื่น |
 | MDX ผิดไวยากรณ์ทำ build ล้มทั้งเว็บ | 🔴 สูง | ตรวจคอมไพล์ตอน Publish + prebuild ข้ามชิ้นที่พังแทนที่จะล้มทั้ง build (ข้อ 7.2) |
 | หน้าบทความหน้าตาเพี้ยนหลังเปลี่ยนเป็น Markdown | 🟠 กลาง | Screenshot เทียบก่อน/หลัง · ทำ Phase 1 ให้จบสมบูรณ์ก่อนไปต่อ |
-| **ทำสองภาษาไม่ไหว เขียนไทยแล้วไม่ได้แปล** | 🟠 กลาง | เผยแพร่ภาษาเดียวได้ · เลื่อนภาษาอังกฤษไป Phase 5 · ใช้ AI แปลร่างแรก (task `translate`) |
+| ~~ทำสองภาษาไม่ไหว เขียนไทยแล้วไม่ได้แปล~~ | 🟢 **แก้แล้ว** | **เปลี่ยนเป็นภาษาผสม** — แต่ละชิ้นมีภาษาเดียว ไม่มีภาระคู่แปลค้างคาอีกต่อไป |
+| หน้าโปรเจกต์ช้าเพราะ JS ของกราฟ | 🟠 กลาง | `client:visible` · หน้าบทความไม่โหลดไลบรารีกราฟ · เลือกไลบรารีโดยดูขนาด bundle (ข้อ 11.3) |
+| ฟอนต์ไทยทำให้โหลดช้า | 🟠 กลาง | `font-display: swap` · โหลดเฉพาะฟอนต์ที่หน้านั้นใช้ · จำกัดจำนวน weight (ข้อ 11.3) |
 | เขียนไม่ทันสัปดาห์ละชิ้นตามที่ตั้งเป้า | 🟠 กลาง | ยอมรับว่าความสม่ำเสมอสำคัญกว่าความถี่ — เขียน 2 สัปดาห์/ชิ้นอย่างต่อเนื่องดีกว่าสัปดาห์ละชิ้นแล้วหยุดไป 2 เดือน |
 | API key รั่วจาก D1 | 🔴 สูง | เข้ารหัส AES-GCM + ไม่ส่ง key กลับ browser (ข้อ 8.2) |
 | AI worker ถูกยิงจนเผา credit | 🔴 สูง | ปิดตามข้อ 8.1 **ก่อน** เริ่มใช้งานจริง |
