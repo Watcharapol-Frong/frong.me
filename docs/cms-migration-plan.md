@@ -1,10 +1,27 @@
-# frong.me — แผนพัฒนาระบบเว็บไซต์ (ฉบับที่ 3)
+# frong.me — แผนพัฒนาระบบเว็บไซต์ (ฉบับที่ 4)
 
 > เอกสารข้อกำหนดและแผนการพัฒนา · อัปเดต 2026-09-09
 > Repo: `Watcharapol-Frong/portfolio` · Site: https://frong.me
 > **ผู้พัฒนา: เจ้าของเว็บเอง โดยมี AI ช่วย · เวลาที่มี 5-10 ชม./สัปดาห์**
 
-**การเปลี่ยนแปลงในฉบับที่ 3:** เพิ่มระบบฟอนต์ · ระบบรูปภาพ · ระบบกราฟ (3 ระดับ) พร้อมตัวเลขที่วัดจริง
+**การเปลี่ยนแปลงในฉบับที่ 4 — แก้หลังการรีวิว 6 ข้อ:**
+
+| # | สิ่งที่แก้ | สถานะเดิม |
+|---|---|---|
+| 1 | **Deploy ไป Cloudflare Workers ไม่ใช่ Pages** · เพิ่ม Phase 0.5 ทำต้นแบบก่อน | ❌ ผิดข้อเท็จจริง |
+| 2 | **เพิ่ม `post_revisions` แยกร่างออกจากฉบับเผยแพร่** + สถานะ deploy | 🐛 บั๊กในดีไซน์ |
+| 3 | **build ล้ม = คงเว็บฉบับล่าสุดไว้** ไม่ข้ามชิ้นที่พังแล้ว deploy ต่อ | ❌ ดีไซน์ผิด |
+| 4 | **อนุญาตกราฟ static ในบทความ** · ขยับบทวิเคราะห์จริงมาก่อน | ⚠️ ขัดกันเอง |
+| 5 | **สำรองข้อมูลเร็วขึ้น · newsletter ครบชุด · ปิด AI worker ทันที** | ⚠️ ลำดับผิด |
+| 6 | **แก้ข้ออ้างเรื่อง `lang` กับ Google** · ระบุตัวเลขเป็นเป้าที่ต้องวัด | ❌ ผิดข้อเท็จจริง |
+
+### เกณฑ์การอ้างอิงในเอกสารนี้
+
+| สัญลักษณ์ | ความหมาย |
+|---|---|
+| ✅ **ตรวจแล้ว** | ยืนยันกับเอกสารทางการหรือรันจริง มีที่มากำกับ |
+| 🎯 **เป้าที่ต้องวัด** | ตัวเลขคาดการณ์ ต้องวัดกับระบบและไฟล์จริงแล้วแก้ให้ตรง |
+| ❓ **ต้องตรวจเอง** | ผมไม่ทราบ ต้องหาข้อมูลก่อนตัดสินใจ |
 
 ---
 
@@ -198,12 +215,37 @@ Tasks: `title-suggestions` · `auto-excerpt` · `generate-outline` · `seo-optim
                    ai_providers / ai_models                  → OpenRouter / เพิ่มได้อีก
                    images
                              │
-                   กด Publish → ยิง Deploy Hook → rebuild (~30-60 วินาที)
+                   กด Publish → trigger build (ข้อ 6.4) → rebuild (🎯 ยังไม่วัด)
 ```
 
-### 6.1 Output mode
+### 6.1 แพลตฟอร์ม — Workers ไม่ใช่ Pages
 
-> ตรวจกับเอกสาร Astro แล้ว: **`output: 'hybrid'` ถูกยกเลิกไปแล้ว**
+> ✅ **ตรวจแล้ว** กับเอกสาร adapter — https://docs.astro.build/en/guides/integrations-guide/cloudflare/
+>
+> > "The Astro Cloudflare adapter **no longer supports deployment on Cloudflare Pages**.
+> > For the best experience and feature support, you should migrate to Cloudflare Workers."
+
+**เป้าหมาย deployment คือ Cloudflare Workers** (Workers Static Assets เสิร์ฟไฟล์ static)
+
+### 6.2 การเข้าถึง binding ตอน runtime
+
+> ✅ **ตรวจแล้ว: `Astro.locals.runtime` ถูกถอดออกแล้ว**
+
+```js
+// ❌ ใช้ไม่ได้แล้ว
+const db = Astro.locals.runtime.env.DB;
+
+// ✅ วิธีปัจจุบัน
+import { env } from "cloudflare:workers";
+const db = env.DB;
+
+// ExecutionContext (เดิม Astro.locals.runtime.ctx)
+const ctx = Astro.locals.cfContext;
+```
+
+### 6.3 Output mode
+
+> ✅ **ตรวจแล้ว: `output: 'hybrid'` ถูกยกเลิกไปแล้ว**
 > https://docs.astro.build/en/guides/on-demand-rendering/
 
 **คง `output: 'static'`** แล้วเพิ่ม adapter `@astrojs/cloudflare` จากนั้น opt-in เฉพาะหน้าที่ต้อง dynamic:
@@ -215,12 +257,28 @@ export const prerender = false;
 
 หน้า public เดิมทุกหน้า**ไม่ต้องแก้ config การ render เลย**
 
-### 6.2 เนื้อหา 2 ประเภท
+### 6.4 🔴 กลไก trigger build — ต้องออกแบบใหม่
+
+**Deploy Hook เป็นฟีเจอร์ของ Cloudflare Pages** เมื่อย้ายไป Workers กลไก "publish แล้ว rebuild" ทั้งกลไกใช้ไม่ได้
+
+| ทางเลือก | ความมั่นใจ |
+|---|---|
+| **GitHub Actions + `repository_dispatch`** — `/earth/api/publish` ยิง POST ไป GitHub API → workflow รัน build + `wrangler deploy` | ✅ กลไกมาตรฐาน ใช้ได้แน่ |
+| Workers Builds trigger จากภายนอก | ❓ **ต้องตรวจเอง** — ผมไม่ทราบว่ามีกลไกเทียบเท่า Deploy Hook หรือไม่ |
+
+**ข้อนี้ต้องพิสูจน์ใน Phase 0.5 ก่อนเขียนอย่างอื่น** — ถ้า trigger deploy จากภายนอกไม่ได้ สถาปัตยกรรม "static + rebuild-on-publish" ทั้งหมดใช้ไม่ได้
+
+### 6.5 เนื้อหา 2 ประเภท
+
+> **แก้ในฉบับที่ 4:** เดิมห้ามบทความมีกราฟ ซึ่ง**ขัดกับสถาปัตยกรรมของตัวเอง** —
+> เหตุผลที่ห้ามคือกลัวหน้าบทความโหลด JS ของกราฟ แต่กราฟระดับ 1 ส่ง JS **0 ไบต์**
+> เหตุผลจึงไม่มีอยู่จริง และบทความเศรษฐกิจย่อมได้ประโยชน์จากกราฟประกอบ
 
 | | บทความ (article) | โปรเจกต์ (project) |
 |---|---|---|
-| รูปแบบ | Markdown | **MDX** (import component ได้) |
-| กราฟ interactive | ไม่มี | **มี — คือหัวใจ** |
+| รูปแบบ | Markdown **+ กราฟ static ได้** | **MDX** (import component ได้) |
+| กราฟ static (ระดับ 1) | ✅ **ได้** | ✅ ได้ |
+| กราฟ interactive (ระดับ 2-3) | ❌ ไม่ | **✅ คือหัวใจ** |
 | URL | `/articles/[slug]` · `/en/articles/[slug]` | `/work/[slug]` |
 | เก็บที่ | D1 คอลัมน์ `body` | D1 คอลัมน์ `body` |
 | Component กราฟ | — | อยู่ใน repo (`src/components/viz/`) เป็น**โค้ด** ไม่ใช่**เนื้อหา** |
@@ -234,12 +292,12 @@ export const prerender = false;
 
 ### 7.1 D1 binding ใช้ไม่ได้ตอน build
 
-Pages build container ไม่มี D1 binding — มีเฉพาะ runtime แต่ `getStaticPaths()` ต้องอ่านข้อมูลตอน build
+build container ไม่มี D1 binding — มีเฉพาะ runtime แต่ `getStaticPaths()` ต้องอ่านข้อมูลตอน build
 
 | บริบท | วิธีเข้าถึง |
 |---|---|
 | Build time | **HTTP API** + API Token — `POST https://api.cloudflare.com/client/v4/accounts/{id}/d1/database/{db}/query` |
-| Runtime (`/earth/*`, `/api/*`) | **Binding** — `Astro.locals.runtime.env.DB` |
+| Runtime (`/earth/*`, `/api/*`) | **Binding** — `import { env } from "cloudflare:workers"` แล้วใช้ `env.DB` (ดูข้อ 6.2) |
 
 เขียน `src/lib/db.ts` ห่อทั้งสองไว้ใน interface เดียว
 
@@ -252,11 +310,25 @@ prebuild script:
 3. astro build ทำงานตามปกติ
 ```
 
-> ⚠️ **MDX ผิดไวยากรณ์ = build ล้มทั้งเว็บ** ไม่ใช่แค่หน้าเดียว
->
-> **มาตรการบังคับ:**
-> 1. ตอนกด Publish → API ลองคอมไพล์ก่อน ไม่ผ่าน = ปฏิเสธพร้อมแสดง error
-> 2. prebuild → ชิ้นไหนคอมไพล์ไม่ผ่านให้**ข้ามพร้อมเตือน** ไม่ใช่ล้มทั้ง build
+#### นโยบายเมื่อ MDX พัง *(แก้ในฉบับที่ 4 — ดีไซน์เดิมผิด)*
+
+> ❌ **ดีไซน์เดิม: "ข้ามชิ้นที่พังแล้ว deploy ต่อ" — ผิด**
+> ถ้าโปรเจกต์ที่**เคยเผยแพร่แล้ว**คอมไพล์ไม่ผ่านในการ build ครั้งถัดไป การข้ามมันหมายความว่า
+> หน้านั้น**หายไปจาก deployment ใหม่** → URL ที่เคยใช้ได้กลายเป็น **404** ต่อหน้าผู้อ่านและ Google
+
+> ✅ **นโยบายที่ถูกต้อง: build ล้ม = คงเว็บฉบับที่ใช้งานได้ล่าสุดไว้**
+> เมื่อ build ล้ม deployment เดิมยังเสิร์ฟอยู่ ผู้อ่านไม่รู้สึกอะไรเลย — ปลอดภัยกว่าการข้าม
+
+**ด่านป้องกัน 2 ชั้น:**
+
+| ชั้น | ทำอะไร | ขอบเขต |
+|---|---|---|
+| 1. ตอนกด Publish | ลองคอมไพล์ MDX ก่อน ไม่ผ่าน = ปฏิเสธพร้อมแสดง error | **ด่านช่วยจับปัญหาเบื้องต้นเท่านั้น** — ตรวจไวยากรณ์ได้ แต่ยังไม่รู้ว่า import ครบไหม component มีจริงไหม ข้อมูลใช้ได้ไหม |
+| 2. full build | ตรวจ imports · components · ข้อมูลจริง ครบทั้งหมด | **ด่านจริง** — ถ้าไม่ผ่าน หยุด deploy คงของเดิมไว้ แล้วรายงานข้อผิดพลาดให้เห็นใน Portal |
+
+**เกณฑ์ตรวจรับที่ต้องมี:**
+- [ ] **จงใจทำโปรเจกต์ที่เผยแพร่แล้วพัง → build ใหม่ล้ม → URL เดิมยังเปิดได้ตามปกติ**
+- [ ] Portal แสดงสถานะว่า deploy ล่าสุดล้มเหลว พร้อมข้อความ error
 
 **ข้อจำกัดที่ยอมรับ:** MDX import ได้เฉพาะ component ที่มีใน repo แล้ว — กราฟชนิดใหม่ต้องเขียนโค้ดแล้ว push (แต่นั่นคือ**โค้ด** ไม่ใช่**เนื้อหา** ตรงกับความต้องการ)
 
@@ -275,7 +347,7 @@ prebuild script:
 
 `ai-worker/src/index.js:1-5` ตั้ง `Access-Control-Allow-Origin: "*"` และไม่มี auth — ใครรู้ URL ก็ยิงจนเผา credit ได้
 
-**แก้:** browser เรียกผ่าน `/earth/api/ai/*` (หลัง Access) → Pages Function เรียก worker ต่อพร้อม `X-Auth-Secret` → worker ปฏิเสธถ้าไม่มี secret → จำกัด CORS เหลือ `https://frong.me`
+**แก้:** browser เรียกผ่าน `/earth/api/ai/*` (หลัง Access) → server-side endpoint เรียก worker ต่อพร้อม `X-Auth-Secret` → worker ปฏิเสธถ้าไม่มี secret → จำกัด CORS เหลือ `https://frong.me`
 
 ### 8.2 🔴 การเก็บ API Key ของ BYOK
 
@@ -299,6 +371,21 @@ Turnstile · rate limit ต่อ IP · double opt-in · ลิงก์ยก�
 
 > ใส่คอลัมน์ `type`, `lang`, `translation_group_id` **ตั้งแต่ Phase 1** แม้ยังไม่ใช้ เพื่อไม่ต้อง migrate
 
+### 🔴 ปัญหาที่ schema เดิมมี *(พบจากการรีวิว — แก้ในฉบับที่ 4)*
+
+Schema เดิมมี `body` เดียวต่อบทความ ขณะที่ editor มี autosave ทุก 30 วินาที เกิดสถานการณ์นี้ได้จริง:
+
+```
+1. บทความ A เผยแพร่แล้ว
+2. เปิด A มาแก้ → autosave เขียนทับ posts.body ทุก 30 วินาที
+3. ยังเขียนไม่เสร็จ แต่กด publish บทความ B
+4. Deploy trigger → build อ่าน D1
+5. ❌ ได้ร่างครึ่งๆ ของ A ขึ้นเว็บ
+```
+
+**ทางแก้: แยก "ฉบับที่กำลังแก้" ออกจาก "ฉบับที่เผยแพร่"** — `posts.body` คือฉบับกำลังแก้
+ส่วน build อ่านจาก `post_revisions` ที่ถูก freeze ไว้เท่านั้น ผลพลอยได้คือ **ย้อนเวอร์ชันได้**
+
 ```sql
 -- ═══════════════════ เนื้อหา (บทความ + โปรเจกต์) ═══════════════════
 CREATE TABLE posts (
@@ -307,6 +394,7 @@ CREATE TABLE posts (
   lang                 TEXT NOT NULL DEFAULT 'th',       -- th | en
   translation_group_id TEXT,                 -- NULL = ชิ้นเดี่ยว (กรณีปกติ)
   slug                 TEXT NOT NULL,
+  -- ── ฉบับกำลังแก้ (autosave เขียนตรงนี้ · build ไม่เคยอ่าน) ──
   title                TEXT NOT NULL,
   body                 TEXT NOT NULL,        -- Markdown (article) | MDX (project)
   excerpt              TEXT,
@@ -314,7 +402,9 @@ CREATE TABLE posts (
   cover_position       TEXT,                 -- JSON {"x":50,"y":50,"zoom":1.0}
   tags                 TEXT,                 -- JSON array
   font                 TEXT DEFAULT 'sans',
-  status               TEXT NOT NULL DEFAULT 'draft',
+  -- ── ฉบับที่เผยแพร่ (build อ่านผ่าน id นี้เท่านั้น) ──
+  published_revision_id TEXT,                -- NULL = ยังไม่เคยเผยแพร่
+  status               TEXT NOT NULL DEFAULT 'draft',    -- draft | published
   created_at           INTEGER NOT NULL,
   updated_at           INTEGER NOT NULL,
   published_at         INTEGER
@@ -323,6 +413,33 @@ CREATE UNIQUE INDEX idx_posts_slug_lang ON posts(slug, lang);
 CREATE INDEX idx_posts_feed  ON posts(status, published_at DESC);
 CREATE INDEX idx_posts_group ON posts(translation_group_id);
 CREATE INDEX idx_posts_type  ON posts(type, status, published_at DESC);
+
+-- ═════════ ฉบับที่ freeze ไว้ — build อ่านจากตารางนี้เท่านั้น ═════════
+CREATE TABLE post_revisions (
+  id             TEXT PRIMARY KEY,
+  post_id        TEXT NOT NULL,
+  title          TEXT NOT NULL,
+  body           TEXT NOT NULL,
+  excerpt        TEXT,
+  cover_image    TEXT,
+  cover_position TEXT,
+  tags           TEXT,
+  font           TEXT,
+  created_at     INTEGER NOT NULL,
+  FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_revisions_post ON post_revisions(post_id, created_at DESC);
+
+-- ═══════════ สถานะการ deploy — บันทึกลง D1 ≠ ขึ้นเว็บแล้ว ═══════════
+CREATE TABLE deployments (
+  id            TEXT PRIMARY KEY,
+  status        TEXT NOT NULL,   -- queued | building | live | failed
+  trigger_post  TEXT,            -- publish ของชิ้นไหนที่ trigger
+  error_message TEXT,            -- ข้อความ error เมื่อ failed
+  started_at    INTEGER NOT NULL,
+  finished_at   INTEGER
+);
+CREATE INDEX idx_deployments_time ON deployments(started_at DESC);
 
 -- ═══════════════════════════ รูปภาพ ═══════════════════════════
 CREATE TABLE images (
@@ -402,7 +519,7 @@ CREATE UNIQUE INDEX idx_models_unique ON ai_models(provider_id, model_id);
 | `/work/[slug]` | static | public | โปรเจกต์ data viz | 3 |
 | `/about` `/404` | static | public | — | มีแล้ว |
 | `/rss.xml` | static | public | RSS feed | 1 |
-| `POST /api/subscribe` | endpoint | **public** | สมัคร newsletter (+Turnstile) | 1 |
+| `POST /api/subscribe` | endpoint | **public** | สมัคร newsletter (+Turnstile) | 4 |
 | `GET /api/confirm` · `/api/unsubscribe` | endpoint | **public** | double opt-in / ยกเลิก | 4 |
 | `/earth` | `prerender=false` | 🔒 | Portal | 1 |
 | `/earth/editor` | `prerender=false` | 🔒 | Editor | 1 |
@@ -410,6 +527,7 @@ CREATE UNIQUE INDEX idx_models_unique ON ai_models(provider_id, model_id);
 | `POST /earth/api/draft` · `/publish` · `/update` | endpoint | 🔒 | บันทึก/เผยแพร่ | 1 |
 | `DELETE /earth/api/post/[id]` | endpoint | 🔒 | ลบ | 1 |
 | `POST /earth/api/upload-image` | endpoint | 🔒 | อัปโหลดรูป → R2 | 2 |
+| `GET /earth/api/deploy-status` | endpoint | 🔒 | สถานะ deploy ล่าสุด | 1 |
 | `POST /earth/api/upload-dataset` | endpoint | 🔒 | อัปโหลดชุดข้อมูล → R2 | 3 |
 | `POST /earth/api/send-newsletter` | endpoint | 🔒 | ส่งจดหมายข่าว | 4 |
 | `GET/POST/DELETE /earth/api/providers` | endpoint | 🔒 | จัดการ AI providers | 5 |
@@ -508,7 +626,8 @@ Editor ทำงานในเบราว์เซอร์อยู่แล�
 7. แทรก ![alt](url) ลง markdown
 ```
 
-**ข้อดี:** ต้นทุน 0 บาท · ไม่ต้องใช้ WASM หรือบริการเสียเงิน · JPEG 3MB มักเหลือ ~150-250 KB
+**ข้อดี:** ต้นทุน 0 บาท · ไม่ต้องใช้ WASM หรือบริการเสียเงิน
+🎯 **เป้า:** JPEG ขนาดใหญ่ควรเหลือ ~150-250 KB — **ยังไม่ได้วัดกับไฟล์จริง ต้องวัดใน Phase 2 แล้วบันทึกตัวเลขจริงกลับมา**
 **ข้อเสีย:** ขึ้นกับเบราว์เซอร์ (Chrome/Edge/Firefox รุ่นใหม่รองรับ WebP encode) · คุมคุณภาพเอง
 
 ### 12.3 การจัดระเบียบใน R2
@@ -697,7 +816,7 @@ inline <svg> ใน HTML                 ← ผู้อ่านไม่ต�
 
 | กรณี | สิ่งที่ต้องทำ |
 |---|---|
-| ทุกหน้า | `<html lang="th">` หรือ `"en"` ให้ตรงเนื้อหา — **สัญญาณหลักที่ Google ใช้ระบุภาษา สำคัญกว่า URL** |
+| ทุกหน้า | `<html lang="th">` หรือ `"en"` ให้ตรงเนื้อหา — **เพื่อ screen reader** (ดูหมายเหตุด้านล่าง) |
 | ทุกหน้า | canonical ชี้ที่ตัวเอง |
 | ชิ้นเดี่ยว (ปกติ) | **ไม่ต้องใส่ `hreflang` เลย** |
 | มีคู่แปล (ยกเว้น) | ใส่ `hreflang` ทั้งคู่ + `x-default` ชี้เวอร์ชันไทย |
@@ -705,7 +824,27 @@ inline <svg> ใน HTML                 ← ผู้อ่านไม่ต�
 > ⚠️ **ห้ามใส่ `hreflang` ชี้หน้าที่ไม่มีอยู่** — Search Console จะรายงานเป็น error
 > ต้องเช็คว่าคู่แปล `status='published'` จริง
 
-**ผลดีของภาษาแบบผสม:** ไม่มีหน้าที่แปลลวกๆ มาฉุดคุณภาพเฉลี่ยของเว็บ — Google ประเมินคุณภาพระดับเว็บด้วย
+#### 🔴 แก้ข้อมูลผิดจากฉบับก่อน — Google ไม่ได้ใช้ `lang` หรือ URL
+
+ฉบับที่ 3 เขียนว่า `<html lang>` เป็น "สัญญาณหลักที่ Google ใช้ระบุภาษา สำคัญกว่า URL" — **ผิด**
+
+> ✅ **ตรวจแล้ว** กับเอกสาร Google Search Central:
+> https://developers.google.com/search/docs/specialty/international/managing-multi-regional-sites
+>
+> > "Google uses the **visible content** of your page to determine its language.
+> > **We don't use any code-level language information such as `lang` attributes, or the URL.**"
+
+**สิ่งที่เปลี่ยนไปจากข้อเท็จจริงนี้:**
+
+| ประเด็น | เดิมเข้าใจว่า | ความจริง |
+|---|---|---|
+| `<html lang>` | สัญญาณหลักต่อ Google | Google ไม่ใช้เลย — **แต่ยังต้องใส่ให้ถูกเพราะ screen reader ใช้ออกเสียงตามภาษา** |
+| `/en/` prefix | ช่วย SEO ระบุภาษา | **ไม่มีคุณค่าทาง SEO สำหรับระบุภาษา** — คุณค่าจริงคือความชัดเจนเชิงโครงสร้าง และใช้อ้างใน `hreflang` |
+| `hreflang` | — | ยังมีประโยชน์จริง แต่เป็น**การประกาศความสัมพันธ์ระหว่างเวอร์ชัน** คนละเรื่องกับการที่ Google *ระบุ* ภาษาของหน้า |
+
+**ข้อสรุปเชิงปฏิบัติ:** ทำเหมือนเดิมทุกอย่าง แต่**อย่าคาดหวังผล SEO จาก `lang` หรือโครงสร้าง URL** — สิ่งที่กำหนดว่า Google เข้าใจว่าหน้าเป็นภาษาอะไรคือเนื้อหาที่มองเห็นเท่านั้น
+
+**ผลดีของภาษาแบบผสม:** ไม่มีหน้าที่แปลลวกๆ มาฉุดคุณภาพเฉลี่ยของเว็บ
 
 ### 14.3 ข้อได้เปรียบจากการเลือก SVG ตอน build
 
@@ -745,38 +884,87 @@ inline <svg> ใน HTML                 ← ผู้อ่านไม่ต�
 
 ### สรุปภาพรวม
 
+> 🎯 ชั่วโมงทั้งหมดเป็น**ค่าคาดการณ์** ยังไม่ได้วัดจากงานจริง — ปรับตามความเป็นจริงเมื่อจบแต่ละ Phase
+
 | Phase | ชื่อ | ชม. | ~สัปดาห์ | จบแล้วทำอะไรได้ |
 |---|---|---|---|---|
-| 0 | เตรียม Infrastructure | 2-3 | 0.5 | — |
-| **1** | **MVP — เขียนและเผยแพร่ได้** | **34-50** | **5-7** | **เริ่มเขียนบทความได้จริง** |
-| 2 | รูปภาพ + ระบบฟอนต์ | 10-14 | 1.5-2 | ใส่รูปเองได้ · เว็บเร็วขึ้น |
-| 3 | โปรเจกต์ MDX + กราฟชุดแรก | 25-35 | 3.5-5 | **เผยแพร่งาน data viz ได้** |
-| 4 | ส่ง Newsletter | 10-15 | 1.5-2 | ส่งจดหมายข่าวได้ |
-| 5 | AI Assistant + BYOK | 20-30 | 3-4 | มีผู้ช่วย AI ในหน้าเขียน |
+| **0** | **ปิดช่องโหว่ + เตรียม Infrastructure** | **4-6** | **1** | **AI worker ปลอดภัย** |
+| **0.5** | **ต้นแบบพิสูจน์สถาปัตยกรรม** ⭐ | **6-10** | **1-1.5** | **รู้ว่าสถาปัตยกรรมใช้ได้จริงหรือไม่** |
+| 1 | MVP — เขียนและเผยแพร่บทความได้ | 32-46 | 5-6.5 | **เริ่มเขียนบทความได้จริง** |
+| **2** | **รูปภาพ + ฟอนต์ + บทวิเคราะห์จริงชิ้นแรก** ⭐ | **16-24** | **2.5-3.5** | **มีผลงานที่เป็นจุดขายขึ้นเว็บแล้ว** |
+| 3 | โปรเจกต์ MDX + กราฟ interactive | 20-28 | 3-4 | เผยแพร่งาน scrollytelling ได้ |
+| 4 | Newsletter (ครบชุดในทีเดียว) | 14-20 | 2-3 | รับสมัคร–ยืนยัน–ส่ง–ยกเลิก ครบ |
+| 5 | AI Assistant + BYOK | 18-26 | 2.5-4 | มีผู้ช่วย AI ในหน้าเขียน |
 | 6 | ค้นหา + แบ่งหน้า | 8-12 | 1-1.5 | รองรับเนื้อหาจำนวนมาก |
-| — | **รวม** | **~110-160** | **~16-22** | |
+| — | **รวม** | **~118-172** | **~18-25** | |
+
+**การเปลี่ยนลำดับในฉบับที่ 4:**
+
+| เปลี่ยน | เหตุผล |
+|---|---|
+| เพิ่ม **Phase 0.5 ต้นแบบ** | สถาปัตยกรรมเปลี่ยนไป Workers และกลไก trigger build ยังไม่ยืนยัน — ต้องพิสูจน์ก่อนลงแรง 40 ชม. |
+| **ปิดช่องโหว่ AI worker → Phase 0** | มันเปิดอยู่จริงตอนนี้ ไม่ควรรอ Phase 5 |
+| **บทวิเคราะห์จริง → Phase 2** | เดิมงานที่เป็นจุดขายอยู่ปลาย Phase 3 (~71-102 ชม.) นานเกินไป |
+| **Newsletter → ครบชุดใน Phase 4** | เดิมเปิดฟอร์ม Phase 1 แต่ยกเลิกไม่ได้จนถึง Phase 4 — เป็นปัญหาทั้ง UX และ PDPA |
+| **สำรองข้อมูล → Phase 1** | เนื้อหาทั้งหมดอยู่ D1 ที่เดียว ไม่มี export = จุดล้มเหลวจุดเดียว |
 
 ---
 
-### Phase 0 — เตรียม Infrastructure *(ทำใน Dashboard)*
+### Phase 0 — ปิดช่องโหว่ + เตรียม Infrastructure
+
+#### 0A. 🔴 ปิดช่องโหว่ AI Worker — ทำก่อนอย่างอื่นทั้งหมด
+
+Worker เปิดให้ใครก็เรียกได้อยู่**ตอนนี้** ไม่ควรรอ Phase 5
+
+1. เพิ่มตรวจ header `X-Auth-Secret` ใน `ai-worker/src/index.js` — ไม่ตรง = ปฏิเสธ
+2. จำกัด CORS จาก `*` เหลือ `https://frong.me`
+3. `wrangler secret put AI_WORKER_SECRET` แล้ว `wrangler deploy`
+4. แก้ `AIAssistantView.tsx` ให้ส่ง header (หรือปิดการใช้งานไปเลยถ้าจะลบ Sanity อยู่แล้ว)
+
+**เกณฑ์ตรวจรับ:** `curl` ไปที่ worker โดยไม่มี secret → ถูกปฏิเสธ
+
+#### 0B. เตรียม Infrastructure *(ทำใน Dashboard)*
 
 | # | งาน | ผลลัพธ์ |
 |---|---|---|
 | 1 | D1 database `portfolio-db` | `database_id` |
 | 2 | R2 bucket `portfolio-images` + public domain | Public URL |
 | 3 | Zero Trust → Access → Applications → Self-hosted<br>`frong.me` path `/earth*` · allow เฉพาะอีเมลตัวเอง | `/earth` ต้อง login |
-| 4 | Deploy Hook (Pages → Settings → Builds) | Hook URL |
+| 4 | **GitHub token สำหรับ `repository_dispatch`** (แทน Deploy Hook เดิม) | Token trigger build |
 | 5 | API Token สิทธิ์ `D1:Edit` | Token สำหรับ build-time |
-| 6 | Turnstile site key/secret | สำหรับฟอร์มสมัคร |
+| 6 | Turnstile site key/secret | ใช้ตอน Phase 4 |
 
 ```
-# Environment variables ใน Pages
+# Environment variables
 CF_ACCOUNT_ID · CF_D1_DATABASE_ID · CF_API_TOKEN
-DEPLOY_HOOK_URL
-TURNSTILE_SECRET_KEY · PUBLIC_TURNSTILE_SITE_KEY
-AI_WORKER_URL · AI_WORKER_SECRET · ENCRYPTION_KEY   # Phase 5
-RESEND_API_KEY                                       # Phase 4
+GITHUB_DISPATCH_TOKEN · GITHUB_REPO       # trigger build (แทน DEPLOY_HOOK_URL)
+AI_WORKER_URL · AI_WORKER_SECRET          # Phase 0A
+ENCRYPTION_KEY                            # Phase 5
+TURNSTILE_SECRET_KEY · PUBLIC_TURNSTILE_SITE_KEY · RESEND_API_KEY   # Phase 4
 ```
+
+---
+
+### Phase 0.5 — ต้นแบบพิสูจน์สถาปัตยกรรม ⭐
+
+> **เหตุผล:** สถาปัตยกรรมเปลี่ยนจาก Pages เป็น Workers และกลไก trigger build ยัง ❓ ไม่ยืนยัน
+> ถ้าข้อใดข้อหนึ่งใน 5 ข้อนี้ทำไม่ได้ แผนทั้งหมดต้องเปลี่ยน — **ต้องรู้ก่อนลงแรง 40 ชั่วโมงใน Phase 1**
+
+ทำเป็นโปรเจกต์เล็กแยกหรือ branch ทดลอง ไม่ต้องสวย ไม่ต้องมี CMS
+
+**5 ข้อที่ต้องพิสูจน์:**
+
+- [ ] 1. หน้า static (`prerender = true`) build แล้ว deploy ขึ้น **Workers** ได้จริง
+- [ ] 2. หน้า dynamic (`prerender = false`) อ่าน D1 ได้ผ่าน `import { env } from "cloudflare:workers"`
+- [ ] 3. **Cloudflare Access กัน path `/earth*` ได้จริงบน Workers** (ไม่ใช่แค่บน Pages)
+- [ ] 4. build script อ่าน D1 ผ่าน **HTTP API** ได้ (จำลอง `getStaticPaths`)
+- [ ] 5. 🔴 **trigger deploy จากภายนอกได้จริง** — ยิง `repository_dispatch` แล้ว build+deploy ทำงานอัตโนมัติ
+
+**ข้อ 5 สำคัญที่สุด** — ถ้าทำไม่ได้ สถาปัตยกรรม "static + rebuild-on-publish" ทั้งหมดใช้ไม่ได้ ต้องกลับไปพิจารณา SSR
+
+**บันทึกผลลัพธ์กลับเข้าเอกสารนี้** โดยเฉพาะ:
+- เวลา build จริง (แทนที่ตัวเลข 🎯 30-60 วินาที)
+- คำสั่งและ config ที่ใช้ได้จริง
 
 ---
 
@@ -795,13 +983,22 @@ RESEND_API_KEY                                       # Phase 4
 8. Portal `/earth` — รายการ draft/published แบบเรียบง่าย
 9. Editor `/earth/editor` — title, slug, body, excerpt, cover URL (**พิมพ์ URL เท่านั้น**), tags, บันทึกร่าง, เผยแพร่
 10. Auto-save: localStorage (1 วิ) + server (30 วิ) + `sendBeacon` ตอนปิดหน้า
-11. Publish → ยิง Deploy Hook
-12. **RSS feed** (`@astrojs/rss` — ~1 ชม.)
-13. **ฟอร์มสมัคร newsletter + `POST /api/subscribe`** — เก็บอีเมล + Turnstile (**ยังไม่ส่งอีเมล**)
+    → **เขียนลง `posts` (ฉบับกำลังแก้) เท่านั้น ห้ามแตะ `post_revisions`**
+11. **Publish = สร้าง revision ใหม่ + ชี้ `published_revision_id` + trigger build** (ดูข้อ 9)
+12. **แสดงสถานะ deploy ใน Portal** — `queued / building / live / failed` พร้อมข้อความ error
+13. **RSS feed** (`@astrojs/rss` — ~1 ชม.)
 14. **สองภาษาแบบผสม (~4 ชม.)** — dropdown เลือกภาษา · route `/en/articles/[slug]` · `<html lang>` · ป้าย `EN` ในฟีด
 15. **SEO พื้นฐาน** — canonical, OG, JSON-LD Article, sitemap ครอบคลุม
+16. **🔴 สำรองข้อมูล + ทดลองกู้คืน** *(ย้ายขึ้นมาจากอนาคต)*
+    - สคริปต์ export ทุกตารางจาก D1 เป็น JSON + รายการไฟล์ใน R2
+    - **ต้องทดลองกู้คืนจริงหนึ่งครั้ง** ไม่ใช่แค่เขียนสคริปต์ไว้ — export ที่กู้ไม่ได้ไม่ใช่ backup
+    - รันเก็บไว้ทุกครั้งที่เผยแพร่บทความใหม่ (หรือทุกสัปดาห์)
 
-**ตัดออก (อย่าเผลอทำ):** AI panel · BYOK · จับคู่คำแปล · โปรเจกต์ MDX · กราฟ · อัปโหลดรูป · ส่งอีเมลจริง · ค้นหา · แบ่งหน้า · คอมเมนต์ · emoji/slash command/zen mode
+**ตัดออก (อย่าเผลอทำ):** AI panel · BYOK · จับคู่คำแปล · โปรเจกต์ MDX · กราฟ · อัปโหลดรูป · **ฟอร์มสมัคร newsletter** · ค้นหา · แบ่งหน้า · คอมเมนต์ · emoji/slash command/zen mode
+
+> **ทำไมตัดฟอร์ม newsletter ออกจาก Phase 1:** เดิมวางไว้ว่า "เก็บอีเมลก่อน ค่อยส่งทีหลัง"
+> แต่ PDPA ให้สิทธิ์ถอนความยินยอม — เก็บอีเมลโดยยังไม่มีปุ่มยกเลิกคือรับข้อมูลไว้โดยไม่มีช่องทางให้ถอนตัว
+> **ทำครบชุดใน Phase 4 หรือยังไม่เปิดฟอร์ม**
 
 **เกณฑ์ตรวจรับ:**
 
@@ -811,17 +1008,24 @@ RESEND_API_KEY                                       # Phase 4
 - [ ] **หน้าบทความเหมือนเดิมทุกจุด** เทียบกับ screenshot ก่อนแก้
 - [ ] ปิดเบราว์เซอร์กลางคัน → เปิดใหม่ข้อมูลยังอยู่
 - [ ] `/rss.xml` เปิดได้และมีบทความ
-- [ ] กรอกอีเมล → มีแถวใหม่ใน `subscribers`
 - [ ] บทความอังกฤษขึ้นที่ `/en/articles/[slug]` และ `<html lang="en">` ถูกต้อง
 - [ ] ไม่มี dependency ของ Sanity เหลือ
+- [ ] **🔴 ทดสอบร่างไม่รั่ว:** เผยแพร่บทความ A → เปิด A มาแก้ทิ้งไว้ให้ autosave ทำงาน → เผยแพร่บทความ B → **หน้า A บนเว็บต้องยังเป็นฉบับเดิม ไม่ใช่ร่างที่กำลังแก้**
+- [ ] Portal แสดงสถานะ deploy ได้ถูกต้องทั้งกรณีสำเร็จและล้มเหลว
+- [ ] **กู้คืนจาก backup สำเร็จจริง 1 ครั้ง** (ลองสร้าง D1 เปล่าแล้ว restore เข้าไป)
 
 > 🎯 **จบ Phase 1 = เริ่มเขียนสัปดาห์ละชิ้นทันที อย่ารอ Phase อื่น**
 
 ---
 
-### Phase 2 — รูปภาพ + ระบบฟอนต์
+### Phase 2 — รูปภาพ + ฟอนต์ + บทวิเคราะห์จริงชิ้นแรก ⭐
 
-*(รวมกันเพราะทั้งคู่เป็นงานเล็กที่ส่งผลต่อความเร็วโดยตรง)*
+> **เป้าหมายของ Phase นี้ไม่ใช่ "ระบบเสร็จ" แต่คือ "มีบทวิเคราะห์จริงที่มีกราฟขึ้นเว็บแล้ว 1 ชิ้น"**
+>
+> เดิมงานที่เป็นจุดขายอยู่ปลาย Phase 3 (~71-102 ชม. หรือ 10-15 สัปดาห์) ซึ่งนานเกินไปสำหรับ
+> เป้าหมาย personal brand — คนจะจำคุณจากงานวิเคราะห์ ไม่ใช่จากบทความตัวหนังสือล้วน
+
+**สร้างเฉพาะ component ที่บทความชิ้นแรกใช้จริง** ไม่ต้องสร้างชุดกราฟให้ครบ
 
 **ฟอนต์ (~2 ชม.)**
 1. ตัด Inter ออกจาก `Layout.astro:70` และ `global.css`
@@ -837,11 +1041,28 @@ RESEND_API_KEY                                       # Phase 4
 5. รูปปก: `fetchpriority="high"` ห้าม lazy
 6. ปรับตำแหน่ง/zoom รูปปก
 
-**เกณฑ์ตรวจรับ:** ลากรูป JPEG 3MB ลง editor → กลายเป็น WebP < 300KB อัตโนมัติ · รูปในบทความมี width/height ครบ · วัด CLS แล้ว < 0.1 · อัปโหลดไฟล์ `.exe` เปลี่ยนนามสกุล → ถูกปฏิเสธ
+**กราฟชุดขั้นต่ำ (~6-10 ชม.)**
+1. **ตัดสินใจ palette ก่อนเขียนกราฟตัวแรก** แล้วรัน validator ตรวจ (ข้อ 13.6)
+   → แม้จะสร้างแค่กราฟเดียว ก็ต้องกำหนด palette ก่อน ไม่งั้นกราฟชิ้นที่ 2 จะสีไม่เข้ากันแล้วต้องกลับมาแก้ทั้งหมด
+2. สร้าง**เฉพาะ component ที่บทความชิ้นแรกต้องใช้** (น่าจะเป็น BarChart หรือ LineChart อย่างใดอย่างหนึ่ง)
+3. ทำให้ Markdown ของบทความ import component กราฟได้ (บทความมีกราฟ static ได้ตามข้อ 6.5)
+
+**เขียนและเผยแพร่บทวิเคราะห์จริง 1 ชิ้น** — งานเขียน ไม่ใช่งานโค้ด แต่เป็นผลลัพธ์ที่วัดความสำเร็จของ Phase นี้
+
+**เกณฑ์ตรวจรับ:**
+- [ ] ลากรูป JPEG ขนาดใหญ่ลง editor → กลายเป็น WebP อัตโนมัติ (🎯 เป้า < 300KB — **วัดกับไฟล์จริงแล้วบันทึกตัวเลขที่ได้**)
+- [ ] รูปในบทความมี `width`/`height` ครบทุกรูป
+- [ ] วัด CLS จริงแล้ว < 0.1
+- [ ] อัปโหลดไฟล์ `.exe` เปลี่ยนนามสกุลเป็น `.webp` → ถูกปฏิเสธฝั่ง server
+- [ ] **🎯 มีบทวิเคราะห์จริงที่มีกราฟเผยแพร่บนเว็บแล้ว 1 ชิ้น**
+- [ ] View source แล้วข้อความในกราฟเป็นข้อความจริง (ไม่ใช่รูป)
+- [ ] หน้าบทความนั้นส่ง JS เพิ่ม 0 ไบต์จากกราฟ
 
 ---
 
-### Phase 3 — โปรเจกต์ MDX + กราฟชุดแรก
+### Phase 3 — โปรเจกต์ MDX + กราฟ interactive
+
+*(กราฟ static และ palette ทำไปแล้วใน Phase 2 — Phase นี้เพิ่มเฉพาะส่วน interactive และรูปแบบโปรเจกต์)*
 
 **โครงสร้าง MDX (~12-15 ชม.)**
 1. Content Collection `projects` + `src/content/projects/` ใน `.gitignore`
@@ -853,31 +1074,40 @@ RESEND_API_KEY                                       # Phase 4
 7. โปรเจกต์แสดงในฟีดหน้าแรก + banner สำหรับชิ้นเด่น
 8. `POST /earth/api/upload-dataset` → R2 + ตาราง `datasets`
 
-**กราฟ (~13-20 ชม.)**
-1. กำหนด palette จาก token ใน `global.css` แล้ว**รัน validator ตรวจ** (ข้อ 13.6)
-2. สร้าง component ระดับ 1: **BarChart → LineChart → StatTile → DataTable**
+**กราฟเพิ่มเติม (~8-13 ชม.)**
+1. ขยายชุด component ตามที่งานต้องการ: DataTable → StatTile → ชนิดอื่น
+2. **กราฟ interactive ระดับ 2** — island + `client:visible`
 3. ถ้าเวลาเหลือ: ChoroplethMap ประเทศไทย
 
 **เกณฑ์ตรวจรับ:**
 - [ ] เขียน MDX import กราฟ → publish → หน้า `/work/[slug]` แสดงกราฟจริง
-- [ ] **View source แล้วเห็นข้อความใน SVG เป็นข้อความจริง** (ยืนยันว่า Google อ่านได้)
-- [ ] **หน้าโปรเจกต์ที่ใช้กราฟระดับ 1 ส่ง JS เพิ่ม 0 ไบต์**
-- [ ] จงใจพิมพ์ MDX ผิด → Publish → **ถูกปฏิเสธพร้อม error** เว็บเดิมไม่พัง
+- [ ] **🔴 จงใจทำโปรเจกต์ที่เผยแพร่แล้วพัง → build ใหม่ล้ม → URL เดิมยังเปิดได้ตามปกติ** (ข้อ 7.2)
+- [ ] จงใจพิมพ์ MDX ผิดตอน Publish → ถูกปฏิเสธพร้อม error
+- [ ] กราฟ interactive ไม่โหลด JS จนกว่าจะ scroll ถึง (ตรวจใน Network tab)
 - [ ] palette ผ่าน validator ทั้ง light และ dark mode
 - [ ] ฟีดหน้าแรกแสดงบทความ + โปรเจกต์เรียงเวลาถูกต้อง
 
 ---
 
-### Phase 4 — ส่ง Newsletter
+### Phase 4 — Newsletter (ครบชุดในทีเดียว)
 
-1. ต่อบริการส่งอีเมล (Resend หรือเทียบเท่า)
-2. Double opt-in — `GET /api/confirm`
-3. `GET /api/unsubscribe`
-4. `POST /earth/api/send-newsletter` — **กดส่งเองจาก Portal ไม่ใช่อัตโนมัติตอน publish**
-   (อีเมลที่ส่งไปแล้วเรียกคืนไม่ได้)
+> **ทำทั้ง 4 ส่วนพร้อมกัน ไม่แยกปล่อย** — เปิดฟอร์มรับสมัครโดยยังยกเลิกไม่ได้
+> เป็นทั้งประสบการณ์ที่ไม่สมบูรณ์และปัญหาตาม PDPA (สิทธิ์ถอนความยินยอม)
+
+1. **ฟอร์มสมัคร** ท้ายบทความ + `POST /api/subscribe` + Turnstile + rate limit
+2. **ยืนยันอีเมล** — `GET /api/confirm` (double opt-in)
+3. **ยกเลิก** — `GET /api/unsubscribe` + ลิงก์ในทุกอีเมลที่ส่ง
+4. **ส่ง** — `POST /earth/api/send-newsletter` ต่อบริการส่งอีเมล (Resend หรือเทียบเท่า)
+   **กดส่งเองจาก Portal ไม่ใช่อัตโนมัติตอน publish** — อีเมลที่ส่งไปแล้วเรียกคืนไม่ได้
 5. Template: หัวข้อ + เกริ่นนำ + ลิงก์อ่านต่อ (ไม่ส่งเนื้อหาเต็ม — ดึงคนกลับมาที่เว็บ)
+6. เก็บ `consent_ip` + เวลาที่ยินยอมเป็นหลักฐานตาม PDPA
 
-**เกณฑ์ตรวจรับ:** สมัคร → ได้อีเมลยืนยัน → กดยืนยัน → สถานะ `confirmed` · ส่งจดหมายข่าว → ได้รับจริง · กดยกเลิก → ไม่ได้รับอีก
+**เกณฑ์ตรวจรับ (ต้องผ่านครบทั้งวงจรก่อนเปิดใช้จริง):**
+- [ ] สมัคร → ได้อีเมลยืนยัน → กดยืนยัน → สถานะเป็น `confirmed`
+- [ ] ไม่กดยืนยัน → **ไม่ได้รับจดหมายข่าว** (ยังเป็น `pending`)
+- [ ] ส่งจดหมายข่าว → ได้รับจริงในกล่องขาเข้า
+- [ ] กดลิงก์ยกเลิกในอีเมล → สถานะ `unsubscribed` → ส่งรอบถัดไปไม่ได้รับ
+- [ ] กรอกอีเมลคนอื่น → เจ้าของอีเมลไม่กดยืนยัน → ไม่มีใครถูกเพิ่มเข้าระบบ
 
 ---
 
@@ -896,9 +1126,10 @@ RESEND_API_KEY                                       # Phase 4
      "gemini": runGemini, "anthropic": runAnthropic, "cloudflare": runCloudflare,
    };
    ```
-5. **ปิดช่องโหว่ตามข้อ 8.1**
+5. ~~ปิดช่องโหว่ตามข้อ 8.1~~ → **ย้ายไป Phase 0A ทำไปแล้ว**
 6. AI panel ในหน้า editor
 7. เพิ่ม task `translate` — สำหรับชิ้นที่อยากทำคู่แปลเป็นกรณีพิเศษ
+8. เพิ่ม task `suggest-slug` — เสนอ slug อังกฤษจากหัวข้อไทย (ข้อ 19.4)
 
 **Endpoint ดึงรายชื่อ model:**
 
@@ -927,7 +1158,9 @@ RESEND_API_KEY                                       # Phase 4
 
 ### อนาคต
 
-Scrollytelling (ระดับ 3) · ระบบคอมเมนต์ · `srcset` · Slash command · Emoji picker · YouTube embed · Zen mode · Export JSON/Markdown
+Scrollytelling (ระดับ 3) · ระบบคอมเมนต์ · `srcset` · Slash command · Emoji picker · YouTube embed · Zen mode
+
+*(export/backup ย้ายขึ้นไป Phase 1 แล้ว — ไม่ใช่งานอนาคตอีกต่อไป)*
 
 ---
 
@@ -935,6 +1168,7 @@ Scrollytelling (ระดับ 3) · ระบบคอมเมนต์ · `s
 
 | # | ประเด็น | ค่าเริ่มต้นถ้าไม่ตัดสินใจ |
 |---|---|---|
+| 0 | 🔴 **กลไก trigger build บน Workers** | **GitHub Actions + `repository_dispatch`** — ❓ Workers Builds มีกลไกเทียบเท่า Deploy Hook หรือไม่ ต้องตรวจใน Phase 0.5 |
 | 1 | URL prefix ของโปรเจกต์ | `/work/` |
 | 2 | ~~slug ภาษาไทย~~ | ✅ **ตัดสินใจและแก้แล้ว** — ดูข้อ 19 |
 | 3 | **Cormorant Garamond เก็บหรือตัด** | เก็บ 400 + 400italic ถ้ายังใช้ตัวเลือก serif |
@@ -954,10 +1188,14 @@ Scrollytelling (ระดับ 3) · ระบบคอมเมนต์ · `s
 
 | ความเสี่ยง | ระดับ | การรับมือ |
 |---|---|---|
-| **ใช้เวลาสร้างระบบนานจนไม่ได้เผยแพร่อะไรเลย** | 🔴 สูงสุด | Phase 1 ตัดทุกอย่างที่ไม่จำเป็น · จบแล้วเริ่มเขียนทันที |
-| MDX ผิดไวยากรณ์ทำ build ล้มทั้งเว็บ | 🔴 สูง | ตรวจคอมไพล์ตอน Publish + prebuild ข้ามชิ้นที่พัง (ข้อ 7.2) |
+| **🔴 trigger deploy จากภายนอกทำไม่ได้บน Workers** | 🔴 สูงสุด | **พิสูจน์ใน Phase 0.5 ก่อนลงแรงอย่างอื่น** — ถ้าทำไม่ได้ ต้องกลับไปพิจารณา SSR ทั้งสถาปัตยกรรม |
+| **ใช้เวลาสร้างระบบนานจนไม่ได้เผยแพร่อะไรเลย** | 🔴 สูงสุด | Phase 1 ตัดทุกอย่างที่ไม่จำเป็น · **บทวิเคราะห์จริงชิ้นแรกอยู่ใน Phase 2 ไม่ใช่ Phase 3** |
+| **ร่างที่ยังเขียนไม่เสร็จหลุดขึ้นเว็บ** | 🔴 สูง | `post_revisions` + `published_revision_id` — build อ่านเฉพาะฉบับ freeze (ข้อ 9) |
+| **หน้าที่เคยเผยแพร่หายไปหลัง deploy ใหม่** | 🔴 สูง | build ล้ม = คงเว็บฉบับล่าสุด ไม่ข้ามชิ้นที่พัง (ข้อ 7.2) |
+| **เนื้อหาทั้งหมดอยู่ D1 ที่เดียว** | 🔴 สูง | export + **ทดลองกู้คืนจริง** ตั้งแต่ Phase 1 |
 | API key รั่วจาก D1 | 🔴 สูง | AES-GCM + ไม่ส่ง key กลับ browser (ข้อ 8.2) |
-| AI worker ถูกยิงจนเผา credit | 🔴 สูง | ปิดตามข้อ 8.1 **ก่อน**ใช้งานจริง |
+| AI worker ถูกยิงจนเผา credit | 🔴 สูง | **ปิดใน Phase 0A ทันที ไม่รอ Phase 5** — มันเปิดอยู่จริงตอนนี้ |
+| เก็บอีเมลโดยยังยกเลิกไม่ได้ (PDPA) | 🟠 กลาง | ทำ newsletter ครบชุดใน Phase 4 หรือยังไม่เปิดฟอร์ม |
 | หน้าบทความหน้าตาเพี้ยนหลังเปลี่ยนเป็น Markdown | 🟠 กลาง | Screenshot เทียบก่อน/หลัง · ทำ Phase 1 ให้จบก่อนไปต่อ |
 | **หน้าโปรเจกต์ช้าเพราะกราฟ** | 🟠 กลาง | ระดับ 1 เป็นค่าเริ่มต้น (JS 0 ไบต์) · `client:visible` เท่านั้น · วัด INP แยกตามหน้า |
 | ฟอนต์ทำให้โหลดช้า | 🟠 กลาง | Google Sans ตัวเดียว · 3 weights · ตัด Inter (ข้อ 11) |
@@ -965,7 +1203,7 @@ Scrollytelling (ระดับ 3) · ระบบคอมเมนต์ · `s
 | เขียนไม่ทันสัปดาห์ละชิ้น | 🟠 กลาง | ความสม่ำเสมอสำคัญกว่าความถี่ — 2 สัปดาห์/ชิ้นต่อเนื่อง ดีกว่าสัปดาห์ละชิ้นแล้วหยุด 2 เดือน |
 | Bot spam ฟอร์มสมัคร | 🟠 กลาง | Turnstile + rate limit + double opt-in |
 | ~~ทำสองภาษาไม่ไหว~~ | 🟢 แก้แล้ว | เปลี่ยนเป็นภาษาผสม — ไม่มีภาระคู่แปลค้างคา |
-| Deploy Hook ชน build limit | 🟢 ต่ำ | 1-2 ครั้ง/สัปดาห์ไม่น่ามีปัญหา |
+| build ถูก trigger ถี่จนชน limit | 🟢 ต่ำ | 1-2 ครั้ง/สัปดาห์ไม่น่ามีปัญหา · ❓ ตรวจ quota ของ Workers Builds เอง |
 | Cloudflare Access ล่ม | 🟢 ต่ำ | หน้า public ยังทำงานปกติเพราะเป็น static |
 
 ---
