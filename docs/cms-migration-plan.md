@@ -1,185 +1,160 @@
-# frong.me — แผนพัฒนาระบบเว็บไซต์ (ฉบับที่ 2)
+# frong.me — แผนพัฒนาระบบเว็บไซต์ (ฉบับที่ 3)
 
 > เอกสารข้อกำหนดและแผนการพัฒนา · อัปเดต 2026-09-09
 > Repo: `Watcharapol-Frong/portfolio` · Site: https://frong.me
 > **ผู้พัฒนา: เจ้าของเว็บเอง โดยมี AI ช่วย · เวลาที่มี 5-10 ชม./สัปดาห์**
 
-> **ฉบับที่ 2 เขียนใหม่ทั้งหมด** หลังการสัมภาษณ์เก็บความต้องการ ฉบับแรกตั้งสมมติฐานผิดหลายจุด
-> (ไม่รู้เรื่องโปรเจกต์ interactive viz, การทำสองภาษา, newsletter และข้อจำกัดด้านเวลา)
+**การเปลี่ยนแปลงในฉบับที่ 3:** เพิ่มระบบฟอนต์ · ระบบรูปภาพ · ระบบกราฟ (3 ระดับ) พร้อมตัวเลขที่วัดจริง
 
 ---
 
 ## สารบัญ
 
-1. [สรุปความเข้าใจร่วมกัน](#1-สรุปความเข้าใจร่วมกัน)
-2. [เป้าหมายทางธุรกิจและกลยุทธ์เนื้อหา](#2-เป้าหมายทางธุรกิจและกลยุทธ์เนื้อหา)
-3. [ขอบเขต — สิ่งที่ทำและไม่ทำ](#3-ขอบเขต--สิ่งที่ทำและไม่ทำ)
-4. [ข้อจำกัดด้านเวลาและผลต่อการวางแผน](#4-ข้อจำกัดด้านเวลาและผลต่อการวางแผน)
-5. [สถานะปัจจุบัน](#5-สถานะปัจจุบัน)
-6. [สถาปัตยกรรมเป้าหมาย](#6-สถาปัตยกรรมเป้าหมาย)
-7. [ข้อจำกัดทางเทคนิคที่ต้องรู้ก่อนเริ่ม](#7-ข้อจำกัดทางเทคนิคที่ต้องรู้ก่อนเริ่ม)
-8. [ประเด็นความปลอดภัย](#8-ประเด็นความปลอดภัย)
-9. [Database Schema](#9-database-schema)
-10. [Route Map](#10-route-map)
-11. [SEO](#11-seo)
-12. [แผนการพัฒนาแบ่งตาม Phase](#12-แผนการพัฒนาแบ่งตาม-phase)
-13. [ประเด็นที่ยังไม่ตัดสินใจ](#13-ประเด็นที่ยังไม่ตัดสินใจ)
-14. [ความเสี่ยง](#14-ความเสี่ยง)
+| # | หัวข้อ | |
+|---|---|---|
+| 1 | [สรุปความเข้าใจร่วมกัน](#1-สรุปความเข้าใจร่วมกัน) | |
+| 2 | [เป้าหมายและกลยุทธ์เนื้อหา](#2-เป้าหมายและกลยุทธ์เนื้อหา) | |
+| 3 | [ขอบเขต](#3-ขอบเขต) | |
+| 4 | [ข้อจำกัดด้านเวลา](#4-ข้อจำกัดด้านเวลา) | |
+| 5 | [สถานะปัจจุบัน](#5-สถานะปัจจุบัน) | |
+| 6 | [สถาปัตยกรรมเป้าหมาย](#6-สถาปัตยกรรมเป้าหมาย) | |
+| 7 | [ข้อจำกัดทางเทคนิค](#7-ข้อจำกัดทางเทคนิค) | |
+| 8 | [ความปลอดภัย](#8-ความปลอดภัย) | |
+| 9 | [Database Schema](#9-database-schema) | |
+| 10 | [Route Map](#10-route-map) | |
+| 11 | [ระบบฟอนต์](#11-ระบบฟอนต์) | ⭐ ใหม่ |
+| 12 | [ระบบรูปภาพ](#12-ระบบรูปภาพ) | ⭐ ใหม่ |
+| 13 | [ระบบกราฟและ data visualization](#13-ระบบกราฟและ-data-visualization) | ⭐ ใหม่ |
+| 14 | [SEO](#14-seo) | |
+| 15 | [ความเร็วเว็บไซต์](#15-ความเร็วเว็บไซต์) | |
+| 16 | [แผนการพัฒนาแบ่งตาม Phase](#16-แผนการพัฒนาแบ่งตาม-phase) | |
+| 17 | [ประเด็นที่ยังไม่ตัดสินใจ](#17-ประเด็นที่ยังไม่ตัดสินใจ) | |
+| 18 | [ความเสี่ยง](#18-ความเสี่ยง) | |
 
 ---
 
 ## 1. สรุปความเข้าใจร่วมกัน
 
-*(ส่วนนี้มีไว้ให้ตรวจสอบว่าเข้าใจตรงกัน — ถ้าข้อไหนผิดให้แก้ก่อนเริ่มลงมือ)*
+*(ตรวจสอบว่าเข้าใจตรงกัน — ถ้าข้อไหนผิดให้แก้ก่อนเริ่มลงมือ)*
 
 | # | หัวข้อ | ข้อสรุป |
 |---|---|---|
 | 1 | เป้าหมายหลัก | สร้าง personal brand และฐานผู้ติดตาม |
 | 2 | ตัวตนที่ต้องการสื่อสาร | นักวิเคราะห์ข้อมูลที่เล่าเรื่องผ่าน interactive data visualization + เป็นนักพัฒนาและนักเขียน เข้าใจเทคโนโลยีและ AI |
-| 3 | ประเภทเนื้อหา | **บทความ** (Markdown) และ **โปรเจกต์ data viz** (MDX + interactive component) — แยกกันคนละประเภท |
-| 4 | ที่เก็บเนื้อหา | Cloudflare D1 ทั้งหมด **รวมถึงไฟล์ MDX ของโปรเจกต์** (ไม่เก็บใน GitHub) |
-| 5 | ภาษา | **ผสมกัน** — แต่ละชิ้นมีภาษาเดียว เขียนภาษาไหนก็ได้ (ไทยเป็นหลักโดยธรรมชาติ) ไม่บังคับว่าต้องมีคู่แปล · ไทย `/articles/x` · อังกฤษ `/en/articles/x` |
+| 3 | ประเภทเนื้อหา | **บทความ** (Markdown) และ **โปรเจกต์ data viz** (MDX + interactive component) |
+| 4 | ที่เก็บเนื้อหา | Cloudflare D1 ทั้งหมด รวมถึงไฟล์ MDX ของโปรเจกต์ (ไม่เก็บใน GitHub) |
+| 5 | ภาษา | **ผสมกัน** — แต่ละชิ้นมีภาษาเดียว ไทย `/articles/x` · อังกฤษ `/en/articles/x` ไม่บังคับว่าต้องมีคู่แปล |
 | 6 | หน้าแรก | ฟีดรวมบทความ + โปรเจกต์ เรียงตามเวลา |
 | 7 | ความถี่เผยแพร่ | บทความสัปดาห์ละ 1 · โปรเจกต์เดือนละ 1-2 |
-| 8 | เสาหลักเนื้อหา (SEO) | 1) วิเคราะห์ข้อมูลเศรษฐกิจ/สังคมไทย 2) สอนเครื่องมือ/เทคนิค data 3) เส้นทางการเรียนรู้และเปลี่ยนสายงาน |
+| 8 | เสาหลักเนื้อหา | 1) วิเคราะห์ข้อมูลเศรษฐกิจ/สังคมไทย 2) สอนเครื่องมือ/เทคนิค data 3) เส้นทางการเรียนรู้และเปลี่ยนสายงาน |
 | 9 | ช่องทางติดตาม | Email newsletter + RSS |
-| 10 | การยืนยันตัวตนหลังบ้าน | Cloudflare Access (ไม่เขียนโค้ด auth เอง) |
+| 10 | ยืนยันตัวตนหลังบ้าน | Cloudflare Access |
 | 11 | AI Assistant | BYOK — เพิ่ม provider/API key/model ได้จากหน้าตั้งค่า |
-| 12 | ผู้พัฒนา | เจ้าของเว็บเอง + AI ช่วย · 5-10 ชม./สัปดาห์ |
-| 13 | ลำดับความสำคัญ | **MVP ให้เขียนและเผยแพร่ได้ก่อน** แล้วค่อยเติมทีละอย่างระหว่างทาง |
+| 12 | **ฟอนต์** | **Google Sans ตัวเดียวทั้งไทยและอังกฤษ** (ตรวจแล้วว่ามี subset ไทย) |
+| 13 | **กราฟ** | **3 ระดับ — เริ่มจาก SVG ตอน build ที่ส่ง JS 0 ไบต์** |
+| 14 | ผู้พัฒนา | เจ้าของเว็บเอง + AI ช่วย · 5-10 ชม./สัปดาห์ |
+| 15 | ลำดับความสำคัญ | **MVP ให้เขียนและเผยแพร่ได้ก่อน** |
 
 ---
 
-## 2. เป้าหมายทางธุรกิจและกลยุทธ์เนื้อหา
-
-### 2.1 เป้าหมาย
+## 2. เป้าหมายและกลยุทธ์เนื้อหา
 
 สร้างการจดจำในฐานะ **"คนที่วิเคราะห์ข้อมูลเศรษฐกิจ/สังคมไทยแล้วเล่าออกมาให้เข้าใจง่ายผ่านภาพที่โต้ตอบได้"**
 
-เว็บนี้ทำหน้าที่เป็นหลักฐานของความสามารถโดยตรง (ตัวเว็บและงานในเว็บคือ portfolio ไม่ต้องมีเรซูเม่แยก)
+ตัวเว็บและงานในเว็บคือ portfolio โดยตรง — ไม่ต้องมีเรซูเม่แยก
 
-### 2.2 เสาหลักเนื้อหา 3 เสา
+### เสาหลักเนื้อหา
 
-| ลำดับ | เสา | บทบาท | รูปแบบเนื้อหาที่เหมาะ |
+| ลำดับ | เสา | บทบาท | รูปแบบที่เหมาะ |
 |---|---|---|---|
-| 1 | วิเคราะห์ข้อมูลเศรษฐกิจ/สังคมไทย | **จุดแข็งเฉพาะตัว** — พื้นฐานเศรษฐศาสตร์ + บริบทไทย + ทำ viz เองได้ | โปรเจกต์ interactive เป็นหลัก + บทความประกอบ |
-| 2 | สอนเครื่องมือ/เทคนิค data | **ดึง traffic** — คนค้นหาเยอะ สม่ำเสมอ | บทความ how-to |
-| 3 | เส้นทางการเรียนรู้/เปลี่ยนสายงาน | **สร้างความผูกพัน** — คนที่กำลังเปลี่ยนสายจะติดตาม | บทความบันทึกประสบการณ์ |
+| 1 | วิเคราะห์ข้อมูลเศรษฐกิจ/สังคมไทย | **จุดแข็งเฉพาะตัว** — พื้นฐานเศรษฐศาสตร์ + บริบทไทย + ทำ viz เองได้ | โปรเจกต์ interactive + บทความประกอบ |
+| 2 | สอนเครื่องมือ/เทคนิค data | **ดึง traffic** | บทความ how-to |
+| 3 | เส้นทางการเรียนรู้/เปลี่ยนสายงาน | **สร้างความผูกพัน** | บทความบันทึกประสบการณ์ |
 
-### 2.3 ตัวชี้วัดที่ควรติดตาม
+### ตัวชี้วัด
 
-เนื่องจากเป้าหมายคือผู้ติดตาม ไม่ใช่ยอดขาย ตัวชี้วัดที่มีความหมายคือ:
-
-1. **จำนวนสมาชิก newsletter** — ตัวชี้วัดหลัก (เป็นผู้ติดตามที่เราเป็นเจ้าของ ไม่ขึ้นกับ algorithm ใคร)
-2. จำนวนบทความที่เผยแพร่ต่อเดือน (วัดความสม่ำเสมอของตัวเอง)
-3. ผู้เข้าชมจาก organic search (วัดผล SEO)
+1. **จำนวนสมาชิก newsletter** — ตัวชี้วัดหลัก (ผู้ติดตามที่เราเป็นเจ้าของ)
+2. จำนวนชิ้นงานที่เผยแพร่ต่อเดือน (วัดความสม่ำเสมอ)
+3. ผู้เข้าชมจาก organic search
 4. หน้าที่มีคนอ่านมากที่สุด (บอกว่าเสาไหนได้ผล)
 
-> ใช้ Cloudflare Web Analytics ที่ติดตั้งอยู่แล้วได้เลย ไม่ต้องเพิ่มเครื่องมือใหม่
+> ใช้ Cloudflare Web Analytics ที่ติดตั้งอยู่แล้ว
 
 ---
 
-## 3. ขอบเขต — สิ่งที่ทำและไม่ทำ
+## 3. ขอบเขต
 
-### 3.1 อยู่ในขอบเขต
+### อยู่ในขอบเขต
 
-- ระบบ CMS ที่เขียนเองบน Cloudflare (D1 + R2 + Access + Pages)
-- เนื้อหา 2 ประเภท: บทความ (Markdown) และโปรเจกต์ (MDX + interactive component)
-- รองรับสองภาษาแบบผสม — แต่ละชิ้นมีภาษาเดียว (ไทยหรืออังกฤษ) ไม่บังคับว่าต้องมีคู่แปล
-- Email newsletter + RSS
-- AI Assistant แบบ BYOK
-- หน้า public คงดีไซน์และ UX เดิมทั้งหมด
+ระบบ CMS เขียนเองบน Cloudflare · เนื้อหา 2 ประเภท · สองภาษาแบบผสม · Newsletter + RSS · AI Assistant BYOK · ระบบกราฟ · หน้า public คงดีไซน์เดิม
 
-### 3.2 **ไม่**อยู่ในขอบเขต (ตัดสินใจแล้ว — ไม่ต้องทำ)
+### **ไม่**อยู่ในขอบเขต (ตัดสินใจแล้ว)
 
-| สิ่งที่ตัดออก | เหตุผล |
+| ตัดออก | เหตุผล |
 |---|---|
-| ย้ายบทความเก่าจาก Sanity | เป็นเนื้อหา demo ทิ้งได้ |
-| หน้ารวมโปรเจกต์แยก (`/work` index) | หน้าแรกทำหน้าที่นี้อยู่แล้ว (ฟีดรวม) |
-| หน้า CV/Resume + ดาวน์โหลด PDF | หน้า About ทำหน้าที่นี้ — ตัวเว็บคือผลงาน |
-| หน้าเผยแพร่ dataset แยก | ส่วน Sources ท้ายบทความลิงก์ไปแหล่งข้อมูลอยู่แล้ว |
-| หน้า hub ของ 3 เสาหลัก (`/category/...`) | **ตัดสินใจตัดออก** — ยอมรับข้อแลกเปลี่ยนว่าจะเสียโอกาสให้ Google จัดกลุ่มหัวข้อ (topic cluster) ยังใช้การกรองด้วยแท็ก `/?tag=` แบบเดิม |
-| ระบบคอมเมนต์ | เลื่อนไปอนาคต ดูข้อ 3.3 |
+| ย้ายบทความเก่าจาก Sanity | เป็น demo ทิ้งได้ |
+| หน้ารวมโปรเจกต์แยก (`/work` index) | หน้าแรกทำหน้าที่นี้แล้ว |
+| หน้า CV/Resume | About ทำหน้าที่นี้ — ตัวเว็บคือผลงาน |
+| หน้าเผยแพร่ dataset แยก | Sources ท้ายบทความลิงก์ไปแหล่งข้อมูลแล้ว |
+| หน้า hub 3 เสาหลัก (`/category/...`) | ตัดออก — ยอมรับว่าเสียโอกาส topic cluster |
+| ระบบคอมเมนต์ | ดูด้านล่าง |
 | ระบบ multi-user | ใช้คนเดียว |
 
-### 3.3 เลื่อนไปอนาคต — ระบบคอมเมนต์
+**ระบบคอมเมนต์ — ไม่ทำ** เพราะช่องคอมเมนต์ว่างเปล่าให้ผลลบ · ไม่ช่วย SEO · เพิ่มภาระ spam และความรับผิดทางกฎหมาย · newsletter ตอบเป้าหมายตรงกว่า
 
-**ยังไม่ทำ** เพราะ:
-- ช่วงที่ยังไม่มีผู้อ่าน ช่องคอมเมนต์ว่างเปล่าให้ผลลบมากกว่าบวก
-- ไม่ช่วย SEO อย่างมีนัยสำคัญ
-- เพิ่มภาระดูแล spam, ความรับผิดทางกฎหมายต่อเนื้อหาที่ผู้อื่นโพสต์ และช่องโหว่ XSS
-- Newsletter ตอบเป้าหมาย "ผู้ติดตาม" ได้ตรงกว่ามาก
+*ทดแทนด้วย:* บรรทัดท้ายบทความ "พบข้อผิดพลาดหรือมีข้อมูลเพิ่มเติม → อีเมลหาผม" — สำคัญมากสำหรับความน่าเชื่อถือของงานวิเคราะห์ข้อมูล
 
-**เงื่อนไขที่ควรกลับมาพิจารณา:** เมื่อมีสมาชิก newsletter เกินหลักร้อย หรือเริ่มมีคนส่งอีเมล/ทักมาคุยเรื่องบทความอย่างสม่ำเสมอ
+*กลับมาพิจารณาเมื่อ:* สมาชิก newsletter เกินหลักร้อย หรือมีคนอีเมลมาถกบ่อย
 
 ---
 
-## 4. ข้อจำกัดด้านเวลาและผลต่อการวางแผน
-
-### 4.1 ตัวเลขที่ต้องยอมรับ
+## 4. ข้อจำกัดด้านเวลา
 
 | รายการ | ประมาณการ |
 |---|---|
-| เวลาที่มี | 5-10 ชม./สัปดาห์ (ใช้ 7 ชม. เป็นค่ากลาง) |
-| งานเขียนเนื้อหาตามเป้า (บทความ 1/สัปดาห์ + โปรเจกต์ 1-2/เดือน) | ~10 ชม./สัปดาห์ |
-| ระบบทั้งหมดตามแผน (Phase 1-7) | ~110-160 ชม. |
+| เวลาที่มี | 5-10 ชม./สัปดาห์ (ใช้ 7 เป็นค่ากลาง) |
+| งานเขียนเนื้อหาตามเป้า | ~10 ชม./สัปดาห์ |
+| ระบบทั้งหมด | ~110-165 ชม. |
 
-**ข้อสรุป: เวลาที่มีไม่พอทำทั้งสองอย่างพร้อมกัน** ต้องเลือกว่าช่วงไหนทำอะไร
+**เวลาไม่พอทำทั้งสองอย่างพร้อมกัน** ต้องสลับโหมด
 
-### 4.2 หลักการวางแผนที่ใช้
+### หลักการวางแผน
 
-> **ความเสี่ยงที่ใหญ่ที่สุดของโปรเจกต์นี้ไม่ใช่เรื่องเทคนิค แต่คือการใช้เวลา 5 เดือนสร้างระบบแล้วยังไม่ได้เผยแพร่อะไรเลย**
-> ผู้ติดตามมาจากเนื้อหา ไม่ได้มาจาก CMS
+> **ความเสี่ยงที่ใหญ่ที่สุดไม่ใช่เรื่องเทคนิค แต่คือใช้เวลา 5 เดือนสร้างระบบแล้วยังไม่ได้เผยแพร่อะไรเลย**
 
-ดังนั้นแผนนี้จัดลำดับตามหลัก:
-
-1. **ไปให้ถึงจุดที่ "เขียนและเผยแพร่ได้" เร็วที่สุด** แล้วเริ่มเขียนทันที
-2. หลังจากนั้นสลับโหมด — สัปดาห์ไหนเขียนเนื้อหา สัปดาห์ไหนพัฒนาระบบ ไม่ทำพร้อมกัน
-3. ทุก Phase หลัง MVP ต้อง**ใช้งานได้จริงเมื่อจบ Phase** ไม่มี Phase ที่ทำครึ่งๆ กลางๆ แล้วต้องรอ Phase ถัดไป
-4. ออกแบบ schema เผื่ออนาคตตั้งแต่แรก (เช่น ใส่คอลัมน์ `lang`, `type` ตั้งแต่ Phase 1 แม้ยังไม่ใช้) เพื่อไม่ต้อง migrate ข้อมูลทีหลัง
+1. ไปให้ถึงจุดที่ "เขียนและเผยแพร่ได้" เร็วที่สุด แล้วเริ่มเขียนทันที
+2. หลังจากนั้นสลับโหมด — สัปดาห์ไหนเขียน สัปดาห์ไหนพัฒนา ไม่ทำพร้อมกัน
+3. ทุก Phase ต้องใช้งานได้จริงเมื่อจบ ไม่มี Phase ที่ค้างครึ่งๆ
+4. ออกแบบ schema เผื่ออนาคตตั้งแต่แรก เพื่อไม่ต้อง migrate
 
 ---
 
 ## 5. สถานะปัจจุบัน
 
 **Stack:** Astro 7.2.2 · React 19 · Tailwind CSS 4 · Node ≥22.12.0
-**Output:** `static` (ค่า default — ไม่มี adapter)
-**CMS:** Sanity (`@sanity/astro` ^3.5.1) — Studio ที่ `/admin` · เนื้อหาเป็น Portable Text
-
-### 5.1 โครงสร้าง `src/`
+**Output:** `static` · **CMS:** Sanity (Portable Text, Studio ที่ `/admin`)
 
 ```
 src/
 ├── components/
 │   ├── portabletext/          ← ผูกกับ Sanity (ต้องรื้อ)
-│   │   ├── ArticleBody.astro
-│   │   ├── PortableTextHeading.astro
-│   │   └── PortableTextImage.astro
+│   │   ├── ArticleBody.astro  PortableTextHeading.astro  PortableTextImage.astro
 │   ├── AboutIsland.tsx  AnnouncementBanner.tsx  FloatingNav.tsx
 │   ├── HomeIsland.tsx   Navbar.tsx  ScrollRevealText.tsx
 │   ├── ShareButton.tsx  TableOfContents.astro
 │   └── ui/popover.tsx
-├── layouts/Layout.astro
+├── layouts/Layout.astro       ← โหลดฟอนต์ 3 families (ดูข้อ 11)
 ├── lib/
 │   ├── sanityImage.ts         ← ผูกกับ Sanity (ต้องรื้อ)
 │   ├── slugify.ts             ← extractHeadings() อ่าน Portable Text
 │   └── utils.ts
-├── pages/
-│   ├── index.astro            ← query Sanity
-│   ├── about.astro
-│   ├── articles/[slug].astro  ← query Sanity
-│   └── 404.astro
-└── styles/global.css
+├── pages/  index.astro  about.astro  articles/[slug].astro  404.astro
+└── styles/global.css          ← token สี/ฟอนต์
 ```
 
-### 5.2 ของที่มีอยู่แล้วและใช้ต่อได้
+### ของที่มีอยู่และใช้ต่อได้
 
-**`ai-worker/`** — Cloudflare Worker ชื่อ `ai-assistant-worker` (deploy แล้ว)
-
-```jsonc
-{ "name": "ai-assistant-worker", "main": "src/index.js",
-  "compatibility_date": "2026-08-01", "ai": { "binding": "AI" } }
-```
+**`ai-worker/`** — Worker ชื่อ `ai-assistant-worker` (deploy แล้ว) รองรับ 3 providers:
 
 | Provider | Default model | วิธีเรียก |
 |---|---|---|
@@ -187,9 +162,9 @@ src/
 | `gemini` | `gemini-3.5-flash-lite` | REST + `GEMINI_API_KEY` |
 | `openrouter` | `openai/gpt-4o-mini` | REST + `OPENROUTER_API_KEY` |
 
-Tasks ที่มี: `title-suggestions` · `auto-excerpt` · `generate-outline` · `seo-optimizer`
+Tasks: `title-suggestions` · `auto-excerpt` · `generate-outline` · `seo-optimizer`
 
-**`sanity/components/AIAssistantView.tsx`** — UI React เรียก worker พร้อม dropdown เลือก provider/model (ต้องย้ายออกมาก่อนลบ Sanity)
+**`sanity/components/AIAssistantView.tsx`** — UI เรียก worker (ต้องย้ายออกก่อนลบ Sanity)
 
 ---
 
@@ -205,153 +180,123 @@ Tasks ที่มี: `title-suggestions` · `auto-excerpt` · `generate-outlin
                      │  /about  /404  /rss.xml               │
                      └──────────────────────────────────────┘
                             ↑ build time            ↓ client-side
-                            │ (D1 HTTP API)         │
-                            │                  POST /api/subscribe
+                            │ (D1 HTTP API)    POST /api/subscribe
                             │                  (public + Turnstile)
     ──────────────────────────────────────────────────────────────
                             │
     เจ้าของเว็บ ──→ [Cloudflare Access] ──→ /earth/*  (prerender = false)
-                                             ├── /earth           Portal
-                                             ├── /earth/editor    Editor
-                                             ├── /earth/settings  ตั้งค่า
-                                             └── /earth/api/*     REST API
-                                                    │
-                              ┌─────────────────────┼──────────────────┐
-                              ↓                     ↓                  ↓
-                           [D1]                  [R2]        [ai-assistant-worker]
-                    posts (บทความ+โปรเจกต์)      รูปภาพ       → Cloudflare AI
-                    subscribers                              → Gemini
-                    ai_providers / ai_models                 → OpenRouter
-                    images                                   → (เพิ่มได้อีก)
-                              │
-                    กด Publish → ยิง Deploy Hook
-                              ↓
-                    Cloudflare Pages rebuild (~30-60 วินาที)
+                                            ├── /earth           Portal
+                                            ├── /earth/editor    Editor
+                                            ├── /earth/settings  ตั้งค่า
+                                            └── /earth/api/*     REST API
+                                                   │
+                             ┌─────────────────────┼──────────────────┐
+                             ↓                     ↓                  ↓
+                          [D1]                  [R2]        [ai-assistant-worker]
+                   posts / subscribers      รูป + dataset    → Cloudflare AI / Gemini
+                   ai_providers / ai_models                  → OpenRouter / เพิ่มได้อีก
+                   images
+                             │
+                   กด Publish → ยิง Deploy Hook → rebuild (~30-60 วินาที)
 ```
 
 ### 6.1 Output mode
 
-> ตรวจสอบกับเอกสาร Astro แล้ว: **`output: 'hybrid'` ถูกยกเลิกไปแล้ว**
-> อ้างอิง: https://docs.astro.build/en/guides/on-demand-rendering/
+> ตรวจกับเอกสาร Astro แล้ว: **`output: 'hybrid'` ถูกยกเลิกไปแล้ว**
+> https://docs.astro.build/en/guides/on-demand-rendering/
 
-**คงค่า `output: 'static'` (ค่า default) ไว้** แล้วเพิ่ม adapter `@astrojs/cloudflare` จากนั้น opt-in เฉพาะหน้าที่ต้อง dynamic:
+**คง `output: 'static'`** แล้วเพิ่ม adapter `@astrojs/cloudflare` จากนั้น opt-in เฉพาะหน้าที่ต้อง dynamic:
 
 ```js
-// เฉพาะไฟล์ใน src/pages/earth/** และ src/pages/api/** เท่านั้น
+// เฉพาะ src/pages/earth/** และ src/pages/api/** เท่านั้น
 export const prerender = false;
 ```
 
-**ผลลัพธ์:** หน้า public เดิมทุกหน้า**ไม่ต้องแก้ config การ render เลย** ยังคง build เป็น static เหมือนเดิม
+หน้า public เดิมทุกหน้า**ไม่ต้องแก้ config การ render เลย**
 
 ### 6.2 เนื้อหา 2 ประเภท
 
 | | บทความ (article) | โปรเจกต์ (project) |
 |---|---|---|
-| รูปแบบเนื้อหา | Markdown | **MDX** (Markdown + import component ได้) |
-| Interactive viz | ไม่มี | **มี — คือหัวใจของประเภทนี้** |
-| URL | `/articles/[slug]` | `/work/[slug]` |
-| เขียนที่ไหน | Editor ใน `/earth` | Editor ใน `/earth` (โหมด MDX) |
-| เก็บที่ไหน | D1 คอลัมน์ `body` | D1 คอลัมน์ `body` |
-| Component กราฟ | — | อยู่ใน repo (`src/components/viz/`) — เป็นโค้ด ไม่ใช่เนื้อหา |
+| รูปแบบ | Markdown | **MDX** (import component ได้) |
+| กราฟ interactive | ไม่มี | **มี — คือหัวใจ** |
+| URL | `/articles/[slug]` · `/en/articles/[slug]` | `/work/[slug]` |
+| เก็บที่ | D1 คอลัมน์ `body` | D1 คอลัมน์ `body` |
+| Component กราฟ | — | อยู่ใน repo (`src/components/viz/`) เป็น**โค้ด** ไม่ใช่**เนื้อหา** |
 | ความถี่ | สัปดาห์ละ 1 | เดือนละ 1-2 |
 
-**ทั้งสองประเภทอยู่ในตาราง `posts` ตารางเดียวกัน** แยกด้วยคอลัมน์ `type` เพื่อให้หน้าแรกดึงมาแสดงรวมกันได้ด้วย query เดียว
+อยู่ในตาราง `posts` เดียวกัน แยกด้วยคอลัมน์ `type` เพื่อให้หน้าแรกดึงมารวมกันได้ด้วย query เดียว
 
 ---
 
-## 7. ข้อจำกัดทางเทคนิคที่ต้องรู้ก่อนเริ่ม
+## 7. ข้อจำกัดทางเทคนิค
 
 ### 7.1 D1 binding ใช้ไม่ได้ตอน build
 
-Cloudflare Pages build container **ไม่มี D1 binding** — binding มีเฉพาะตอน runtime เท่านั้น
-แต่ `getStaticPaths()` ต้องอ่านข้อมูลตอน build
+Pages build container ไม่มี D1 binding — มีเฉพาะ runtime แต่ `getStaticPaths()` ต้องอ่านข้อมูลตอน build
 
-**ทางแก้:** แยกวิธีเข้าถึงตามบริบท
-
-| บริบท | วิธีเข้าถึง D1 |
+| บริบท | วิธีเข้าถึง |
 |---|---|
-| Build time (`getStaticPaths`, prebuild script) | **HTTP API** + API Token<br>`POST https://api.cloudflare.com/client/v4/accounts/{account_id}/d1/database/{database_id}/query` |
+| Build time | **HTTP API** + API Token — `POST https://api.cloudflare.com/client/v4/accounts/{id}/d1/database/{db}/query` |
 | Runtime (`/earth/*`, `/api/*`) | **Binding** — `Astro.locals.runtime.env.DB` |
 
-เขียน `src/lib/db.ts` ห่อทั้งสองวิธีไว้ใน interface เดียว โค้ดหน้าเว็บจะได้ไม่ต้องรู้ว่าอยู่บริบทไหน
+เขียน `src/lib/db.ts` ห่อทั้งสองไว้ใน interface เดียว
 
 ### 7.2 MDX ที่เก็บใน D1 — จุดที่ต้องระวังที่สุด
 
-Astro คอมไพล์ MDX ตอน build จากไฟล์ในดิสก์ แต่เนื้อหาเราอยู่ใน D1
-
-**ขั้นตอนที่ต้องทำ (prebuild script):**
-
 ```
-1. อ่านโปรเจกต์ที่ status='published' จาก D1 ผ่าน HTTP API
-2. เขียนแต่ละชิ้นลง src/content/projects/{lang}/{slug}.mdx   ← ใส่ .gitignore
-3. astro build ทำงานตามปกติ (Content Collections เจอไฟล์เอง)
+prebuild script:
+1. อ่านโปรเจกต์ status='published' จาก D1 ผ่าน HTTP API
+2. เขียนลง src/content/projects/{lang}/{slug}.mdx   ← ใส่ .gitignore
+3. astro build ทำงานตามปกติ
 ```
 
-> ⚠️ **ความเสี่ยงร้ายแรง:** MDX ที่ผิดไวยากรณ์ **ทำให้ build ล้มทั้งเว็บ** ไม่ใช่แค่หน้าเดียว
-> แปลว่าพิมพ์ MDX ผิดตัวเดียวแล้วกด Publish = เว็บทั้งเว็บอัปเดตไม่ได้
+> ⚠️ **MDX ผิดไวยากรณ์ = build ล้มทั้งเว็บ** ไม่ใช่แค่หน้าเดียว
 >
-> **มาตรการที่ต้องมี (บังคับ):**
-> 1. ตอนกด Publish → API ลองคอมไพล์ MDX ก่อน ถ้าไม่ผ่านให้ปฏิเสธพร้อมแสดง error ไม่บันทึกเป็น published
-> 2. prebuild script → ถ้าชิ้นไหนคอมไพล์ไม่ผ่าน ให้**ข้ามชิ้นนั้นพร้อมเตือน** ไม่ใช่ให้ build ล้มทั้งหมด
+> **มาตรการบังคับ:**
+> 1. ตอนกด Publish → API ลองคอมไพล์ก่อน ไม่ผ่าน = ปฏิเสธพร้อมแสดง error
+> 2. prebuild → ชิ้นไหนคอมไพล์ไม่ผ่านให้**ข้ามพร้อมเตือน** ไม่ใช่ล้มทั้ง build
 
-**ข้อจำกัดที่ต้องยอมรับ:** MDX import component ได้เฉพาะที่มีอยู่ใน repo แล้วเท่านั้น — โปรเจกต์ที่ต้องใช้กราฟชนิดใหม่ยังต้องเขียน component ใหม่แล้ว push ขึ้น GitHub (แต่นั่นคือ**โค้ด** ไม่ใช่**เนื้อหา** ซึ่งตรงกับความต้องการที่ว่า "ไม่อยากให้เนื้อหาอยู่บน GitHub")
+**ข้อจำกัดที่ยอมรับ:** MDX import ได้เฉพาะ component ที่มีใน repo แล้ว — กราฟชนิดใหม่ต้องเขียนโค้ดแล้ว push (แต่นั่นคือ**โค้ด** ไม่ใช่**เนื้อหา** ตรงกับความต้องการ)
 
-### 7.3 Portable Text → Markdown
+### 7.3 Markdown ที่ render ด้วย `marked` — Astro optimize ให้ไม่ได้
 
-เนื้อหาเดิมเป็น Portable Text ระบบใหม่ใช้ Markdown — render ตอน build ด้วย `marked` ได้ HTML static ไม่ต้องโหลด JS เพิ่มฝั่ง client
+`marked` คืน HTML string → ได้ `<img>` ธรรมดา → **Astro image optimization ไม่แตะเลย**
+(Astro optimize เฉพาะ `<Image>` component และรูปใน `src/`)
+
+→ การจัดการรูปต้องทำเองทั้งหมด ดูข้อ 12
 
 ---
 
-## 8. ประเด็นความปลอดภัย
+## 8. ความปลอดภัย
 
-### 8.1 🔴 AI Worker เปิดให้ทุกคนเรียกได้ (ต้องแก้ก่อนใช้งานจริง)
+### 8.1 🔴 AI Worker เปิดให้ทุกคนเรียกได้
 
-`ai-worker/src/index.js:1-5`
+`ai-worker/src/index.js:1-5` ตั้ง `Access-Control-Allow-Origin: "*"` และไม่มี auth — ใครรู้ URL ก็ยิงจนเผา credit ได้
 
-```js
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",   // ← ใครก็เรียกได้
-};
-```
-
-Worker ไม่มีการตรวจสอบสิทธิ์เลย — ใครที่รู้ URL `ai-assistant-worker.frongbook.workers.dev/generate` ยิง request ไม่จำกัดจนเผา credit Gemini/OpenRouter ได้
-
-**ทางแก้:**
-1. Browser ไม่เรียก worker ตรงๆ → เรียกผ่าน `/earth/api/ai/*` ซึ่งอยู่หลัง Access
-2. Pages Function เรียก worker ต่อพร้อม header `X-Auth-Secret: {AI_WORKER_SECRET}`
-3. Worker ปฏิเสธ request ที่ไม่มี secret
-4. จำกัด CORS เหลือเฉพาะ `https://frong.me`
+**แก้:** browser เรียกผ่าน `/earth/api/ai/*` (หลัง Access) → Pages Function เรียก worker ต่อพร้อม `X-Auth-Secret` → worker ปฏิเสธถ้าไม่มี secret → จำกัด CORS เหลือ `https://frong.me`
 
 ### 8.2 🔴 การเก็บ API Key ของ BYOK
 
-เมื่อย้าย key มาเก็บใน D1 ต้องทำ 3 ข้อนี้ **ห้ามข้าม**
-
-1. **เข้ารหัสก่อนเก็บ** — Web Crypto AES-GCM โดย master key เป็น secret (`ENCRYPTION_KEY`) → D1 เก็บเฉพาะ ciphertext
-2. **ห้ามส่ง key กลับมาที่ browser** — หน้า Settings แสดงแบบ mask (`AIza••••4f2c`) เป็น write-only
-3. **ถอดรหัสฝั่ง server ตอนจะยิง request เท่านั้น**
+1. **เข้ารหัสก่อนเก็บ** — Web Crypto AES-GCM, master key เป็น secret (`ENCRYPTION_KEY`), D1 เก็บแค่ ciphertext
+2. **ห้ามส่ง key กลับ browser** — หน้า Settings แสดง mask (`AIza••••4f2c`) write-only
+3. **ถอดรหัสฝั่ง server ตอนยิง request เท่านั้น**
 
 ### 8.3 🔴 Endpoint สาธารณะ (`/api/subscribe`)
 
-เป็นจุดแรกที่เปิดรับ request จากคนภายนอก (ต่างจาก `/earth/*` ที่อยู่หลัง Access) ต้องมี:
+Turnstile · rate limit ต่อ IP · double opt-in · ลิงก์ยกเลิกในทุกอีเมล (PDPA/GDPR) · เก็บเวลาและ IP ที่ยินยอมเป็นหลักฐาน
 
-- **Cloudflare Turnstile** ยืนยันว่าไม่ใช่ bot
-- **Rate limit** ต่อ IP
-- **Double opt-in** — ส่งอีเมลยืนยันก่อนบันทึกเป็นสมาชิกจริง (กันคนกรอกอีเมลคนอื่น)
-- **ลิงก์ยกเลิกการสมัคร** ในทุกอีเมลที่ส่ง (จำเป็นตามกฎหมาย PDPA/GDPR)
-- เก็บ **เวลาและ IP ที่ยินยอม** เป็นหลักฐานการขอความยินยอม (PDPA)
+### 8.4 ทั่วไป
 
-### 8.4 การ validate ทั่วไป
-
-- Upload รูป: ตรวจ MIME type + ขนาดไฟล์ **ฝั่ง server** เสมอ ห้ามเชื่อการเช็คฝั่ง client
-- Markdown/MDX ที่เขียนเอง: sanitize ด้วย DOMPurify ก่อน render ใน preview
-- `base_url` ของ custom AI provider: ต้องเป็น HTTPS และไม่ใช่ internal address (กัน SSRF)
+- Upload: ตรวจ MIME + ขนาด **ฝั่ง server** เสมอ ห้ามเชื่อ client
+- Markdown/MDX: sanitize ด้วย DOMPurify ก่อน render preview
+- `base_url` ของ custom AI provider: ต้องเป็น HTTPS ไม่ใช่ internal address (กัน SSRF)
 
 ---
 
 ## 9. Database Schema
 
-> **ออกแบบเผื่ออนาคตตั้งแต่ Phase 1** — คอลัมน์ `type`, `lang`, `translation_group_id` ใส่ตั้งแต่แรก
-> แม้ Phase 1 จะใช้แค่ `type='article'`, `lang='th'` เพื่อไม่ต้อง migrate ข้อมูลทีหลัง
+> ใส่คอลัมน์ `type`, `lang`, `translation_group_id` **ตั้งแต่ Phase 1** แม้ยังไม่ใช้ เพื่อไม่ต้อง migrate
 
 ```sql
 -- ═══════════════════ เนื้อหา (บทความ + โปรเจกต์) ═══════════════════
@@ -360,16 +305,15 @@ CREATE TABLE posts (
   type                 TEXT NOT NULL DEFAULT 'article',  -- article | project
   lang                 TEXT NOT NULL DEFAULT 'th',       -- th | en
   translation_group_id TEXT,                 -- NULL = ชิ้นเดี่ยว (กรณีปกติ)
-                                             -- มีค่า = มีคู่แปลอีกภาษา (กรณียกเว้น)
   slug                 TEXT NOT NULL,
   title                TEXT NOT NULL,
   body                 TEXT NOT NULL,        -- Markdown (article) | MDX (project)
   excerpt              TEXT,
-  cover_image          TEXT,                 -- R2 URL หรือ external URL
+  cover_image          TEXT,
   cover_position       TEXT,                 -- JSON {"x":50,"y":50,"zoom":1.0}
   tags                 TEXT,                 -- JSON array
-  font                 TEXT DEFAULT 'sans',  -- sans | serif | google-sans
-  status               TEXT NOT NULL DEFAULT 'draft',    -- draft | published
+  font                 TEXT DEFAULT 'sans',
+  status               TEXT NOT NULL DEFAULT 'draft',
   created_at           INTEGER NOT NULL,
   updated_at           INTEGER NOT NULL,
   published_at         INTEGER
@@ -383,17 +327,35 @@ CREATE INDEX idx_posts_type  ON posts(type, status, published_at DESC);
 CREATE TABLE images (
   id         TEXT PRIMARY KEY,
   post_id    TEXT,
-  r2_key     TEXT NOT NULL,
+  r2_key     TEXT NOT NULL,          -- images/2026/09/01H....webp
+  url        TEXT NOT NULL,          -- URL เต็มที่ใช้ใน markdown
+  width      INTEGER NOT NULL,       -- ★ จำเป็นสำหรับกัน layout shift
+  height     INTEGER NOT NULL,       -- ★
   size       INTEGER,
+  format     TEXT DEFAULT 'webp',
+  alt        TEXT,                   -- ★ accessibility + SEO
   created_at INTEGER NOT NULL
+);
+CREATE UNIQUE INDEX idx_images_url ON images(url);
+
+-- ═══════════════════ ชุดข้อมูลสำหรับกราฟ ═══════════════════
+CREATE TABLE datasets (
+  id          TEXT PRIMARY KEY,
+  post_id     TEXT,
+  r2_key      TEXT NOT NULL,          -- datasets/2026/09/thai-export.json
+  url         TEXT NOT NULL,
+  label       TEXT,
+  source_url  TEXT,                   -- แหล่งที่มาของข้อมูล (ต้องอ้างอิงเสมอ)
+  row_count   INTEGER,
+  created_at  INTEGER NOT NULL
 );
 
 -- ═══════════════════ สมาชิก newsletter ═══════════════════
 CREATE TABLE subscribers (
   id                TEXT PRIMARY KEY,
   email             TEXT UNIQUE NOT NULL,
-  status            TEXT NOT NULL DEFAULT 'pending',  -- pending | confirmed | unsubscribed
-  lang              TEXT NOT NULL DEFAULT 'th',       -- ภาษาที่ต้องการรับ
+  status            TEXT NOT NULL DEFAULT 'pending',  -- pending|confirmed|unsubscribed
+  lang              TEXT NOT NULL DEFAULT 'th',
   confirm_token     TEXT,
   unsubscribe_token TEXT NOT NULL,
   consent_ip        TEXT,             -- หลักฐานการยินยอมตาม PDPA
@@ -406,19 +368,18 @@ CREATE INDEX idx_subscribers_status ON subscribers(status);
 CREATE TABLE ai_providers (
   id                TEXT PRIMARY KEY,   -- gemini, openrouter, groq, my-ollama
   label             TEXT NOT NULL,
-  kind              TEXT NOT NULL,      -- openai-compatible | gemini | anthropic | cloudflare
+  kind              TEXT NOT NULL,      -- openai-compatible|gemini|anthropic|cloudflare
   base_url          TEXT,
-  api_key_encrypted TEXT,               -- AES-GCM ciphertext (NULL สำหรับ cloudflare)
+  api_key_encrypted TEXT,               -- AES-GCM ciphertext
   enabled           INTEGER NOT NULL DEFAULT 1,
   created_at        INTEGER NOT NULL,
   updated_at        INTEGER NOT NULL
 );
 
--- ═══════════════ BYOK: Model ที่เลือกไว้ใช้งาน ═══════════════
 CREATE TABLE ai_models (
   id          TEXT PRIMARY KEY,
   provider_id TEXT NOT NULL,
-  model_id    TEXT NOT NULL,           -- เช่น gemini-3.6-flash
+  model_id    TEXT NOT NULL,
   label       TEXT,
   is_default  INTEGER NOT NULL DEFAULT 0,
   enabled     INTEGER NOT NULL DEFAULT 1,
@@ -428,283 +389,517 @@ CREATE TABLE ai_models (
 CREATE UNIQUE INDEX idx_models_unique ON ai_models(provider_id, model_id);
 ```
 
-**หมายเหตุ:** `ai_models` เก็บเฉพาะ model ที่เลือกไว้ใช้ ไม่ใช่ catalog ทั้งหมดของ provider
-
 ---
 
 ## 10. Route Map
 
 | Route | Render | Access | หน้าที่ | Phase |
 |---|---|---|---|---|
-| `/` | static | public | ฟีดรวมบทความ + โปรเจกต์ | 1 |
-| `/articles/[slug]` | static | public | บทความภาษาไทย | 1 |
-| `/en/articles/[slug]` | static | public | บทความภาษาอังกฤษ | 1 |
-| `/work/[slug]` | static | public | โปรเจกต์ data viz | 2 |
-| `/about` | static | public | เกี่ยวกับ (ทำหน้าที่เรซูเม่) | มีแล้ว |
-| `/404` | static | public | Not found | มีแล้ว |
+| `/` | static | public | ฟีดรวม | 1 |
+| `/articles/[slug]` | static | public | บทความไทย | 1 |
+| `/en/articles/[slug]` | static | public | บทความอังกฤษ | 1 |
+| `/work/[slug]` | static | public | โปรเจกต์ data viz | 3 |
+| `/about` `/404` | static | public | — | มีแล้ว |
 | `/rss.xml` | static | public | RSS feed | 1 |
 | `POST /api/subscribe` | endpoint | **public** | สมัคร newsletter (+Turnstile) | 1 |
-| `GET /api/confirm` | endpoint | **public** | ยืนยันอีเมล (double opt-in) | 4 |
-| `GET /api/unsubscribe` | endpoint | **public** | ยกเลิกการสมัคร | 4 |
-| `/earth` | `prerender=false` | 🔒 Access | Portal — รายการ draft/published |1|
-| `/earth/editor` | `prerender=false` | 🔒 Access | Editor เขียน/แก้ | 1 |
-| `/earth/settings` | `prerender=false` | 🔒 Access | ตั้งค่า (หลายแท็บ) | 5 |
-| `POST /earth/api/draft` | endpoint | 🔒 Access | บันทึกฉบับร่าง | 1 |
-| `POST /earth/api/publish` | endpoint | 🔒 Access | เผยแพร่ + ยิง Deploy Hook | 1 |
-| `POST /earth/api/update` | endpoint | 🔒 Access | แก้ที่เผยแพร่แล้ว | 1 |
-| `DELETE /earth/api/post/[id]` | endpoint | 🔒 Access | ลบ | 1 |
-| `POST /earth/api/upload-image` | endpoint | 🔒 Access | อัปโหลดรูปไป R2 | 3 |
-| `POST /earth/api/send-newsletter` | endpoint | 🔒 Access | ส่งจดหมายข่าว | 4 |
-| `GET/POST/DELETE /earth/api/providers` | endpoint | 🔒 Access | จัดการ AI providers | 5 |
-| `POST /earth/api/ai/[task]` | endpoint | 🔒 Access | Proxy ไป ai-assistant-worker | 5 |
+| `GET /api/confirm` · `/api/unsubscribe` | endpoint | **public** | double opt-in / ยกเลิก | 4 |
+| `/earth` | `prerender=false` | 🔒 | Portal | 1 |
+| `/earth/editor` | `prerender=false` | 🔒 | Editor | 1 |
+| `/earth/settings` | `prerender=false` | 🔒 | ตั้งค่า | 5 |
+| `POST /earth/api/draft` · `/publish` · `/update` | endpoint | 🔒 | บันทึก/เผยแพร่ | 1 |
+| `DELETE /earth/api/post/[id]` | endpoint | 🔒 | ลบ | 1 |
+| `POST /earth/api/upload-image` | endpoint | 🔒 | อัปโหลดรูป → R2 | 2 |
+| `POST /earth/api/upload-dataset` | endpoint | 🔒 | อัปโหลดชุดข้อมูล → R2 | 3 |
+| `POST /earth/api/send-newsletter` | endpoint | 🔒 | ส่งจดหมายข่าว | 4 |
+| `GET/POST/DELETE /earth/api/providers` | endpoint | 🔒 | จัดการ AI providers | 5 |
+| `POST /earth/api/ai/[task]` | endpoint | 🔒 | Proxy → ai-assistant-worker | 5 |
 
 ---
 
-## 11. SEO
+## 11. ระบบฟอนต์
 
-### 11.1 พื้นฐานที่ต้องมีตั้งแต่ Phase 1
+### 11.1 ผลการตรวจสอบ Google Sans *(ตรวจจริงเมื่อ 2026-09-09)*
 
-- `<title>` และ `<meta name="description">` จาก title/excerpt ของแต่ละหน้า
+| สิ่งที่ตรวจ | ผล |
+|---|---|
+| มีให้ใช้ผ่าน Google Fonts | ✅ HTTP 200 เสิร์ฟ woff2 จริง |
+| **มี subset ภาษาไทย** | ✅ **มี** — 25 subsets รวม `thai` (75 `@font-face` ที่ 3 weights) |
+| ขนาด latin subset | **~36 KB** ต่อ weight |
+| ขนาด thai subset | **~17 KB** ต่อ weight |
+
+> **ข้อสรุปสำคัญ: ใช้ Google Sans ตัวเดียวได้ทั้งไทยและอังกฤษ**
+> ไม่ต้องหาฟอนต์ไทยแยก (เว็บต้นแบบ midgardisnotaplace ต้องโหลด IBM Plex Sans Thai เพิ่มเพราะเลือกฟอนต์อื่น)
+
+### 11.2 ปัญหาในโค้ดปัจจุบัน
+
+`src/layouts/Layout.astro:70` โหลด **3 families พร้อมกัน**
+
+```
+Cormorant Garamond (6 weights) + Inter (4) + Google Sans (4)
+→ @font-face รวม 158 รายการ · CSS 64.5 KB (ยังไม่นับไฟล์ฟอนต์)
+```
+
+`src/styles/global.css:12-14`
+
+```css
+--font-serif:       "Cormorant Garamond", Georgia, serif;
+--font-sans:        "Inter", system-ui, sans-serif;        /* ← ซ้ำซ้อน */
+--font-google-sans: "Google Sans", system-ui, sans-serif;
+```
+
+**Inter กับ Google Sans เป็น sans-serif ทั้งคู่ ทำหน้าที่ทับกัน**
+
+### 11.3 แผนที่จะทำ
+
+| การกระทำ | ผล |
+|---|---|
+| **ตัด Inter ออก** ให้ `--font-sans` ชี้ Google Sans | ลดไป 1 family เต็ม |
+| **ลด weight เหลือ 400 / 500 / 700** | ทุก weight คือไฟล์แยกต่อ subset |
+| **Cormorant Garamond — ตัดสินใจ** | ถ้ายังใช้ตัวเลือก serif ต่อ เก็บไว้แค่ 400 + 400italic · ถ้าไม่ใช้ ตัดทิ้ง |
+| `&display=swap` | มีอยู่แล้ว ✅ |
+| `preconnect` ไป gstatic | มีอยู่แล้ว ✅ (`Layout.astro:67-68`) |
+
+**ประมาณการหลังปรับ** (หน้าบทความภาษาไทย):
+
+```
+Google Sans thai  ~17 KB × 3 weights = ~51 KB
+Google Sans latin ~36 KB × 3 weights = ~108 KB   (เลข ศัพท์อังกฤษ ชื่อเฉพาะ)
+─────────────────────────────────────────────
+รวมประมาณ ~159 KB  (จากเดิมที่โหลด 3 families)
+```
+
+> เบราว์เซอร์โหลดเฉพาะ subset ที่หน้านั้นใช้จริงผ่าน `unicode-range` — หน้าภาษาอังกฤษล้วนจะไม่โหลด subset ไทยเลย
+
+### 11.4 ทางเลือกที่เร็วกว่า — self-host *(ยังไม่ตัดสินใจ)*
+
+ดาวน์โหลด woff2 เฉพาะ subset latin + thai มาไว้ที่ R2 หรือ `public/`
+
+**ข้อดี:** ตัด DNS + TLS handshake ไป `fonts.gstatic.com` ออก 1 hop · คุม cache header เอง · ไม่ขึ้นกับบริการภายนอก
+**ข้อเสีย:** ต้องอัปเดตเองเมื่อฟอนต์มีเวอร์ชันใหม่
+
+> ⚠️ **ต้องตรวจ license ของ Google Sans ก่อน self-host** — ผมไม่ทราบเงื่อนไข license ปัจจุบันของฟอนต์ตัวนี้
+> การเสิร์ฟผ่าน Google Fonts API เป็นการใช้งานที่ Google เปิดให้ แต่การดาวน์โหลดมาโฮสต์เองเป็นคนละเรื่อง **ต้องอ่าน license เองก่อนทำ**
+
+---
+
+## 12. ระบบรูปภาพ
+
+### 12.1 ข้อจำกัดที่กำหนดทางเลือก
+
+**Astro optimize รูปในบทความให้ไม่ได้** (ข้อ 7.3) เพราะ `marked` คืน HTML string ไม่ใช่ Astro component
+→ ต้องจัดการเองทั้งหมด ตั้งแต่แปลงไฟล์ ขนาด จนถึง attribute
+
+**Workers ไม่มี Sharp** — แปลงรูปฝั่ง server ต้องใช้ WASM หรือบริการเสียเงิน
+
+### 12.2 ทางออก — แปลงฝั่งเบราว์เซอร์ก่อนอัปโหลด
+
+Editor ทำงานในเบราว์เซอร์อยู่แล้ว ใช้ Canvas API แปลงก่อนส่ง:
+
+```
+ผู้ใช้ลากรูปลง editor
+        ↓
+1. อ่านไฟล์ → วาดลง <canvas>
+2. ย่อให้กว้างสุด 1600px (รักษาสัดส่วน)
+3. canvas.toBlob(blob => ..., 'image/webp', 0.82)
+4. อัปโหลด blob (WebP แล้ว) → POST /earth/api/upload-image
+5. Worker: ตรวจ MIME + ขนาด (ฝั่ง server อีกชั้น) → เก็บ R2
+6. บันทึกลง images: url, width, height, alt
+7. แทรก ![alt](url) ลง markdown
+```
+
+**ข้อดี:** ต้นทุน 0 บาท · ไม่ต้องใช้ WASM หรือบริการเสียเงิน · JPEG 3MB มักเหลือ ~150-250 KB
+**ข้อเสีย:** ขึ้นกับเบราว์เซอร์ (Chrome/Edge/Firefox รุ่นใหม่รองรับ WebP encode) · คุมคุณภาพเอง
+
+### 12.3 การจัดระเบียบใน R2
+
+```
+images/{ปี}/{เดือน}/{ulid}.webp      เช่น images/2026/09/01HQ8F....webp
+datasets/{ปี}/{เดือน}/{ulid}.json
+```
+
+จัดกลุ่มตามเวลา · ULID เรียงตามเวลาโดยธรรมชาติและไม่ชนกัน · ไม่ใช้ชื่อไฟล์เดิมของผู้ใช้ (กันอักขระแปลกและชื่อซ้ำ)
+
+### 12.4 เติม attribute ตอน build — กัน layout shift
+
+หลัง `marked` render เสร็จ ทำ post-process:
+
+```
+1. ตอน build: query images ทั้งหมด → สร้าง Map<url, {width, height, alt}>
+2. หา <img src="..."> ใน HTML ที่ได้
+3. เติม width / height / loading / decoding
+```
+
+| Attribute | ค่า | เหตุผล |
+|---|---|---|
+| `width` `height` | จาก DB | **กัน CLS** — เบราว์เซอร์จองพื้นที่ได้ก่อนรูปโหลด |
+| `loading` | `lazy` | ยกเว้นรูปปก |
+| `decoding` | `async` | ไม่บล็อกการ render |
+| `alt` | จาก DB | accessibility + SEO |
+
+**รูปปก (LCP element) ต่างออกไป:**
+
+```html
+<img loading="eager" fetchpriority="high" decoding="sync" ...>
+```
+
+> ❌ **ห้าม `loading="lazy"` กับรูปปก** — เป็นความผิดพลาดที่ทำให้คะแนน LCP แย่ลงอย่างชัดเจน
+
+### 12.5 บังคับกรอก alt text
+
+Editor ต้องเตือนถ้าแทรกรูปโดยไม่มี alt — มีผลทั้งกับ:
+- ผู้ใช้ screen reader
+- SEO (Google ใช้ alt เข้าใจเนื้อหารูป)
+- กรณีรูปโหลดไม่ขึ้น
+
+### 12.6 ยังไม่ทำตอนนี้ — `srcset`
+
+รูปเดียวขนาด 1600px WebP เพียงพอสำหรับช่วงแรก · ถ้าวัดแล้วมือถือช้าค่อยเพิ่มทีหลัง (อัปโหลด 3 ขนาด: 640 / 1280 / 1920 แล้วใส่ `srcset`)
+
+**ทางเลือกที่ต้องตรวจสอบเอง:** Cloudflare Image Resizing / Cloudflare Images แปลงขนาดผ่าน URL ได้โดยไม่ต้องเก็บหลายไฟล์ — แต่**ผมไม่ทราบว่าต้องใช้ plan ระดับไหนและราคาปัจจุบันเท่าไร ต้องเช็คเอง**
+
+---
+
+## 13. ระบบกราฟและ data visualization
+
+> ส่วนนี้คือหัวใจของแบรนด์ — สิ่งที่ทำให้เว็บนี้ต่างจากบล็อกทั่วไป
+
+### 13.1 หลักการ — 3 ระดับ
+
+**กฎการเลือกระดับ:** ถามว่า *"ผู้อ่านต้องคลิก ลาก หรือเลือกอะไรไหม"* ถ้าตอบว่าไม่ → ใช้ระดับ 1 เสมอ
+
+| ระดับ | วิธี | JS ที่ส่งให้เบราว์เซอร์ | ใช้เมื่อ |
+|---|---|---|---|
+| **1** | **SVG สร้างตอน build** | **0 ไบต์** | กราฟส่วนใหญ่ (~80%) |
+| 2 | Island + `client:visible` | เฉพาะตอน scroll ถึง | ต้อง filter / zoom / สลับข้อมูล |
+| 3 | Scrollytelling | เฉพาะตอน scroll ถึง | เล่าเรื่องยาวที่กราฟเปลี่ยนตามเนื้อหา |
+
+### 13.2 ระดับ 1 — SVG ตอน build *(ค่าเริ่มต้น)*
+
+Astro component (`.astro`) รันตอน build แล้ว output inline SVG ลง HTML ตรงๆ
+
+```
+ใช้ d3-scale + d3-shape + d3-array   ← import เฉพาะ module ที่ใช้
+    ↓ (รันตอน build เท่านั้น)
+inline <svg> ใน HTML                 ← ผู้อ่านไม่ต้องโหลด JS เลย
+```
+
+**ข้อดีที่ได้ทั้งหมด:**
+
+| ผลดี | รายละเอียด |
+|---|---|
+| เร็วที่สุด | ไม่มี JS ให้ดาวน์โหลด parse หรือ execute |
+| CLS = 0 | SVG มีขนาดแน่นอนตั้งแต่ HTML มาถึง |
+| ทำงานแม้ปิด JS | กราฟยังแสดงผลปกติ |
+| **⭐ SEO** | **ข้อความใน inline SVG เป็นข้อความจริง Google อ่านและ index ได้** — label ในกราฟกลายเป็นเนื้อหาที่ค้นเจอ |
+| พิมพ์/บันทึกได้ | หน้าพิมพ์ออกมาแล้วกราฟยังอยู่ |
+
+**Interactivity ที่ยังทำได้โดยไม่ใช้ JS:**
+- hover เน้นแท่ง/เส้น → CSS `:hover`
+- tooltip พื้นฐาน → `<title>` ใน SVG (เบราว์เซอร์แสดงเอง)
+
+### 13.3 ระดับ 2 — Island เมื่อจำเป็นจริง
+
+```astro
+<InteractiveChart data={data} client:visible />
+```
+
+`client:visible` ทำให้ hydrate เมื่อ scroll มาถึงเท่านั้น
+
+> ❌ **ห้ามใช้ `client:load` กับกราฟ** — จะโหลดไลบรารีทันทีที่เปิดหน้า แม้กราฟอยู่ท้ายบทความ
+
+**ห้ามหน้าบทความโหลดไลบรารีกราฟ** — บทความไม่มีกราฟตามที่ตกลงกัน ต้องตรวจว่า bundle ของหน้าบทความไม่มีโค้ดกราฟติดไปด้วย
+
+### 13.4 ข้อมูลอยู่ที่ไหน
+
+| ขนาด | เก็บที่ | ดึงเมื่อไร |
+|---|---|---|
+| เล็ก (< ~500 แถว) | ฝังใน MDX ตรงๆ | — |
+| ใหญ่ | JSON/CSV ใน R2 (ตาราง `datasets`) | **ตอน build** ไม่ใช่ runtime |
+
+> ❌ **ห้าม fetch ข้อมูลตอน runtime สำหรับกราฟที่ต้องแสดงทันที** — ทำให้กราฟกระพริบและเกิด layout shift
+
+**ต้องบันทึก `source_url` ของทุก dataset เสมอ** — งานวิเคราะห์ข้อมูลที่ไม่อ้างแหล่งที่มาไม่มีความน่าเชื่อถือ และการอ้างอิงชัดเจนคือสิ่งที่แยกงานคุณออกจากกราฟลอยๆ ในโซเชียล
+
+### 13.5 ชุด component ที่ควรสร้าง (ตามลำดับ)
+
+| ลำดับ | Component | เหตุผล |
+|---|---|---|
+| 1 | **BarChart** (แนวนอน/ตั้ง) | ใช้บ่อยที่สุด เปรียบเทียบขนาด |
+| 2 | **LineChart** | ข้อมูลตามเวลา |
+| 3 | **StatTile / hero number** | บางครั้งตัวเลขเดียวสื่อสารดีกว่ากราฟ |
+| 4 | **DataTable** | ข้อมูลดิบ + **เป็น accessibility fallback ของทุกกราฟ** |
+| 5 | **ChoroplethMap ประเทศไทย** | ⭐ **จุดต่างที่ชัดที่สุดของเสาที่ 1** — ต้องใช้ TopoJSON ขอบเขตจังหวัด |
+| 6 | ScatterPlot | หาความสัมพันธ์ |
+| 7 | AreaChart / stacked | องค์ประกอบที่เปลี่ยนตามเวลา |
+
+> แผนที่จังหวัดไทยคือสิ่งที่ทำให้คนจำได้ว่า "เว็บนี้ทำข้อมูลไทย" — ควรทำให้ดีและใช้ซ้ำได้
+
+### 13.6 มาตรฐานการออกแบบกราฟ *(ทำให้งานทุกชิ้นดูเป็นชุดเดียวกัน)*
+
+ความสม่ำเสมอของภาพคือสิ่งที่ทำให้คนจำแบรนด์ได้ กฎเหล่านี้ใช้กับกราฟทุกชิ้น:
+
+**เรื่องสี**
+
+| กฎ | รายละเอียด |
+|---|---|
+| ลำดับสีเชิงหมวดหมู่**ตายตัว ห้ามวนซ้ำ** | series ที่ 9 ต้องยุบเป็น "อื่นๆ" หรือแยกกราฟ ไม่ใช่สร้างสีใหม่ |
+| **สีผูกกับตัวตนของข้อมูล ไม่ใช่อันดับ** | กรองข้อมูลแล้วสีของ series ที่เหลือต้องไม่เปลี่ยน |
+| sequential (ปริมาณ) | **สีเดียว อ่อน→เข้ม** ห้ามรุ้ง |
+| diverging (สองขั้ว) | **2 สี + เทากลาง** ห้ามใช้สีสดตรงกลาง |
+| สีสถานะ (ดี/เตือน/วิกฤต) | สงวนไว้ ห้ามเอามาใช้เป็น "series ที่ 4" และต้องมีไอคอน+ข้อความกำกับ ไม่ใช้สีอย่างเดียว |
+| ข้อความ | ใช้สีข้อความ (primary/secondary/muted) **ไม่ใช่สีของ series** |
+| **ตรวจด้วยสคริปต์ ไม่ใช่กะเอา** | ต้องรัน validator ตรวจว่าคนตาบอดสีแยกออก — มีสคริปต์ให้ในชุดแนวทาง dataviz |
+
+**เรื่องรูปแบบ**
+
+- **ห้ามกราฟ 2 แกน y เด็ดขาด** — เป็นความผิดพลาดอันดับ 1 ของการทำกราฟ ถ้ามี 2 หน่วยที่สเกลต่างกัน ให้แยกเป็น 2 กราฟ หรือ index ให้ฐานเดียวกัน
+- เส้นบาง · grid และแกนสีจาง · ไม่เด่นกว่าข้อมูล
+- legend เมื่อมี ≥2 series · ถ้า ≤4 series ให้ label ตรงที่เส้น/แท่งด้วย (ไม่พึ่งสีอย่างเดียว)
+- ไม่ใส่ตัวเลขบนทุกจุด — เลือกเฉพาะจุดที่มีความหมาย
+- **dark mode ต้องเลือกสีใหม่ ไม่ใช่กลับสีอัตโนมัติ**
+- ทุกกราฟควรมีทางเลือกดูเป็นตาราง (accessibility)
+
+**palette ควรต่อยอดจาก token ที่มีอยู่แล้วใน `src/styles/global.css`** เพื่อให้กราฟดูเป็นส่วนหนึ่งของเว็บ ไม่ใช่ของแปลกปลอม
+
+### 13.7 การเลือกไลบรารี — ความเห็นและเหตุผล
+
+| ตัวเลือก | ขนาด | ข้อดี | ข้อเสีย |
+|---|---|---|---|
+| **d3-scale + d3-shape** *(แนะนำ)* | เล็กมาก และ**เป็น 0 เมื่อรันตอน build** | ควบคุมรูปแบบได้ 100% · เรียนรู้พื้นฐานจริง · เข้ากับระดับ 1 พอดี | เขียนเองมากกว่าตอนแรก |
+| Observable Plot | กลาง | เขียนเร็ว API สั้น | ต้องมี DOM — ถ้าจะ render ตอน build ต้องใช้ jsdom เพิ่มความซับซ้อน |
+| Recharts | ใหญ่ | ใช้ง่ายถ้าคุ้น React | ต้องมี React ทำงานฝั่ง client เสมอ = ใช้ระดับ 1 ไม่ได้ |
+| ECharts / Chart.js | ใหญ่มาก | ครบเครื่อง | หนัก · หน้าตาเป็นสไตล์ของไลบรารี ไม่ใช่ของคุณ |
+
+**แนะนำ: `d3-scale` + `d3-shape` เขียน component เอง** เพราะ
+
+1. เข้ากับสถาปัตยกรรมระดับ 1 (build-time SVG) ได้พอดี — ไลบรารีตัวอื่นบังคับให้รันฝั่ง client
+2. **หน้าตากราฟคือแบรนด์ของคุณ** — ใช้ไลบรารีสำเร็จรูปแล้วกราฟจะหน้าตาเหมือนคนอื่นทั้งอินเทอร์เน็ต
+3. คุณกำลังจะเรียน ป.โท ด้าน Data Science — การเข้าใจว่า scale/axis/path ทำงานยังไงเป็นทักษะที่ใช้ได้ตลอด
+4. ลงแรงมากในกราฟ 2-3 ตัวแรก หลังจากนั้นกลายเป็นชุด component ที่ใช้ซ้ำได้
+
+**ยอมรับตามตรง:** ตัวเลือกนี้ใช้เวลาต่อกราฟมากกว่าในช่วงแรก ถ้าเป้าหมายคือออกงานให้เร็วที่สุดโดยไม่สนหน้าตา Observable Plot จะเร็วกว่า
+
+---
+
+## 14. SEO
+
+### 14.1 พื้นฐานที่ต้องมีตั้งแต่ Phase 1
+
+- `<title>` + `<meta name="description">` จาก title/excerpt
 - **Canonical URL** ทุกหน้า
-- **Open Graph + Twitter Card** (มีอยู่แล้วบางส่วน — `ogImage` ใน `Layout.astro`)
+- **Open Graph + Twitter Card** (มีบางส่วนแล้วใน `Layout.astro`) — OG image ควรขนาด 1200×630 และเป็น absolute URL
 - **JSON-LD `Article`** — headline, datePublished, dateModified, author, image
-- **Sitemap** — มี `@astrojs/sitemap` อยู่แล้ว ต้องให้ครอบคลุมทั้ง `/articles/*` และ `/work/*`
-- URL slug เป็นภาษาอังกฤษ ตัวพิมพ์เล็ก คั่นด้วย `-` (โค้ด `generateSlug()` เดิมตัดอักษรไทยทิ้ง — **ต้องแก้** ดูข้อ 13)
+- **Sitemap** — มี `@astrojs/sitemap` แล้ว ต้องครอบคลุมทั้ง `/articles/*` และ `/work/*`
+- URL slug อังกฤษ ตัวพิมพ์เล็ก คั่นด้วย `-`
 
-### 11.2 การจัดการภาษาแบบผสม
-
-เนื่องจากแต่ละชิ้นมีภาษาเดียวและ**ส่วนใหญ่ไม่มีคู่แปล** กฎจึงต่างจากเว็บสองภาษาทั่วไป:
+### 14.2 ภาษาแบบผสม
 
 | กรณี | สิ่งที่ต้องทำ |
 |---|---|
-| ทุกหน้า | `<html lang="th">` หรือ `<html lang="en">` ให้ตรงกับเนื้อหาจริง — **นี่คือสัญญาณหลักที่ Google ใช้ระบุภาษา** สำคัญกว่า URL |
+| ทุกหน้า | `<html lang="th">` หรือ `"en"` ให้ตรงเนื้อหา — **สัญญาณหลักที่ Google ใช้ระบุภาษา สำคัญกว่า URL** |
 | ทุกหน้า | canonical ชี้ที่ตัวเอง |
-| ชิ้นเดี่ยว (กรณีปกติ) | **ไม่ต้องใส่ `hreflang` เลย** |
-| ชิ้นที่มีคู่แปล (กรณียกเว้น) | ใส่ `hreflang` ทั้งคู่ + `x-default` ชี้เวอร์ชันไทย |
+| ชิ้นเดี่ยว (ปกติ) | **ไม่ต้องใส่ `hreflang` เลย** |
+| มีคู่แปล (ยกเว้น) | ใส่ `hreflang` ทั้งคู่ + `x-default` ชี้เวอร์ชันไทย |
 
-```html
-<!-- ใส่เฉพาะเมื่อ translation_group_id ไม่เป็น NULL และมีคู่แปลที่ published จริง -->
-<link rel="alternate" hreflang="th"        href="https://frong.me/articles/x">
-<link rel="alternate" hreflang="en"        href="https://frong.me/en/articles/x">
-<link rel="alternate" hreflang="x-default" href="https://frong.me/articles/x">
-```
+> ⚠️ **ห้ามใส่ `hreflang` ชี้หน้าที่ไม่มีอยู่** — Search Console จะรายงานเป็น error
+> ต้องเช็คว่าคู่แปล `status='published'` จริง
 
-> ⚠️ **ห้ามใส่ `hreflang` ชี้ไปหน้าที่ไม่มีอยู่จริง** — เป็นข้อผิดพลาดที่ Google Search Console จะรายงานเป็น error
-> ต้องเช็คก่อนเสมอว่าคู่แปลนั้น `status='published'` จริง ไม่ใช่แค่มี `translation_group_id` ตรงกัน
+**ผลดีของภาษาแบบผสม:** ไม่มีหน้าที่แปลลวกๆ มาฉุดคุณภาพเฉลี่ยของเว็บ — Google ประเมินคุณภาพระดับเว็บด้วย
 
-**ผลดีต่อ SEO ของการเลือกแบบผสม:** ไม่มีหน้าที่แปลแบบลวกๆ ไปทำให้คุณภาพเฉลี่ยของเว็บลดลง — Google ประเมินคุณภาพระดับเว็บด้วย เนื้อหาแปลด้วยเครื่องที่ไม่ได้เกลาถือเป็นความเสี่ยง การเขียนภาษาเดียวให้ดีจึงปลอดภัยกว่า
+### 14.3 ข้อได้เปรียบจากการเลือก SVG ตอน build
 
-### 11.3 ความเร็วเว็บไซต์
+ข้อความในกราฟ (หัวข้อ label แกน ชื่อจังหวัด ตัวเลข) เป็นข้อความจริงใน HTML → **Google index ได้** ซึ่งเป็นข้อได้เปรียบที่กราฟแบบ canvas หรือรูปภาพไม่มี
 
-พื้นฐานดีอยู่แล้ว (static + Cloudflare CDN) จุดที่จะทำให้ช้ามีอยู่ 3 จุด เรียงตามผลกระทบ:
+### 14.4 ข้อแลกเปลี่ยนที่ยอมรับแล้ว
 
-**1. ฟอนต์ — ต้นทุนหลักของเว็บที่มีภาษาไทย**
+**ไม่มีหน้า hub 3 เสาหลัก** — Google จะไม่มีหน้าศูนย์กลางให้เข้าใจความเชี่ยวชาญ ทำให้สร้าง topical authority ช้ากว่าที่ควร
 
-ฟอนต์ไทยมีขนาดใหญ่กว่าฟอนต์ละตินมาก (มีสระบน-ล่าง วรรณยุกต์ รูปแบบผสม)
-
-- ใช้ `font-display: swap` เสมอ — ให้ข้อความแสดงทันทีด้วยฟอนต์สำรองระหว่างรอ
-- **โหลดเฉพาะฟอนต์ที่หน้านั้นใช้จริง** — หน้าภาษาอังกฤษไม่ควรโหลดฟอนต์ไทย
-- ใช้ `unicode-range` เพื่อให้เบราว์เซอร์ดาวน์โหลดเฉพาะช่วงอักขระที่ต้องใช้
-- `<link rel="preconnect">` ไปที่ `fonts.gstatic.com` (มีอยู่แล้วในโค้ดเดิม)
-- ลดจำนวน weight ที่โหลด — แต่ละ weight คือไฟล์แยก
-
-**2. รูปภาพ**
-
-- แปลงเป็น WebP ก่อนอัปโหลดขึ้น R2 (หรือแปลงตอนอัปโหลด)
-- ระบุ `width`/`height` ในแท็ก `<img>` เสมอ เพื่อกัน layout shift (คะแนน CLS)
-- `loading="lazy"` กับรูปที่อยู่ใต้ fold — **ยกเว้นรูปปก** ซึ่งควรโหลดทันที
-- ขนาดไฟล์จำกัดที่ 500KB ตามที่ออกแบบไว้แล้ว
-
-**3. JavaScript ของกราฟ — จุดที่เสี่ยงที่สุดในหน้าโปรเจกต์**
-
-ไลบรารีกราฟมีขนาดใหญ่ ถ้าโหลดผิดวิธีจะทำให้หน้าโปรเจกต์ช้ากว่าหน้าบทความหลายเท่า
-
-- ใช้ **Astro Islands** — `client:visible` ให้กราฟ hydrate เมื่อ scroll มาถึงเท่านั้น ไม่ใช่ `client:load`
-- **หน้าบทความต้องไม่โหลดไลบรารีกราฟเลย** (บทความไม่มีกราฟตามที่ตกลงกัน)
-- เลือกไลบรารีโดยดูขนาด bundle ด้วย ไม่ใช่ดูแค่ความสามารถ
-- ถ้ากราฟไม่ต้องโต้ตอบจริงๆ ให้ render เป็น SVG ตอน build ไปเลย — เร็วที่สุดและไม่ใช้ JS
-
-**การวัดผล:** ใช้ Cloudflare Web Analytics ที่ติดตั้งอยู่แล้ว ดู Core Web Vitals (LCP, CLS, INP) แยกตามหน้า เพื่อดูว่าหน้าโปรเจกต์ช้ากว่าหน้าบทความมากแค่ไหน
-
-### 11.4 ข้อแลกเปลี่ยนที่ยอมรับแล้ว
-
-**ไม่มีหน้า hub ของ 3 เสาหลัก** — Google จะไม่มีหน้าศูนย์กลางให้เข้าใจว่าเว็บนี้เชี่ยวชาญด้านไหน ทำให้การสร้าง topical authority ช้ากว่าที่ควร
-
-*ชดเชยได้บางส่วนด้วย:* การใส่ internal link ระหว่างบทความในหัวข้อเดียวกันให้แน่น และเขียน About ให้ระบุความเชี่ยวชาญ 3 ด้านนี้ชัดเจน
+*ชดเชยด้วย:* internal link ระหว่างบทความหัวข้อเดียวกันให้แน่น + เขียน About ระบุความเชี่ยวชาญ 3 ด้านชัดเจน
 
 ---
 
-## 12. แผนการพัฒนาแบ่งตาม Phase
+## 15. ความเร็วเว็บไซต์
 
-> ประมาณการชั่วโมงเป็นค่าคร่าวๆ สำหรับคนทำเองโดยมี AI ช่วย
-> สัปดาห์ = 7 ชม. โดยประมาณ
+พื้นฐานดีอยู่แล้ว (static + CDN) จุดที่จะทำให้ช้ามี 3 จุด เรียงตามผลกระทบ
+
+| # | จุด | มาตรการ | อ้างอิง |
+|---|---|---|---|
+| 1 | **ฟอนต์** | ใช้ Google Sans ตัวเดียว · ตัด Inter · ลดเหลือ 3 weights · `display=swap` · `preconnect` | ข้อ 11 |
+| 2 | **รูปภาพ** | WebP แปลงฝั่ง browser · ระบุ width/height ทุกรูป · lazy ยกเว้นรูปปก | ข้อ 12 |
+| 3 | **JS ของกราฟ** | ระดับ 1 ส่ง JS 0 ไบต์ · ระดับ 2 ใช้ `client:visible` · หน้าบทความไม่โหลดไลบรารีกราฟ | ข้อ 13 |
+
+### เกณฑ์ที่ควรตั้งไว้
+
+| ตัวชี้วัด | เป้า | จุดที่มักพัง |
+|---|---|---|
+| **LCP** | < 2.5 วินาที | รูปปก — ต้อง `fetchpriority="high"` ห้าม lazy |
+| **CLS** | < 0.1 | รูปไม่มี width/height · ฟอนต์สลับแล้วข้อความขยับ |
+| **INP** | < 200 มิลลิวินาที | กราฟ interactive ที่ hydrate หนักเกิน |
+
+**วัดผล:** Cloudflare Web Analytics (ติดตั้งแล้ว) ดู Core Web Vitals แยกตามหน้า → เทียบหน้าโปรเจกต์กับหน้าบทความ ถ้าต่างกันมากแปลว่ากราฟหนักเกินไป
+
+---
+
+## 16. แผนการพัฒนาแบ่งตาม Phase
 
 ### สรุปภาพรวม
 
 | Phase | ชื่อ | ชม. | ~สัปดาห์ | จบแล้วทำอะไรได้ |
 |---|---|---|---|---|
 | 0 | เตรียม Infrastructure | 2-3 | 0.5 | — |
-| **1** | **MVP — เขียนและเผยแพร่ได้ (ไทย/อังกฤษ)** | **34-50** | **5-7** | **เริ่มเขียนบทความได้จริง ทั้งสองภาษา** |
-| 2 | โปรเจกต์ MDX + interactive viz | 15-22 | 2-3 | เผยแพร่งาน data viz ได้ |
-| 3 | อัปโหลดรูปไป R2 | 6-10 | 1-1.5 | ใส่รูปเองได้ ไม่ต้องพึ่ง URL ภายนอก |
-| 4 | ส่ง Newsletter | 10-15 | 1.5-2 | ส่งจดหมายข่าวถึงสมาชิกได้ |
+| **1** | **MVP — เขียนและเผยแพร่ได้** | **34-50** | **5-7** | **เริ่มเขียนบทความได้จริง** |
+| 2 | รูปภาพ + ระบบฟอนต์ | 10-14 | 1.5-2 | ใส่รูปเองได้ · เว็บเร็วขึ้น |
+| 3 | โปรเจกต์ MDX + กราฟชุดแรก | 25-35 | 3.5-5 | **เผยแพร่งาน data viz ได้** |
+| 4 | ส่ง Newsletter | 10-15 | 1.5-2 | ส่งจดหมายข่าวได้ |
 | 5 | AI Assistant + BYOK | 20-30 | 3-4 | มีผู้ช่วย AI ในหน้าเขียน |
 | 6 | ค้นหา + แบ่งหน้า | 8-12 | 1-1.5 | รองรับเนื้อหาจำนวนมาก |
-| — | รวม | **~95-142** | **~14-20** | |
-
-> **การเปลี่ยนจาก "ทุกชิ้นมี 2 ภาษา" เป็น "ภาษาผสม" ทำให้ Phase ภาษาอังกฤษเดิม (10-15 ชม.) หายไปทั้ง Phase**
-> เหลือแค่ ~4 ชม. ที่ย้ายไปรวมใน Phase 1 เพราะไม่ต้องมี UI จับคู่คำแปล ไม่ต้องมี workflow แปล
-> และ**จำนวนหน้าที่ต้อง build ลดลงครึ่งหนึ่ง** (50 บทความ = 50 หน้า ไม่ใช่ 100 หน้า) build เร็วขึ้นตาม
+| — | **รวม** | **~110-160** | **~16-22** | |
 
 ---
 
-### Phase 0 — เตรียม Infrastructure *(ทำใน Cloudflare Dashboard)*
+### Phase 0 — เตรียม Infrastructure *(ทำใน Dashboard)*
 
 | # | งาน | ผลลัพธ์ |
 |---|---|---|
-| 1 | สร้าง D1 database `portfolio-db` | `database_id` |
-| 2 | สร้าง R2 bucket `portfolio-images` + public domain | Public URL |
-| 3 | Zero Trust → Access → Applications → Self-hosted<br>Domain `frong.me` path `/earth*` · Policy: allow เฉพาะอีเมลตัวเอง | `/earth` ต้อง login ก่อนเข้า |
-| 4 | สร้าง Deploy Hook (Pages → Settings → Builds) | Hook URL |
-| 5 | สร้าง API Token สิทธิ์ `D1:Edit` | Token สำหรับ build-time |
-| 6 | สร้าง Turnstile site key/secret | สำหรับฟอร์มสมัคร |
-
-**Environment variables ที่ต้องตั้งใน Pages:**
+| 1 | D1 database `portfolio-db` | `database_id` |
+| 2 | R2 bucket `portfolio-images` + public domain | Public URL |
+| 3 | Zero Trust → Access → Applications → Self-hosted<br>`frong.me` path `/earth*` · allow เฉพาะอีเมลตัวเอง | `/earth` ต้อง login |
+| 4 | Deploy Hook (Pages → Settings → Builds) | Hook URL |
+| 5 | API Token สิทธิ์ `D1:Edit` | Token สำหรับ build-time |
+| 6 | Turnstile site key/secret | สำหรับฟอร์มสมัคร |
 
 ```
-CF_ACCOUNT_ID           # สำหรับ D1 HTTP API ตอน build
-CF_D1_DATABASE_ID
-CF_API_TOKEN            # สิทธิ์ D1:Edit
-DEPLOY_HOOK_URL         # ยิงตอน publish
-TURNSTILE_SECRET_KEY    # ตรวจ token ฝั่ง server
-PUBLIC_TURNSTILE_SITE_KEY
-AI_WORKER_URL           # Phase 5
-AI_WORKER_SECRET        # Phase 5
-ENCRYPTION_KEY          # Phase 5 — master key เข้ารหัส API key
-RESEND_API_KEY          # Phase 4
+# Environment variables ใน Pages
+CF_ACCOUNT_ID · CF_D1_DATABASE_ID · CF_API_TOKEN
+DEPLOY_HOOK_URL
+TURNSTILE_SECRET_KEY · PUBLIC_TURNSTILE_SITE_KEY
+AI_WORKER_URL · AI_WORKER_SECRET · ENCRYPTION_KEY   # Phase 5
+RESEND_API_KEY                                       # Phase 4
 ```
 
 ---
 
-### Phase 1 — MVP: เขียนและเผยแพร่ได้ (ไทย/อังกฤษ) ⭐
+### Phase 1 — MVP: เขียนและเผยแพร่ได้ ⭐
 
-> **เป้าหมายเดียวของ Phase นี้: ไปให้ถึงจุดที่เขียนบทความแล้วกด Publish แล้วมันขึ้นเว็บจริง**
-> ทุกอย่างที่ไม่จำเป็นต่อเป้าหมายนี้ถูกตัดออกหมด
+> **เป้าหมายเดียว: ไปให้ถึงจุดที่เขียนบทความแล้วกด Publish แล้วขึ้นเว็บจริง**
 
-**ขอบเขต:**
-
-1. ติดตั้ง `@astrojs/cloudflare` adapter (คง `output: 'static'`)
-2. สร้าง D1 schema **ทั้งหมดตามข้อ 9** (สร้างครบทุกตารางเลย แม้ยังไม่ใช้ — จะได้ไม่ต้อง migrate)
-3. เขียน `src/lib/db.ts` — ห่อ HTTP API (build) + binding (runtime)
-4. เขียน `MarkdownBody.astro` แทน `ArticleBody.astro` — **ใช้ CSS/typography เดิมทุกคลาส**
+1. ติดตั้ง `@astrojs/cloudflare` (คง `output: 'static'`)
+2. สร้าง D1 schema **ครบทุกตารางตามข้อ 9** แม้ยังไม่ใช้
+3. `src/lib/db.ts` — ห่อ HTTP API (build) + binding (runtime)
+4. `MarkdownBody.astro` แทน `ArticleBody.astro` — **ใช้ CSS/typography เดิมทุกคลาส**
 5. แก้ `extractHeadings()` ให้ parse heading จาก Markdown
-6. เปลี่ยน `index.astro` + `articles/[slug].astro` ให้ดึงจาก D1
-7. ถอด Sanity ออกทั้งหมด (config, dependencies, โฟลเดอร์ `sanity/`)
-   - ⚠️ **ก่อนลบ** — คัดลอก logic ของ `AIAssistantView.tsx` เก็บไว้ก่อน จะใช้ใน Phase 5
+6. `index.astro` + `articles/[slug].astro` ดึงจาก D1
+7. ถอด Sanity ออกทั้งหมด
+   - ⚠️ **ก่อนลบ** คัดลอก logic ของ `AIAssistantView.tsx` เก็บไว้ (ใช้ Phase 5)
 8. Portal `/earth` — รายการ draft/published แบบเรียบง่าย
-9. Editor `/earth/editor` — title, slug, body (Markdown), excerpt, cover URL (**พิมพ์ URL เท่านั้น ยังไม่มี upload**), tags, บันทึกร่าง, เผยแพร่
+9. Editor `/earth/editor` — title, slug, body, excerpt, cover URL (**พิมพ์ URL เท่านั้น**), tags, บันทึกร่าง, เผยแพร่
 10. Auto-save: localStorage (1 วิ) + server (30 วิ) + `sendBeacon` ตอนปิดหน้า
 11. Publish → ยิง Deploy Hook
-12. **RSS feed** (`@astrojs/rss` — ~1 ชม. แต่เริ่มเก็บผู้ติดตามได้ทันที)
-13. **ฟอร์มสมัคร newsletter + `POST /api/subscribe`** — เก็บอีเมลลง D1 พร้อม Turnstile
-    (**ยังไม่ต้องส่งอีเมล** — แค่เก็บไว้ก่อน จะได้ไม่เสียผู้อ่านช่วงแรกไป)
-14. **รองรับสองภาษาแบบผสม (~4 ชม.)** — ทำตั้งแต่แรกเพราะถูกกว่าการกลับมาแก้ทีหลังมาก
-    - Editor มี dropdown เลือกภาษาของชิ้นนั้น (ไทย/อังกฤษ)
-    - route `/en/articles/[slug]` — `getStaticPaths` กรองด้วย `lang`
-    - `<html lang>` ใน `Layout.astro` เปลี่ยนตามภาษาของหน้า
-    - ป้าย `EN` เล็กๆ บนการ์ดในฟีด เพื่อให้ผู้อ่านรู้ก่อนคลิก
-    - **ยังไม่ต้องทำ:** ระบบจับคู่คำแปล, hreflang, ปุ่มสลับภาษา (ค่อยทำเมื่อมีคู่แปลจริงชิ้นแรก)
+12. **RSS feed** (`@astrojs/rss` — ~1 ชม.)
+13. **ฟอร์มสมัคร newsletter + `POST /api/subscribe`** — เก็บอีเมล + Turnstile (**ยังไม่ส่งอีเมล**)
+14. **สองภาษาแบบผสม (~4 ชม.)** — dropdown เลือกภาษา · route `/en/articles/[slug]` · `<html lang>` · ป้าย `EN` ในฟีด
+15. **SEO พื้นฐาน** — canonical, OG, JSON-LD Article, sitemap ครอบคลุม
 
-**ตัดออกจาก Phase นี้ (อย่าเผลอทำ):**
-AI panel · BYOK settings · ระบบจับคู่คำแปล · โปรเจกต์ MDX · อัปโหลดรูป · ส่งอีเมลจริง · ค้นหา · แบ่งหน้า · คอมเมนต์ · เอฟเฟกต์ต่างๆ ใน editor (emoji, slash command, zen mode)
+**ตัดออก (อย่าเผลอทำ):** AI panel · BYOK · จับคู่คำแปล · โปรเจกต์ MDX · กราฟ · อัปโหลดรูป · ส่งอีเมลจริง · ค้นหา · แบ่งหน้า · คอมเมนต์ · emoji/slash command/zen mode
 
 **เกณฑ์ตรวจรับ:**
 
-- [ ] `npm run build` ผ่าน ไม่มี error
-- [ ] เข้า `/earth` โดยไม่ login → ถูกปฏิเสธที่ edge (ทดสอบด้วย incognito)
-- [ ] เขียนบทความใหม่ → กด Publish → ภายใน ~60 วินาที บทความขึ้นที่ `/articles/[slug]` จริง
-- [ ] **หน้าบทความหน้าตาเหมือนเดิมทุกจุด** — เทียบกับ screenshot ที่เก็บไว้ก่อนเริ่มแก้
-      (ฟอนต์ · TOC · รูปปก · tags · related · sources · CTA)
-- [ ] ปิดเบราว์เซอร์กลางคันขณะเขียน → เปิดใหม่แล้วข้อมูลยังอยู่
+- [ ] `npm run build` ผ่าน
+- [ ] เข้า `/earth` โดยไม่ login (incognito) → ถูกปฏิเสธที่ edge
+- [ ] เขียนบทความ → Publish → ภายใน ~60 วินาที ขึ้นที่ `/articles/[slug]`
+- [ ] **หน้าบทความเหมือนเดิมทุกจุด** เทียบกับ screenshot ก่อนแก้
+- [ ] ปิดเบราว์เซอร์กลางคัน → เปิดใหม่ข้อมูลยังอยู่
 - [ ] `/rss.xml` เปิดได้และมีบทความ
-- [ ] กรอกอีเมลในฟอร์มสมัคร → มีแถวใหม่ในตาราง `subscribers`
-- [ ] เขียนบทความภาษาอังกฤษ → ขึ้นที่ `/en/articles/[slug]` และ `<html lang="en">` ถูกต้อง
-- [ ] ฟีดหน้าแรกแสดงทั้งบทความไทยและอังกฤษ พร้อมป้ายบอกภาษา
-- [ ] ไม่มี dependency ของ Sanity เหลือใน `package.json`
+- [ ] กรอกอีเมล → มีแถวใหม่ใน `subscribers`
+- [ ] บทความอังกฤษขึ้นที่ `/en/articles/[slug]` และ `<html lang="en">` ถูกต้อง
+- [ ] ไม่มี dependency ของ Sanity เหลือ
 
-> 🎯 **จบ Phase 1 = เริ่มเขียนบทความสัปดาห์ละชิ้นได้ทันที** อย่ารอ Phase อื่น
+> 🎯 **จบ Phase 1 = เริ่มเขียนสัปดาห์ละชิ้นทันที อย่ารอ Phase อื่น**
 
 ---
 
-### Phase 2 — โปรเจกต์ MDX + Interactive Viz
+### Phase 2 — รูปภาพ + ระบบฟอนต์
 
-**เหตุผลที่มาก่อน AI และ newsletter:** โปรเจกต์ interactive คือตัวตนของแบรนด์ ถ้าไม่มีก็เป็นแค่บล็อกทั่วไป
+*(รวมกันเพราะทั้งคู่เป็นงานเล็กที่ส่งผลต่อความเร็วโดยตรง)*
 
-**ขอบเขต:**
+**ฟอนต์ (~2 ชม.)**
+1. ตัด Inter ออกจาก `Layout.astro:70` และ `global.css`
+2. `--font-sans` ชี้ Google Sans
+3. ลด weight เหลือ 400/500/700
+4. ตัดสินใจเรื่อง Cormorant Garamond (เก็บ 400+italic หรือตัดทิ้ง)
 
-1. Astro Content Collection `projects` + ตั้ง `src/content/projects/` ใน `.gitignore`
-2. **prebuild script** — ดึงโปรเจกต์จาก D1 เขียนเป็นไฟล์ `.mdx` ก่อน `astro build`
+**รูปภาพ (~8-12 ชม.)**
+1. Editor: แปลง WebP + ย่อ 1600px ฝั่ง browser ก่อนอัปโหลด (ข้อ 12.2)
+2. `POST /earth/api/upload-image` → validate ฝั่ง server → R2 → บันทึก `images`
+3. Drag & drop + แทรก markdown อัตโนมัติ + **บังคับกรอก alt**
+4. Post-process ตอน build เติม `width`/`height`/`loading`/`decoding` (ข้อ 12.4)
+5. รูปปก: `fetchpriority="high"` ห้าม lazy
+6. ปรับตำแหน่ง/zoom รูปปก
+
+**เกณฑ์ตรวจรับ:** ลากรูป JPEG 3MB ลง editor → กลายเป็น WebP < 300KB อัตโนมัติ · รูปในบทความมี width/height ครบ · วัด CLS แล้ว < 0.1 · อัปโหลดไฟล์ `.exe` เปลี่ยนนามสกุล → ถูกปฏิเสธ
+
+---
+
+### Phase 3 — โปรเจกต์ MDX + กราฟชุดแรก
+
+**โครงสร้าง MDX (~12-15 ชม.)**
+1. Content Collection `projects` + `src/content/projects/` ใน `.gitignore`
+2. prebuild script ดึงจาก D1 เขียนเป็น `.mdx`
 3. หน้า `/work/[slug]`
-4. Editor รองรับ `type='project'` — สลับโหมด Markdown/MDX
-5. **ตรวจสอบการคอมไพล์ MDX ตอน Publish** (บังคับ — ดูข้อ 7.2)
-6. prebuild ข้ามชิ้นที่คอมไพล์ไม่ผ่านพร้อมเตือน ไม่ให้ build ล้มทั้งเว็บ
-7. สร้าง component กราฟชุดแรกใน `src/components/viz/` (เริ่มจากที่ใช้บ่อย เช่น bar, line)
-8. โปรเจกต์แสดงในฟีดหน้าแรกร่วมกับบทความ + banner สำหรับชิ้นเด่น
+4. Editor รองรับ `type='project'`
+5. **ตรวจคอมไพล์ MDX ตอน Publish** (บังคับ — ข้อ 7.2)
+6. prebuild ข้ามชิ้นที่พังพร้อมเตือน
+7. โปรเจกต์แสดงในฟีดหน้าแรก + banner สำหรับชิ้นเด่น
+8. `POST /earth/api/upload-dataset` → R2 + ตาราง `datasets`
+
+**กราฟ (~13-20 ชม.)**
+1. กำหนด palette จาก token ใน `global.css` แล้ว**รัน validator ตรวจ** (ข้อ 13.6)
+2. สร้าง component ระดับ 1: **BarChart → LineChart → StatTile → DataTable**
+3. ถ้าเวลาเหลือ: ChoroplethMap ประเทศไทย
 
 **เกณฑ์ตรวจรับ:**
-- [ ] เขียน MDX ที่ import component กราฟ → publish → หน้า `/work/[slug]` แสดงกราฟที่โต้ตอบได้จริง
-- [ ] จงใจพิมพ์ MDX ผิด → กด Publish → **ถูกปฏิเสธพร้อมข้อความ error** และเว็บเดิมไม่พัง
-- [ ] ฟีดหน้าแรกแสดงทั้งบทความและโปรเจกต์เรียงตามเวลาถูกต้อง
-
----
-
-### Phase 3 — อัปโหลดรูปไป R2
-
-1. `POST /earth/api/upload-image` — validate MIME + ขนาด **ฝั่ง server**
-2. เก็บลง R2 + บันทึก metadata ลงตาราง `images`
-3. Editor: drag & drop + แทรก Markdown อัตโนมัติ
-4. ปรับตำแหน่ง/zoom รูปปก (ใช้ `cover_position` ที่มีในตารางแล้ว)
-
-**เกณฑ์ตรวจรับ:** ลากรูปลงใน editor → อัปโหลดสำเร็จ → แสดงในบทความที่ publish แล้ว · อัปโหลดไฟล์ 10MB หรือไฟล์ `.exe` เปลี่ยนนามสกุล → ถูกปฏิเสธ
+- [ ] เขียน MDX import กราฟ → publish → หน้า `/work/[slug]` แสดงกราฟจริง
+- [ ] **View source แล้วเห็นข้อความใน SVG เป็นข้อความจริง** (ยืนยันว่า Google อ่านได้)
+- [ ] **หน้าโปรเจกต์ที่ใช้กราฟระดับ 1 ส่ง JS เพิ่ม 0 ไบต์**
+- [ ] จงใจพิมพ์ MDX ผิด → Publish → **ถูกปฏิเสธพร้อม error** เว็บเดิมไม่พัง
+- [ ] palette ผ่าน validator ทั้ง light และ dark mode
+- [ ] ฟีดหน้าแรกแสดงบทความ + โปรเจกต์เรียงเวลาถูกต้อง
 
 ---
 
 ### Phase 4 — ส่ง Newsletter
 
-1. เลือกและต่อบริการส่งอีเมล (Resend หรือเทียบเท่า)
+1. ต่อบริการส่งอีเมล (Resend หรือเทียบเท่า)
 2. Double opt-in — `GET /api/confirm`
 3. `GET /api/unsubscribe`
-4. `POST /earth/api/send-newsletter` — **กดส่งเองจาก Portal ไม่ใช่ส่งอัตโนมัติตอน publish**
-   (กันพลาดจากการพิมพ์ผิด — อีเมลที่ส่งไปแล้วเรียกคืนไม่ได้)
-5. Template อีเมล: หัวข้อ + เกริ่นนำ + ลิงก์อ่านต่อ (ไม่ส่งเนื้อหาเต็ม — ดึงคนกลับมาที่เว็บ)
+4. `POST /earth/api/send-newsletter` — **กดส่งเองจาก Portal ไม่ใช่อัตโนมัติตอน publish**
+   (อีเมลที่ส่งไปแล้วเรียกคืนไม่ได้)
+5. Template: หัวข้อ + เกริ่นนำ + ลิงก์อ่านต่อ (ไม่ส่งเนื้อหาเต็ม — ดึงคนกลับมาที่เว็บ)
 
-**เกณฑ์ตรวจรับ:** สมัคร → ได้อีเมลยืนยัน → กดยืนยัน → สถานะเป็น `confirmed` · กดส่งจดหมายข่าว → ได้รับจริง · กดลิงก์ยกเลิก → ไม่ได้รับอีกต่อไป
+**เกณฑ์ตรวจรับ:** สมัคร → ได้อีเมลยืนยัน → กดยืนยัน → สถานะ `confirmed` · ส่งจดหมายข่าว → ได้รับจริง · กดยกเลิก → ไม่ได้รับอีก
 
 ---
 
 ### Phase 5 — AI Assistant + BYOK
 
-1. หน้า `/earth/settings` พร้อมระบบแท็บ
-   - **แท็บ Profile** — อีเมลจาก Cloudflare Access (`Cf-Access-Jwt-Assertion` หรือ `/cdn-cgi/access/get-identity`), สรุปสถิติ
-   - **แท็บ AI Models** — จัดการ provider
-2. เพิ่ม provider: กรอก label / kind / base URL / API key → ปุ่ม **"โหลดรายชื่อ Model"** (ตรวจ key + ดึง catalog พร้อมกัน) → ติ๊กเลือก model ที่ต้องการ → บันทึก
-3. เข้ารหัส API key ก่อนเก็บ (ข้อ 8.2)
+1. `/earth/settings` พร้อมระบบแท็บ
+   - **Profile** — อีเมลจาก Cloudflare Access (`Cf-Access-Jwt-Assertion` / `/cdn-cgi/access/get-identity`)
+   - **AI Models** — จัดการ provider
+2. เพิ่ม provider: label / kind / base URL / API key → **"โหลดรายชื่อ Model"** (ตรวจ key + ดึง catalog พร้อมกัน) → ติ๊กเลือก → บันทึก
+3. เข้ารหัส API key (ข้อ 8.2)
 4. Refactor `ai-worker/` เป็น adapter registry:
    ```js
    const ADAPTERS = {
      "openai-compatible": runOpenAICompatible,  // OpenRouter, Groq, Together,
                                                 // DeepSeek, Mistral, Ollama ฯลฯ
-     "gemini":            runGemini,
-     "anthropic":         runAnthropic,
-     "cloudflare":        runCloudflare,
+     "gemini": runGemini, "anthropic": runAnthropic, "cloudflare": runCloudflare,
    };
    ```
 5. **ปิดช่องโหว่ตามข้อ 8.1**
-6. AI panel ในหน้า editor — เลือก provider → เห็นเฉพาะ model ที่ตั้งค่าไว้ → เลือก → ใช้เครื่องมือ
-7. **เพิ่ม task `translate`** — แปลร่างแรกไทย↔อังกฤษ สำหรับชิ้นที่อยากทำคู่แปลเป็นกรณีพิเศษ
-   (ไม่ใช่ workflow หลักอีกต่อไป เพราะเปลี่ยนเป็นภาษาผสมแล้ว — แปลเฉพาะชิ้นที่คุ้มค่าจริงๆ)
+6. AI panel ในหน้า editor
+7. เพิ่ม task `translate` — สำหรับชิ้นที่อยากทำคู่แปลเป็นกรณีพิเศษ
 
-**Endpoint ดึงรายชื่อ model แต่ละประเภท:**
+**Endpoint ดึงรายชื่อ model:**
 
 | `kind` | Endpoint |
 |---|---|
@@ -713,66 +908,69 @@ AI panel · BYOK settings · ระบบจับคู่คำแปล · �
 | `openrouter` | `GET https://openrouter.ai/api/v1/models` (ไม่ต้องใช้ key) |
 | `cloudflare` | Cloudflare REST API หรือ hardcode |
 
-> ⚠️ ยืนยันกับเอกสารของแต่ละเจ้าอีกครั้งตอน implement — API เปลี่ยนได้
+> ⚠️ ยืนยันกับเอกสารของแต่ละเจ้าตอน implement — API เปลี่ยนได้
 
-**เกณฑ์ตรวจรับ:** เพิ่ม provider ใหม่ที่เป็น OpenAI-compatible ได้จากหน้าเว็บโดยไม่แก้โค้ด · เรียก worker ตรงๆ จากภายนอกโดยไม่มี secret → ถูกปฏิเสธ · API key ใน D1 เป็น ciphertext · หน้า settings ไม่เคยส่ง key กลับมาที่ browser
+**เกณฑ์ตรวจรับ:** เพิ่ม provider OpenAI-compatible ใหม่จากหน้าเว็บโดยไม่แก้โค้ด · เรียก worker ตรงๆ ไม่มี secret → ถูกปฏิเสธ · API key ใน D1 เป็น ciphertext · หน้า settings ไม่เคยส่ง key กลับ browser
 
 ---
 
 ### Phase 6 — ค้นหา + แบ่งหน้า
 
-**ทำเมื่อ:** มีเนื้อหาเกิน ~30 ชิ้น (ประมาณ 7-8 เดือนหลังเริ่มเขียน)
+**ทำเมื่อ:** มีเนื้อหาเกิน ~30 ชิ้น
 
 1. แบ่งหน้าในฟีด
-2. ค้นหา — สร้าง index ตอน build (เช่น Pagefind หรือ JSON index + fuzzy search ฝั่ง client) ไม่ต้องใช้ server
-3. หน้า archive รวมทั้งหมด
+2. ค้นหา — สร้าง index ตอน build (Pagefind หรือ JSON index + fuzzy search ฝั่ง client) ไม่ต้องใช้ server
+3. หน้า archive
 
 ---
 
-### อนาคต (ยังไม่กำหนดเวลา)
+### อนาคต
 
-ระบบคอมเมนต์ · Slash command แทรกลิงก์ · Emoji picker · YouTube embed · Zen mode · Export JSON/Markdown · JSON-LD generator อัตโนมัติ
-
----
-
-## 13. ประเด็นที่ยังไม่ตัดสินใจ
-
-| # | ประเด็น | ตัวเลือก | ค่าเริ่มต้นที่จะใช้ถ้าไม่ตัดสินใจ |
-|---|---|---|---|
-| 1 | URL prefix ของโปรเจกต์ | `/work/` · `/projects/` · `/viz/` | `/work/` |
-| 2 | **slug ภาษาไทย** — `generateSlug()` เดิมตัดอักษรไทยทิ้งหมด ทำให้ได้ slug ว่าง | ก) พิมพ์ slug อังกฤษเองทุกครั้ง<br>ข) ทับศัพท์อัตโนมัติ (transliterate)<br>ค) ให้ AI ตั้ง slug จากหัวข้อ | **ก)** — ง่ายและควบคุมได้ แต่ต้องพิมพ์เองทุกบทความ |
-| 3 | บริการส่งอีเมล | Resend · Buttondown · MailerSend | Resend (ต้องเช็คราคาปัจจุบันเอง) |
-| 4 | เนื้อหาในจดหมายข่าว | เกริ่นนำ + ลิงก์ · เนื้อหาเต็ม | เกริ่นนำ + ลิงก์ |
-| 5 | Editor รองรับมือถือ | รองรับ · desktop-only | desktop-only (เขียนบนมือถือไม่สะดวกอยู่แล้ว) |
-| 6 | ไลบรารีกราฟที่จะใช้ | D3 · Observable Plot · Recharts · เขียน SVG เอง | ยังไม่ตัดสินใจ — เลือกตอน Phase 2 |
-| 7 | จำกัดจำนวน draft/published | จำกัด · ไม่จำกัด | ไม่จำกัด (ใช้คนเดียว) |
-| 8 | License ของเนื้อหา | All rights reserved · CC BY-NC | ยังไม่ตัดสินใจ — เกี่ยวกับความกังวลเรื่องคนคัดลอกงาน |
-| 9 | เกณฑ์ว่าชิ้นไหนควรทำคู่แปล | แปลเฉพาะชิ้นที่คนอ่านเยอะ · แปลเฉพาะโปรเจกต์ · ไม่แปลเลย | **แปลเฉพาะชิ้นที่พิสูจน์แล้วว่ามีคนอ่าน** — ไม่แปลล่วงหน้า |
-| 10 | ฟอนต์สำหรับภาษาอังกฤษ | ใช้ฟอนต์เดียวกับไทย · แยกฟอนต์ตามภาษา | แยก — หน้าอังกฤษไม่โหลดฟอนต์ไทย (ดูข้อ 11.3) |
+Scrollytelling (ระดับ 3) · ระบบคอมเมนต์ · `srcset` · Slash command · Emoji picker · YouTube embed · Zen mode · Export JSON/Markdown
 
 ---
 
-## 14. ความเสี่ยง
+## 17. ประเด็นที่ยังไม่ตัดสินใจ
+
+| # | ประเด็น | ค่าเริ่มต้นถ้าไม่ตัดสินใจ |
+|---|---|---|
+| 1 | URL prefix ของโปรเจกต์ | `/work/` |
+| 2 | **slug ภาษาไทย** — `generateSlug()` ตัดอักษรไทยทิ้ง ได้ slug ว่าง | **พิมพ์ slug อังกฤษเองทุกครั้ง** — ต้องแก้ก่อนเขียนบทความแรก |
+| 3 | **Cormorant Garamond เก็บหรือตัด** | เก็บ 400 + 400italic ถ้ายังใช้ตัวเลือก serif |
+| 4 | **Self-host ฟอนต์** | ยังไม่ทำ — **ต้องตรวจ license ของ Google Sans ก่อน** |
+| 5 | บริการส่งอีเมล | Resend (ตรวจราคาปัจจุบันเอง) |
+| 6 | เนื้อหาในจดหมายข่าว | เกริ่นนำ + ลิงก์ |
+| 7 | Editor รองรับมือถือ | desktop-only |
+| 8 | **ไลบรารีกราฟ** | **d3-scale + d3-shape เขียนเอง** (ข้อ 13.7) |
+| 9 | แหล่ง TopoJSON แผนที่จังหวัดไทย | ยังไม่เลือก — ต้องตรวจ license ของข้อมูลด้วย |
+| 10 | Cloudflare Image Resizing | ยังไม่ใช้ — ต้องตรวจ plan และราคาเอง |
+| 11 | เกณฑ์ว่าชิ้นไหนควรทำคู่แปล | แปลเฉพาะชิ้นที่พิสูจน์แล้วว่ามีคนอ่าน |
+| 12 | License ของเนื้อหา | ยังไม่ตัดสินใจ — เกี่ยวกับความกังวลเรื่องคนคัดลอกงาน |
+
+---
+
+## 18. ความเสี่ยง
 
 | ความเสี่ยง | ระดับ | การรับมือ |
 |---|---|---|
-| **ใช้เวลาสร้างระบบนานจนไม่ได้เผยแพร่อะไรเลย** | 🔴 สูงสุด | Phase 1 ตัดทุกอย่างที่ไม่จำเป็นออก · จบ Phase 1 ต้องเริ่มเขียนทันทีไม่รอ Phase อื่น |
-| MDX ผิดไวยากรณ์ทำ build ล้มทั้งเว็บ | 🔴 สูง | ตรวจคอมไพล์ตอน Publish + prebuild ข้ามชิ้นที่พังแทนที่จะล้มทั้ง build (ข้อ 7.2) |
-| หน้าบทความหน้าตาเพี้ยนหลังเปลี่ยนเป็น Markdown | 🟠 กลาง | Screenshot เทียบก่อน/หลัง · ทำ Phase 1 ให้จบสมบูรณ์ก่อนไปต่อ |
-| ~~ทำสองภาษาไม่ไหว เขียนไทยแล้วไม่ได้แปล~~ | 🟢 **แก้แล้ว** | **เปลี่ยนเป็นภาษาผสม** — แต่ละชิ้นมีภาษาเดียว ไม่มีภาระคู่แปลค้างคาอีกต่อไป |
-| หน้าโปรเจกต์ช้าเพราะ JS ของกราฟ | 🟠 กลาง | `client:visible` · หน้าบทความไม่โหลดไลบรารีกราฟ · เลือกไลบรารีโดยดูขนาด bundle (ข้อ 11.3) |
-| ฟอนต์ไทยทำให้โหลดช้า | 🟠 กลาง | `font-display: swap` · โหลดเฉพาะฟอนต์ที่หน้านั้นใช้ · จำกัดจำนวน weight (ข้อ 11.3) |
-| เขียนไม่ทันสัปดาห์ละชิ้นตามที่ตั้งเป้า | 🟠 กลาง | ยอมรับว่าความสม่ำเสมอสำคัญกว่าความถี่ — เขียน 2 สัปดาห์/ชิ้นอย่างต่อเนื่องดีกว่าสัปดาห์ละชิ้นแล้วหยุดไป 2 เดือน |
-| API key รั่วจาก D1 | 🔴 สูง | เข้ารหัส AES-GCM + ไม่ส่ง key กลับ browser (ข้อ 8.2) |
-| AI worker ถูกยิงจนเผา credit | 🔴 สูง | ปิดตามข้อ 8.1 **ก่อน** เริ่มใช้งานจริง |
-| Bot spam ฟอร์มสมัครสมาชิก | 🟠 กลาง | Turnstile + rate limit + double opt-in |
-| Deploy Hook ยิงถี่จนชน build limit | 🟢 ต่ำ | ที่ความถี่ 1-2 ครั้ง/สัปดาห์ไม่น่ามีปัญหา · ตรวจ quota ของ plan ที่ใช้ |
-| Cloudflare Access ล่ม เข้า `/earth` ไม่ได้ | 🟢 ต่ำ | ยอมรับได้ — หน้า public ยังทำงานปกติเพราะเป็น static |
+| **ใช้เวลาสร้างระบบนานจนไม่ได้เผยแพร่อะไรเลย** | 🔴 สูงสุด | Phase 1 ตัดทุกอย่างที่ไม่จำเป็น · จบแล้วเริ่มเขียนทันที |
+| MDX ผิดไวยากรณ์ทำ build ล้มทั้งเว็บ | 🔴 สูง | ตรวจคอมไพล์ตอน Publish + prebuild ข้ามชิ้นที่พัง (ข้อ 7.2) |
+| API key รั่วจาก D1 | 🔴 สูง | AES-GCM + ไม่ส่ง key กลับ browser (ข้อ 8.2) |
+| AI worker ถูกยิงจนเผา credit | 🔴 สูง | ปิดตามข้อ 8.1 **ก่อน**ใช้งานจริง |
+| หน้าบทความหน้าตาเพี้ยนหลังเปลี่ยนเป็น Markdown | 🟠 กลาง | Screenshot เทียบก่อน/หลัง · ทำ Phase 1 ให้จบก่อนไปต่อ |
+| **หน้าโปรเจกต์ช้าเพราะกราฟ** | 🟠 กลาง | ระดับ 1 เป็นค่าเริ่มต้น (JS 0 ไบต์) · `client:visible` เท่านั้น · วัด INP แยกตามหน้า |
+| ฟอนต์ทำให้โหลดช้า | 🟠 กลาง | Google Sans ตัวเดียว · 3 weights · ตัด Inter (ข้อ 11) |
+| รูปทำให้ CLS แย่ | 🟠 กลาง | บังคับมี width/height ทุกรูปจาก DB (ข้อ 12.4) |
+| เขียนไม่ทันสัปดาห์ละชิ้น | 🟠 กลาง | ความสม่ำเสมอสำคัญกว่าความถี่ — 2 สัปดาห์/ชิ้นต่อเนื่อง ดีกว่าสัปดาห์ละชิ้นแล้วหยุด 2 เดือน |
+| Bot spam ฟอร์มสมัคร | 🟠 กลาง | Turnstile + rate limit + double opt-in |
+| ~~ทำสองภาษาไม่ไหว~~ | 🟢 แก้แล้ว | เปลี่ยนเป็นภาษาผสม — ไม่มีภาระคู่แปลค้างคา |
+| Deploy Hook ชน build limit | 🟢 ต่ำ | 1-2 ครั้ง/สัปดาห์ไม่น่ามีปัญหา |
+| Cloudflare Access ล่ม | 🟢 ต่ำ | หน้า public ยังทำงานปกติเพราะเป็น static |
 
 ---
 
-## ภาคผนวก — คำถามที่ควรถามตัวเองก่อนเริ่มแต่ละ Phase
+## ภาคผนวก — คำถามก่อนเริ่มแต่ละ Phase
 
 1. Phase ที่แล้วจบสมบูรณ์และใช้งานได้จริงหรือยัง
-2. ตั้งแต่จบ Phase 1 มาแล้ว ได้เผยแพร่เนื้อหาไปกี่ชิ้น — ถ้าคำตอบคือ 0 ให้**หยุดพัฒนาระบบแล้วกลับไปเขียน**
-3. สิ่งที่กำลังจะทำนี้ช่วยให้เผยแพร่เนื้อหาได้ดีขึ้น/เร็วขึ้นจริงไหม หรือแค่อยากทำ
+2. ตั้งแต่จบ Phase 1 มา เผยแพร่ไปกี่ชิ้น — **ถ้าตอบ 0 ให้หยุดพัฒนาระบบแล้วกลับไปเขียน**
+3. สิ่งที่กำลังจะทำช่วยให้เผยแพร่ได้ดีขึ้น/เร็วขึ้นจริงไหม หรือแค่อยากทำ
