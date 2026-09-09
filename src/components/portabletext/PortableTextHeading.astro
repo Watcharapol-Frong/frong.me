@@ -1,8 +1,8 @@
 ---
-import { slugify } from "@/lib/slugify";
+import { slugify, nodeText } from "@/lib/slugify";
 
-const { node } = Astro.props as { node: { style?: string; children?: { text?: string }[] } };
-const text = (node.children ?? []).map((child) => child.text ?? "").join("");
+const { node } = Astro.props as { node: { style?: string; children?: unknown[] } };
+const text = nodeText(node.children as never);
 const slug = slugify(text);
 ---
 
