@@ -3,7 +3,8 @@
 -- Foreign keys are enforced and all statements use INSERT OR IGNORE / conflict guards
 -- so this script can be executed repeatedly without errors or violating immutability triggers.
 
-PRAGMA foreign_keys = ON;
+-- Foreign keys are enforced by D1 at the platform level; a PRAGMA here is
+-- rejected over the remote API. Local SQLite harnesses set it themselves.
 
 -- 1. Categories (bilingual)
 INSERT OR IGNORE INTO categories (id, lang, slug, name, created_at, updated_at) VALUES

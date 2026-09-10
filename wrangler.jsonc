@@ -1,0 +1,14 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "frong-me",
+  "compatibility_date": "2026-09-10",
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "portfolio-db-staging",
+      "database_id": "71cba742-a269-475d-84b0-8df1223a368a",
+      "migrations_dir": "db/migrations"
+    }
+  ]
+}
