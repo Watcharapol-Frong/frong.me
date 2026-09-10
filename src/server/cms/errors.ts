@@ -144,9 +144,11 @@ export function cmsErrorResponse(error: unknown): Response {
   const cmsError = mapCmsError(error, 'request');
   return Response.json(
     {
-      error: cmsError.code,
-      message: cmsError.expose ? cmsError.message : 'Internal server error',
-      ...(cmsError.expose && cmsError.details ? { details: cmsError.details } : {}),
+      error: {
+        code: cmsError.code,
+        message: cmsError.expose ? cmsError.message : 'Internal server error',
+        ...(cmsError.expose && cmsError.details ? { details: cmsError.details } : {}),
+      },
     },
     {
       status: cmsError.httpStatus,

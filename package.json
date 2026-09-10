@@ -13,6 +13,7 @@
     "test:cms": "tsx --test \"tests/cms/*.test.ts\""
   },
   "dependencies": {
+    "@astrojs/cloudflare": "14.3.1",
     "@astrojs/react": "^6.0.2",
     "@astrojs/sitemap": "^3.7.4",
     "@radix-ui/react-popover": "^1.1.23",
@@ -22,7 +23,7 @@
     "@tailwindcss/vite": "^4.3.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
-    "astro": "^7.2.2",
+    "astro": "^7.3.2",
     "astro-portabletext": "^1.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -33,5 +34,8 @@
     "tailwind-merge": "^3.6.0",
     "tailwindcss": "^4.3.3",
     "tailwindcss-animate": "^1.0.7"
+  },
+  "devDependencies": {
+    "tsx": "4.23.13"
   }
 }

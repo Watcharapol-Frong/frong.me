@@ -13,10 +13,9 @@
  *
  * - Nothing private is baked into a prerendered file. The HTML below is an
  *   empty frame, so the release snapshot never has to exclude it.
- * - The page needs no Cloudflare adapter. The root build has `output: 'static'`
- *   and no adapter, so `export const prerender = false` cannot be used yet;
- *   when the adapter lands with P1-08, this page can become on-demand without
- *   changing the shell or the client.
+ * - The shell remains safe to prerender even though the root Cloudflare adapter
+ *   now serves the on-demand `/earth/api/*` routes. It can move on-demand later
+ *   without changing the shell or browser client.
  *
  * Access control lives in front of this page, not inside it: Cloudflare Access
  * on `/earth` and `/earth/*`, plus the Worker middleware that re-validates the

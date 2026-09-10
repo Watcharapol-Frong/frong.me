@@ -139,7 +139,7 @@ test('exportLiveSnapshot respects requireLive option on missing database', async
         requireLive: true,
         logger: mockLogger,
       }),
-    /No database connection available and requireLive is set to true|no such table: site_state/,
+    /No database connection available and requireLive is set to true|no such table: site_state|No live release found in site_state/,
   );
 });
 

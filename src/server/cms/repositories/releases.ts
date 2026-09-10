@@ -13,6 +13,7 @@ import {
   type SiteStateRow,
 } from '../../../lib/cms/contracts.ts';
 import {
+  parseBeginReleaseInput,
   parseCreateReleaseInput,
   parseReleaseManifest,
   parseReleaseSnapshot,
@@ -297,6 +298,35 @@ export async function createRelease(
   return getRelease(db, input.id);
 }
 
+/**
+ * API-facing release composition. A retry whose release already exists skips
+ * revision creation and is checked by createRelease's idempotency contract.
+ */
+export async function beginRelease(
+  db: CmsDatabase,
+  value: unknown,
+  now = Date.now(),
+): Promise<ReleaseRow> {
+  const input = parseBeginReleaseInput(value);
+  const { revisionSnapshot, ...releaseInput } = input;
+  if (revisionSnapshot) {
+    let releaseAlreadyExists = false;
+    try {
+      await getRelease(db, input.id);
+      releaseAlreadyExists = true;
+    } catch (error) {
+      if (!(error instanceof CmsNotFoundError)) throw error;
+    }
+    if (!releaseAlreadyExists) {
+      await createRevisionSnapshot(db, {
+        ...revisionSnapshot,
+        createdAt: now,
+      });
+    }
+  }
+  return createRelease(db, releaseInput, now);
+}
+
 export async function getRelease(db: CmsDatabase, releaseId: string): Promise<ReleaseRow> {
   const release = await db.first<ReleaseRow>(
     `SELECT ${RELEASE_COLUMNS} FROM releases WHERE id = ?1 LIMIT 1`,
@@ -313,6 +343,33 @@ export async function getActiveRelease(db: CmsDatabase): Promise<ReleaseRow | nu
      WHERE status IN ('queued', 'building', 'deploying', 'reconciling')
      LIMIT 1`,
   );
+}
+
+export async function listReleases(db: CmsDatabase, limit = 20): Promise<ReleaseRow[]> {
+  const safeLimit = Math.min(Math.max(limit, 1), 100);
+  return db.all<ReleaseRow>(
+    `SELECT ${RELEASE_COLUMNS}
+     FROM releases
+     ORDER BY created_at DESC, id ASC
+     LIMIT ?1`,
+    [safeLimit],
+  );
+}
+
+export async function countVisibleReleaseItems(
+  db: CmsDatabase,
+  releaseIds: readonly string[],
+): Promise<Map<string, number>> {
+  if (releaseIds.length === 0) return new Map();
+  const placeholders = releaseIds.map((_, index) => `?${index + 1}`).join(', ');
+  const rows = await db.all<{ release_id: string; item_count: number }>(
+    `SELECT release_id, COUNT(*) AS item_count
+     FROM release_items
+     WHERE visible = 1 AND release_id IN (${placeholders})
+     GROUP BY release_id`,
+    releaseIds,
+  );
+  return new Map(rows.map((row) => [row.release_id, row.item_count]));
 }
 
 export async function transitionRelease(

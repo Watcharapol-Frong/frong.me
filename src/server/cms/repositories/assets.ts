@@ -135,6 +135,35 @@ export async function listPostAssetUsages(
   );
 }
 
+export interface DraftAssetUsageRow extends PostAssetUsageRow {
+  media_kind: AssetRow['media_kind'];
+  lifecycle: AssetRow['lifecycle'];
+  original_name: string | null;
+  mime_type: AssetRow['mime_type'];
+  width: number;
+  height: number;
+  byte_size: number;
+  sha256: string;
+}
+
+export async function listPostAssetDetails(
+  db: CmsDatabase,
+  postId: string,
+): Promise<DraftAssetUsageRow[]> {
+  return db.all<DraftAssetUsageRow>(
+    `SELECT usage.id, usage.post_id, usage.asset_id, usage.role,
+            usage.alt_text, usage.caption, usage.crop_json, usage.position,
+            asset.media_kind, asset.lifecycle, asset.original_name,
+            asset.mime_type, asset.width, asset.height, asset.byte_size, asset.sha256
+     FROM post_asset_usages AS usage
+     JOIN assets AS asset ON asset.id = usage.asset_id
+     WHERE usage.post_id = ?1
+     ORDER BY CASE usage.role WHEN 'cover' THEN 0 ELSE 1 END,
+              usage.position ASC, usage.id ASC`,
+    [postId],
+  );
+}
+
 export async function addPostAssetUsage(
   db: CmsDatabase,
   input: AddPostAssetUsageInput,

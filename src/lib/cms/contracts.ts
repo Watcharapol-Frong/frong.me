@@ -251,6 +251,21 @@ export interface UpdatePostDraftInput {
   bodyMarkdown: string;
 }
 
+export interface DraftSourceInput {
+  id: string;
+  label: string;
+  url: string;
+  publisher: string | null;
+  accessedAt: EpochMilliseconds | null;
+}
+
+export interface UpdatePostBundleInput {
+  draft: UpdatePostDraftInput;
+  categoryIds: string[];
+  tagIds: string[];
+  sources: DraftSourceInput[];
+}
+
 export interface CreateReleaseInput {
   id: string;
   triggerKind: ReleaseTriggerKind;
@@ -260,6 +275,22 @@ export interface CreateReleaseInput {
   codeCommit?: string;
   manifest: ReleaseManifest;
   manifestSha256: string;
+}
+
+export interface CreateRevisionSnapshotRequest {
+  revisionId: string;
+  postId: string;
+  expectedDraftVersion: number;
+  publishedAt: EpochMilliseconds;
+}
+
+export interface BeginReleaseInput extends CreateReleaseInput {
+  revisionSnapshot?: CreateRevisionSnapshotRequest;
+}
+
+export interface ConfirmReleaseInput {
+  attemptId: string;
+  providerDeploymentId: string;
 }
 
 export interface ReleaseDispatchPayload {

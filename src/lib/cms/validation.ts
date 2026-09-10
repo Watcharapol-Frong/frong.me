@@ -1,6 +1,8 @@
 import {
   CMS_SCHEMA_VERSION,
   type CreatePostInput,
+  type BeginReleaseInput,
+  type ConfirmReleaseInput,
   type CreateReleaseInput,
   type Language,
   type PublicArticle,
@@ -11,6 +13,7 @@ import {
   type ReleaseSnapshot,
   type TaxonomySnapshot,
   type UpdatePostDraftInput,
+  type UpdatePostBundleInput,
 } from './contracts.ts';
 
 export class CmsValidationError extends Error {
@@ -332,6 +335,41 @@ export function parseUpdatePostDraftInput(value: unknown): UpdatePostDraftInput 
   };
 }
 
+export function parseUpdatePostBundleInput(value: unknown): UpdatePostBundleInput {
+  const row = object(value, 'request', ['draft', 'categoryIds', 'tagIds', 'sources']);
+  const categoryIds = array(row.categoryIds, 'request.categoryIds', identifier, 20);
+  const tagIds = array(row.tagIds, 'request.tagIds', identifier, 100);
+  if (new Set(categoryIds).size !== categoryIds.length) {
+    throw new CmsValidationError('request.categoryIds', 'contains duplicate identifiers');
+  }
+  if (new Set(tagIds).size !== tagIds.length) {
+    throw new CmsValidationError('request.tagIds', 'contains duplicate identifiers');
+  }
+  const sources = array(row.sources, 'request.sources', (value, field) => {
+    const sourceRow = object(value, field, ['id', 'label', 'url', 'publisher', 'accessedAt']);
+    return {
+      id: identifier(sourceRow.id, `${field}.id`),
+      label: string(sourceRow.label, `${field}.label`, 300),
+      url: httpsUrl(sourceRow.url, `${field}.url`),
+      publisher: sourceRow.publisher === null
+        ? null
+        : optionalString(sourceRow.publisher, `${field}.publisher`, 200) ?? null,
+      accessedAt: sourceRow.accessedAt === null
+        ? null
+        : integer(sourceRow.accessedAt, `${field}.accessedAt`),
+    };
+  }, 200);
+  if (new Set(sources.map((source) => source.id)).size !== sources.length) {
+    throw new CmsValidationError('request.sources', 'contains duplicate identifiers');
+  }
+  return {
+    draft: parseUpdatePostDraftInput(row.draft),
+    categoryIds,
+    tagIds,
+    sources,
+  };
+}
+
 export function parseCreateReleaseInput(value: unknown): CreateReleaseInput {
   const row = object(value, 'release', [
     'id', 'triggerKind', 'triggerPostId', 'baseReleaseId', 'idempotencyKey',
@@ -365,5 +403,116 @@ export function parseCreateReleaseInput(value: unknown): CreateReleaseInput {
     ...(codeCommit === undefined ? {} : { codeCommit }),
     manifest,
     manifestSha256: checksum,
+  };
+}
+
+export function parseBeginReleaseInput(value: unknown): BeginReleaseInput {
+  const row = object(value, 'release', [
+    'id', 'triggerKind', 'triggerPostId', 'baseReleaseId', 'idempotencyKey',
+    'codeCommit', 'manifest', 'manifestSha256', 'revisionSnapshot',
+  ]);
+  const release = parseCreateReleaseInput({
+    id: row.id,
+    triggerKind: row.triggerKind,
+    ...(row.triggerPostId === undefined ? {} : { triggerPostId: row.triggerPostId }),
+    ...(row.baseReleaseId === undefined ? {} : { baseReleaseId: row.baseReleaseId }),
+    idempotencyKey: row.idempotencyKey,
+    ...(row.codeCommit === undefined ? {} : { codeCommit: row.codeCommit }),
+    manifest: row.manifest,
+    manifestSha256: row.manifestSha256,
+  });
+  if (row.revisionSnapshot === undefined) return release;
+  const snapshot = object(row.revisionSnapshot, 'release.revisionSnapshot', [
+    'revisionId', 'postId', 'expectedDraftVersion', 'publishedAt',
+  ]);
+  const revisionSnapshot = {
+    revisionId: identifier(snapshot.revisionId, 'release.revisionSnapshot.revisionId'),
+    postId: identifier(snapshot.postId, 'release.revisionSnapshot.postId'),
+    expectedDraftVersion: integer(
+      snapshot.expectedDraftVersion,
+      'release.revisionSnapshot.expectedDraftVersion',
+      1,
+    ),
+    publishedAt: integer(snapshot.publishedAt, 'release.revisionSnapshot.publishedAt'),
+  };
+  const manifestArticle = release.manifest.articles.find(
+    (article) => article.postId === revisionSnapshot.postId,
+  );
+  if (
+    release.triggerKind !== 'publish'
+    || release.triggerPostId !== revisionSnapshot.postId
+    || manifestArticle?.revisionId !== revisionSnapshot.revisionId
+    || !manifestArticle.visible
+  ) {
+    throw new CmsValidationError(
+      'release.revisionSnapshot',
+      'must describe the visible trigger post revision of a publish release',
+    );
+  }
+  return {
+    ...release,
+    revisionSnapshot,
+  };
+}
+
+export function parseConfirmReleaseInput(value: unknown): ConfirmReleaseInput {
+  const row = object(value, 'confirmation', ['attemptId', 'providerDeploymentId']);
+  return {
+    attemptId: identifier(row.attemptId, 'confirmation.attemptId'),
+    providerDeploymentId: string(
+      row.providerDeploymentId,
+      'confirmation.providerDeploymentId',
+      200,
+    ),
+  };
+}
+
+export function parseArchivePostInput(value: unknown): { expectedDraftVersion: number } {
+  const row = object(value, 'post', ['expectedDraftVersion']);
+  return {
+    expectedDraftVersion: integer(row.expectedDraftVersion, 'post.expectedDraftVersion', 1),
+  };
+}
+
+export function parseCmsIdentifier(value: unknown, field = 'id'): string {
+  return identifier(value, field);
+}
+
+export interface PostListQuery {
+  lang?: Language;
+  lifecycle?: import('./contracts.ts').PostLifecycle;
+  search?: string;
+}
+
+export function parsePostListQuery(searchParams: URLSearchParams): PostListQuery {
+  const allowed = new Set(['lang', 'lifecycle_state', 'search']);
+  for (const key of searchParams.keys()) {
+    if (!allowed.has(key)) throw new CmsValidationError('query', `contains unknown field ${key}`);
+  }
+  const langValue = searchParams.get('lang');
+  const lifecycleValue = searchParams.get('lifecycle_state');
+  const searchValue = searchParams.get('search');
+  if (langValue !== null && langValue !== 'th' && langValue !== 'en') {
+    throw new CmsValidationError('query.lang', 'must be th or en');
+  }
+  if (
+    lifecycleValue !== null
+    && lifecycleValue !== 'draft'
+    && lifecycleValue !== 'active'
+    && lifecycleValue !== 'archived'
+  ) {
+    throw new CmsValidationError(
+      'query.lifecycle_state',
+      'must be draft, active, or archived',
+    );
+  }
+  if (searchValue !== null && searchValue.length > 300) {
+    throw new CmsValidationError('query.search', 'must be at most 300 characters');
+  }
+  const search = searchValue?.trim();
+  return {
+    ...(langValue ? { lang: langValue } : {}),
+    ...(lifecycleValue ? { lifecycle: lifecycleValue } : {}),
+    ...(search ? { search } : {}),
   };
 }
