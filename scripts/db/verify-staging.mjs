@@ -205,9 +205,9 @@ export function createWranglerExecutor({
       `--command=${sql}`,
     ];
 
-    if (local) {
-      args.push('--local');
-    }
+    // `wrangler d1 execute` defaults to the local database, so the remote case
+    // must be requested explicitly or verification silently inspects local state.
+    args.push(local ? '--local' : '--remote');
 
     const { stdout, stderr } = await execFileAsync('npx', args, {
       cwd,
