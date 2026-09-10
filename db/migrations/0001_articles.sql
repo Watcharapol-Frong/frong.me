@@ -1,5 +1,6 @@
 -- Phase 1 CMS core: mutable article drafts and immutable public revisions.
-PRAGMA foreign_keys = ON;
+-- Foreign keys are enforced by D1 at the platform level; a PRAGMA here is
+-- rejected over the remote API. Local SQLite harnesses set it themselves.
 
 CREATE TABLE posts (
   id                    TEXT PRIMARY KEY,

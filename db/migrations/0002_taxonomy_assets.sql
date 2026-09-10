@@ -1,5 +1,6 @@
 -- Phase 1 CMS core: mutable taxonomy, sources, and draft asset usage.
-PRAGMA foreign_keys = ON;
+-- Foreign keys are enforced by D1 at the platform level; a PRAGMA here is
+-- rejected over the remote API. Local SQLite harnesses set it themselves.
 
 CREATE TABLE categories (
   id          TEXT PRIMARY KEY,

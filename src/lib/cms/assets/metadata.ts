@@ -181,7 +181,15 @@ function detectFormat(
 }
 
 async function sha256Hex(bytes: Uint8Array): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  // `bytes.buffer` is typed ArrayBufferLike (possibly SharedArrayBuffer), which
+  // `crypto.subtle.digest` does not accept. Copying the exact view range yields a
+  // plain ArrayBuffer and stays offset-correct for pooled Node Buffers, whose
+  // views rarely start at byteOffset 0.
+  const source = bytes.buffer.slice(
+    bytes.byteOffset,
+    bytes.byteOffset + bytes.byteLength,
+  ) as ArrayBuffer;
+  const digest = await crypto.subtle.digest('SHA-256', source);
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
