@@ -1,0 +1,74 @@
+---
+/**
+ * Earth admin shell.
+ *
+ * Deliberately not built on `Layout.astro`: that layout is the public site's
+ * chrome (site nav, canonical URL, OG/Twitter metadata, sitemap-facing markup),
+ * none of which belongs on an authenticated tool.
+ *
+ * This page ships **no data**. Every value the admin shows is fetched in the
+ * browser from `/earth/api/*` through `src/lib/cms/client/api.ts`, which keeps
+ * two properties that matter while the root application is still a static
+ * Astro build:
+ *
+ * - Nothing private is baked into a prerendered file. The HTML below is an
+ *   empty frame, so the release snapshot never has to exclude it.
+ * - The page needs no Cloudflare adapter. The root build has `output: 'static'`
+ *   and no adapter, so `export const prerender = false` cannot be used yet;
+ *   when the adapter lands with P1-08, this page can become on-demand without
+ *   changing the shell or the client.
+ *
+ * Access control lives in front of this page, not inside it: Cloudflare Access
+ * on `/earth` and `/earth/*`, plus the Worker middleware that re-validates the
+ * JWT and the mutation `Origin` (S-02). The `noindex` tag below is defence in
+ * depth for the window where the route is served as a static asset.
+ */
+import '../../styles/global.css';
+import EarthAdminShell from '../../components/cms/EarthAdminShell';
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Same theme bootstrap as Layout.astro: honours the site-wide `theme`
+         key so the admin does not flip appearance between site and tool. -->
+    <script is:inline>
+      (function () {
+        const stored = localStorage.getItem("theme");
+        const isDark = stored ? stored === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+        document.documentElement.classList.toggle("dark", isDark);
+      })();
+    </script>
+    <meta name="robots" content="noindex, nofollow, noarchive" />
+    <meta name="referrer" content="same-origin" />
+    <title>Earth · frong.me</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600&display=swap"
+    />
+  </head>
+
+  <body class="bg-background text-foreground">
+    <!--
+      client:load, not client:idle or client:visible: the shell is the entire
+      page, and its first action is to fetch the admin data.
+    -->
+    <EarthAdminShell client:load />
+
+    <noscript>
+      <div class="p-6 text-sm">
+        <p class="font-serif text-lg">JavaScript is required</p>
+        <p class="mt-2 text-muted-foreground">
+          The admin area reads and writes through the authenticated
+          <code class="font-mono">/earth/api</code> endpoints. Public article
+          pages remain readable without JavaScript.
+        </p>
+      </div>
+    </noscript>
+  </body>
+</html>

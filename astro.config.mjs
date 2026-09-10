@@ -19,7 +19,12 @@ export default defineConfig({
   site: 'https://frong.me',
   integrations: [
     react(),
-    sitemap(),
+    // The Earth admin routes are authenticated tooling, not public pages: keep
+    // them out of the sitemap. `page` is the full URL, e.g.
+    // "https://frong.me/earth/".
+    sitemap({
+      filter: (page) => !page.includes('/earth'),
+    }),
     sanity({
       projectId: PUBLIC_SANITY_PROJECT_ID,
       dataset: PUBLIC_SANITY_DATASET || 'production',
