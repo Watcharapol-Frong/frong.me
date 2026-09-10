@@ -5,9 +5,9 @@ Project documentation is maintained in English. Thai text may appear in explicit
 ## Current implementation status
 
 - Phase 0 is complete and Gate G0 passed: the production AI Worker is protected and rejects unauthenticated requests.
-- Every Phase 0.5 task has a completed local prototype or decision record in the isolated architecture spike.
-- Gate G0.5 remains open until the workflow, D1 snapshot, Access boundary, deployment, and recovery checks run against isolated staging resources.
-- Phase 1 and the main-site CMS production cutover have not started.
+- Gate G0.5 passed after owner-confirmed staging Worker/workerd, D1 binding/query, and Access guard verification; the architecture record retains local evidence and identifies remote IDs still to record.
+- Phase 1 CMS core implementation has started with data contracts and versioned D1 migrations.
+- The main-site CMS production cutover has not started.
 
 | Document | Purpose |
 |---|---|

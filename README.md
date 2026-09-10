@@ -5,8 +5,8 @@ This repository contains the current Astro portfolio, the protected AI Worker, a
 ## Project status
 
 - Phase 0 is complete. The production AI Worker requires `X-Auth-Secret`, fails closed, restricts browser CORS to `https://frong.me`, and rejects unauthenticated requests with HTTP 401.
-- Phase 0.5 has complete local architecture evidence. The remaining Gate G0.5 work is a real staging D1 query, Cloudflare Access verification, authenticated GitHub dispatch, and staging deployment.
-- The existing public site still uses the legacy Sanity-backed application. No CMS production cutover or Phase 1 implementation has occurred.
+- Gate G0.5 passed after owner-confirmed staging Worker/workerd, D1 binding/query, and Cloudflare Access guard verification. Exact remote workflow/deployment identifiers remain an evidence follow-up.
+- Phase 1 CMS contracts and versioned D1 migrations are now in progress. The public site still uses the legacy Sanity-backed application; no CMS production cutover has occurred.
 
 Use the [implementation plan](docs/plan.md) for the authoritative task status and handoff.
 

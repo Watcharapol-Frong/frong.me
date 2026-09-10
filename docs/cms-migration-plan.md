@@ -4,7 +4,7 @@
 > Repository: `Watcharapol-Frong/portfolio` · Site: https://frong.me
 > **Developer: the site owner, assisted by AI · Available time: 5–10 hours/week**
 
-> **Implementation status:** Phase 0 is complete and Gate G0 passed. All Phase 0.5 architecture tasks have local spike evidence; Gate G0.5 still requires remote staging verification. Track current status and handoffs in [`plan.md`](plan.md), with technical evidence in [`cms/architecture-spike.md`](cms/architecture-spike.md). This specification remains the requirements source and does not by itself prove deployment.
+> **Implementation status:** Gates G0 and G0.5 are complete, and Phase 1 CMS core implementation is in progress. Track current status and handoffs in [`plan.md`](plan.md), with technical evidence in [`cms/architecture-spike.md`](cms/architecture-spike.md). This specification remains the requirements source and does not by itself prove deployment.
 
 **Version 6 changes — complete the article system before starting the project system**
 
