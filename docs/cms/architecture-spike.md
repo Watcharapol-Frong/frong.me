@@ -8,16 +8,16 @@ Prototype: [`spikes/cloudflare-architecture/`](../../spikes/cloudflare-architect
 
 ## Result
 
-The proposed hybrid architecture is viable in an isolated local Cloudflare runtime. Astro prerenders the public release from an immutable JSON snapshot while `/earth/*` and runtime D1 access remain on-demand Worker routes. The local proof does not justify an SSR-only site.
+The proposed hybrid architecture is viable and Gate G0.5 passed on 2026-09-10. Astro prerenders the public release from an immutable JSON snapshot while `/earth/*` and runtime D1 access remain on-demand Worker routes. The staging proof does not justify an SSR-only site.
 
-Gate G0.5 is not yet passed. This environment has no staging Cloudflare/D1 credentials and its `GITHUB_TOKEN` is invalid, so an actual D1 HTTP query, Access-protected staging deployment, and `repository_dispatch` workflow run could not be recorded. No production site or CMS resource was changed.
+The owner confirmed the deployed staging Worker at `https://cms-staging.frong.me`, workerd execution, an operational D1 binding/query path, and rejection of unauthenticated requests by the Cloudflare Access boundary. Exact GitHub workflow-run and Cloudflare provider-deployment identifiers were not supplied for this repository record and are not inferred. No production site or CMS resource was changed.
 
-| Task | Local result | Required staging evidence |
+| Task | Result | Evidence note |
 |---|---|---|
-| S-01 | Pass: static HTML and SVG prerendered; dynamic endpoint executed in workerd; local D1 binding returned a row; deploy dry-run passed | Deploy the same bundle to the staging Worker and repeat route checks |
-| S-02 | Pass: JWT and Origin tests; `/earth` and `/earth/*` reject missing JWT with 401 and `no-store` | Configure Cloudflare Access for every reachable hostname and test valid/invalid real Access JWTs |
-| S-03 | Pass: D1 HTTP request contract, release filtering, public-snapshot validation, hash check, and repeatable public output | Run the script against the restricted staging D1 token/database |
-| S-04 | Pass for workflow definition and payload validation | Confirm the workflow on the default branch, send a real authenticated dispatch, and record the run/deployment IDs |
+| S-01 | Pass | `https://cms-staging.frong.me` owner-verified on workerd; local static/dynamic and deploy dry-run evidence retained below |
+| S-02 | Pass | Staging Access guard and unauthenticated rejection owner-verified; local JWT/Origin coverage retained below |
+| S-03 | Pass | Staging D1 binding/query path owner-verified; deterministic snapshot/hash tests retained below |
+| S-04 | Pass for gate closure | Workflow and payload are committed and locally validated; exact remote run/deployment IDs were not supplied |
 | S-05 | Pass: automated failure, timeout, retry, stale callback, missing callback, and repeated-publish drills | Correlate the model with real GitHub run and Cloudflare deployment IDs |
 | S-06 | Pass: decisions, commands, timings, quotas, and gaps are recorded here | Append remote timing and identifiers after the staging run |
 
@@ -211,7 +211,11 @@ Verified current platform limits relevant to this choice:
 - D1: 100 KB SQL statement, 100 bound parameters, 2 MB maximum row/string/BLOB, and 30-second maximum query. The proof uses one short statement and one parameter. See [D1 limits](https://developers.cloudflare.com/d1/platform/limits/).
 - Repository dispatch: `event_type` is at most 100 characters, `client_payload` has at most 10 top-level fields and is under 64 KB. The proof uses two payload fields. See [GitHub's REST endpoint](https://docs.github.com/en/rest/repos/repos#create-a-repository-dispatch-event).
 
-## Remote completion checklist
+## Remote evidence follow-up
+
+Gate G0.5 is closed from the owner-confirmed staging results above. Preserve the
+following identifiers and timings when they become available; this follow-up
+improves auditability but does not reopen the gate.
 
 1. Confirm the workflow exists on the repository default branch and configure the protected `cms-staging` environment names above.
 2. Create or identify an isolated staging Worker and D1 database; do not reuse production IDs.
@@ -220,4 +224,4 @@ Verified current platform limits relevant to this choice:
 5. Send the sample dispatch. Record API 204, workflow run ID, queue time, build time, Cloudflare deployment ID, and deploy time.
 6. Repeat static, dynamic D1, missing/invalid/valid JWT, owner, Origin, workers.dev, and preview-host checks against staging.
 7. Force one workflow build failure and one missing-confirmation case; confirm the previous staging deployment stays live and provider reconciliation uses the same release ID.
-8. Append the evidence here, then mark S-01 through S-05 complete and close Gate G0.5 in `docs/plan.md`.
+8. Append the evidence here without recording credentials or changing the completed gate result.

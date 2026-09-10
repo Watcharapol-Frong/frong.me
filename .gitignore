@@ -26,3 +26,6 @@ pnpm-debug.log*
 # IDEs / Editors
 .vscode/
 .idea/
+
+# generated CMS build cache
+.cache/

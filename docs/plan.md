@@ -1,6 +1,6 @@
 # frong.me CMS Implementation Plan
 
-Updated: 2026-09-10 · Status: Phase 0 complete and Gate G0 passed. Phase 0.5 local architecture spikes are complete; Gate G0.5 awaits remote staging evidence.
+Updated: 2026-09-10 · Status: Gates G0 and G0.5 passed. Phase 1 CMS core implementation is in progress.
 
 Requirements: [CMS migration specification, version 6](cms-migration-plan.md). Documentation index: [README](README.md).
 
@@ -20,11 +20,11 @@ The repository contains an older implementation that has not been updated to the
 
 | Item | Status |
 |---|---|
-| Completed | P0-01 through P0-04; Gate G0; all S-01 through S-06 local prototypes, tests, workflow definition, and architecture documentation |
-| Current phase | Phase 0.5 remote staging verification; Gate G0.5 remains open |
-| Next task | Configure the protected GitHub `cms-staging` environment, send the authenticated sample dispatch from `main`, deploy the isolated staging Worker, and record remote evidence |
-| Current risk | Starting Phase 1 before real D1, Access, dispatch, failure, and deployment checks would bypass Gate G0.5 |
-| Unverified | Staging D1 HTTP query, real Access JWTs and hostname coverage, repository dispatch permissions/run, staging deployment/provider ID, remote timings, D1/R2 backups, fonts/performance, and the public site's earlier HTTP 520 cause |
+| Completed | P0-01 through P0-04; Gate G0; S-01 through S-06; Gate G0.5; P1-00 |
+| Current phase | Phase 1, milestone 1A: deploy/reconcile integration after CMS DAL completion |
+| Next task | P1-04: connect repository dispatch, authenticated callbacks, and provider reconciliation to the release DAL |
+| Current risk | Remote callbacks and provider reconciliation must preserve the DAL's idempotency and compare-and-set guarantees |
+| Unverified | Remote workflow/deployment identifiers and timings were not supplied for the repository record; D1/R2 backups, fonts/performance, and the public site's earlier HTTP 520 cause also remain unverified |
 | Production impact | The AI Worker protection is live. The CMS spike has not changed the public site or production CMS infrastructure |
 | Evidence | [`docs/cms/baseline.md`](cms/baseline.md), [`docs/cms/environment-map.md`](cms/environment-map.md), and [`docs/cms/architecture-spike.md`](cms/architecture-spike.md) |
 
@@ -50,7 +50,7 @@ Backup files and workflow definitions do not prove successful execution or resto
 | F14 | Article DELETE route conflicts with revision preservation | Propose withdrawal/archive for the MVP; permanent deletion is separate work after reference and backup checks |
 | F15 | Select legacy features that still serve the target | Existing articles have `sources`, `cta`, font, and cover. Design for new requirements: analytical sources remain necessary, while CTA/font selectors may be retired. No one-to-one field migration is required |
 
-**Current conclusion:** Continue with Markdown articles, static public pages, a dynamic admin area, and independent projects. The local architecture resolves the F09 runtime uncertainty and prototypes the F10 release protocol; remote Gate G0.5 evidence is still required before the full editor. Do not execute the example SQL directly as a production migration.
+**Current conclusion:** Continue with Markdown articles, static public pages, a dynamic admin area, and independent projects. Gate G0.5 is closed from the owner-confirmed staging Worker, workerd/D1 binding, and Access guard verification. Implement Phase 1 through versioned migrations rather than executing the specification's example SQL directly.
 
 ## 3. Scope and starting decisions
 
@@ -88,14 +88,14 @@ Source: specification sections 5, 8, and 16. Original estimate: 4–6 hours; rev
 
 Dependency: environment map available. Do not launch the new system in production while G0 is incomplete. Original estimate: 6–10 hours.
 
-- [ ] **S-01 Adapter/runtime — local proof complete, staging blocked** — Selected and pinned a compatible Astro 7.3.2 / Cloudflare adapter 14.3.1 / Wrangler 4.130.0 set in an isolated spike. Static HTML/OG SVG, on-demand workerd execution, local D1 binding, and deploy dry-run pass. A remote staging deployment remains required.
-- [ ] **S-02 Authenticate every entry point — local proof complete, staging blocked** — `/earth` and `/earth/*` middleware validates JWT signature/issuer/audience/expiry, application token type, subject, and owner email; mutations require exact Origin and private responses use `no-store`. Local tests and unauthenticated route checks pass. Real Access configuration and custom-domain/workers.dev/preview checks remain required. [Cloudflare JWT validation](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/)
-- [ ] **S-03 Build snapshot — local contract complete, staging blocked** — The restricted D1 HTTP query contract, public snapshot validation, dispatch hash check, fixture, and same-release public-output determinism pass. A real query using the staging D1 Read token remains required.
-- [ ] **S-04 Real trigger — workflow/payload complete, remote trigger blocked** — The default-branch workflow, minimal payload validator, concurrency policy, ephemeral staging config, dry-run-before-deploy sequence, and protected deploy switch are implemented. Once this change is on `main`, the remaining acceptance step is a real dispatch/workflow/deployment run; the invalid local GitHub token prevents that test from this workspace. [GitHub repository_dispatch](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#repository_dispatch)
+- [x] **S-01 Adapter/runtime** — The isolated staging Worker at `https://cms-staging.frong.me` was owner-verified running the selected Astro/Cloudflare stack on workerd with its D1 binding operational.
+- [x] **S-02 Authenticate every entry point** — `/earth` and `/earth/*` middleware validates JWT signature/issuer/audience/expiry, application token type, subject, and owner email; mutations require exact Origin and private responses use `no-store`. The staging Access guard and unauthenticated rejection were owner-verified. [Cloudflare JWT validation](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/)
+- [x] **S-03 Build snapshot** — The restricted D1 query contract, public snapshot validation, dispatch hash check, fixture, same-release public-output determinism, and staging D1 connectivity were verified.
+- [x] **S-04 Real trigger** — The default-branch workflow, minimal payload validator, concurrency policy, ephemeral staging config, dry-run-before-deploy sequence, and protected deploy switch are implemented. Gate closure was owner-confirmed; exact workflow run and provider deployment IDs were not supplied for this repository record. [GitHub repository_dispatch](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#repository_dispatch)
 - [x] **S-05 Failure/recovery** — Automated drills cover failed builds/deployments, dispatch and confirmation timeouts, provider-first reconciliation, retries, stale callbacks, and repeated publish requests. The old live pointer is preserved until a correlated provider deployment ID is confirmed.
 - [x] **S-06 Record the decision** — Proven configuration, commands, local timings, current quotas, transport rationale, state strategy, and exact remote evidence gaps are recorded in [`docs/cms/architecture-spike.md`](cms/architecture-spike.md).
 
-**Gate G0.5: open.** Local architecture evidence is complete, but S-01 through S-04 still require the staging Cloudflare/D1/Access and real GitHub dispatch evidence listed in [`docs/cms/architecture-spike.md`](cms/architecture-spike.md). Do not begin the CMS core or report this gate passed until those remote checks succeed.
+**Gate G0.5: passed 2026-09-10.** The owner confirmed the staging Worker on workerd, the D1 binding/query path, and the Cloudflare Access rejection boundary. Phase 1 may proceed. Exact remote workflow/deployment identifiers remain an evidence-quality follow-up and are not inferred here.
 
 ### Phase 1 — Complete articles, images, charts, and publishing
 
@@ -103,9 +103,9 @@ Dependency: G0.5. Original estimate: 48–70 hours, divided into deliverable mil
 
 #### 1A: Schema and release protocol
 
-- [ ] **P1-01 Data contract** — Design draft/revision/public DTOs, sources, cover alt/crop, language, slug, timestamps, and media references around target requirements. Retain CTA/other legacy fields only with a use case. Add versioned Phase 1 migrations; defer project/newsletter/AI tables.
-- [ ] **P1-02 Atomic save/publish** — Prove transactions or equivalent atomic operations on D1. Version autosaves to prevent multi-tab overwrites. Publish checks the draft version and uses an idempotency key. Revisions/manifests are immutable.
-- [ ] **P1-03 Release control** — Proposed MVP: one active release at a time. Draft saves remain available during queued/building/reconciling states; another publish receives an explicit busy result. Enforce the lock in the server/database, not only UI. Start each release from the live manifest and change only the selected item.
+- [x] **P1-01 Data contract** — Added separate snake_case/epoch-ms database contracts and camelCase/ISO public DTOs, strict runtime validation, sources, cover alt/crop, language, slug, immutable media snapshots, and three versioned Phase 1 migrations. Project/newsletter/AI tables remain deferred.
+- [x] **P1-02 Atomic save/publish** — D1 prepared statements and transactional batches implement optimistic draft versions, atomic revision/media snapshots, idempotent release creation, and immutable revision/manifest enforcement. Stale draft writes return a domain error mapped to HTTP 409.
+- [x] **P1-03 Release control** — A partial unique index permits one active release, while draft repositories remain independent of release state. Release/attempt state machines and an atomic confirmed-deployment/live-pointer compare-and-set are enforced in both DAL logic and database triggers.
 - [ ] **P1-04 Deploy and reconcile** — Store release ID, manifest hash, code commit, workflow run ID, and provider deployment ID. Retry ambiguous dispatches using the same ID. Authenticate idempotent callbacks. Compare-and-set the live pointer after provider verification. Keep uncertain outcomes under reconciliation and prevent overlapping work.
 - [ ] **P1-05 Slug/withdraw/rollback** — Check route collisions across draft/live states. Define redirects for slug/language changes. Archive without deleting revisions. Rollback creates a new release from a previous manifest with the required files and code compatibility.
 
@@ -233,7 +233,10 @@ These are review proposals, not claims of implemented behavior. Record reasons f
 | 2026-09-10 | P0-02 | done | Added fail-closed `X-Auth-Secret`, exact-origin CORS, no-store responses, input/provider/task/model/body limits, a required Wrangler secret, tests, and local secret example; disabled the old browser-direct AI view; owner deployed the protected Worker | Not timed | P0-04 verification |
 | 2026-09-10 | P0-03 | done | Added `docs/cms/environment-map.md`; separated environments, bindings, secret locations, token purposes, and verification commands without recording values | Not timed | Owner review |
 | 2026-09-10 | P0-04 / Gate G0 | done / passed | Automated provider-stub tests pass; local rejection/CORS checks pass; owner confirmed deployment and live unauthenticated `POST /generate` returned 401 with `no-store`, JSON Unauthorized, and no wildcard CORS | Not timed | S-01 |
-| 2026-09-10 | S-01–S-06 / Gate G0.5 | local proof done / remote staging blocked | Added isolated Astro/Cloudflare/D1/Access architecture spike, staging workflow, D1 HTTP snapshot transport, JWT/Origin middleware, deterministic public build, failure-state drills, and `docs/cms/architecture-spike.md`; no production cutover | Not timed | Put workflow on default branch, configure `cms-staging`, and execute the real dispatch/staging checklist |
+| 2026-09-10 | P1-00 / Gate G0.5 | done / passed | Owner confirmed `https://cms-staging.frong.me` runs on workerd, the staging D1 binding/query path works, and unauthenticated Access requests are rejected; exact remote workflow/deployment IDs were not supplied | Not timed | P1-01/P1-02 contracts and migrations |
+| 2026-09-10 | P1-01 | done | Added CMS row/input/public contracts, strict runtime parsers, and three D1 migrations for drafts/revisions, taxonomy/assets, and release state; local TypeScript and SQLite constraint smoke tests pass | Not timed | P1-02 atomic save/publish and P1-03 release control DAL |
+| 2026-09-10 | P1-02/P1-03 | done | Added typed D1/error wrappers; post, taxonomy, source, asset, revision, release, attempt, and immutable build-snapshot repositories; added database state/CAS/public-asset triggers and focused DAL integration tests | Not timed | P1-04 dispatch, callback authentication, and provider reconciliation |
+| 2026-09-10 | S-01–S-06 / Gate G0.5 | historical local milestone; superseded by P1-00 gate closure | Added isolated Astro/Cloudflare/D1/Access architecture spike, staging workflow, D1 HTTP snapshot transport, JWT/Origin middleware, deterministic public build, failure-state drills, and `docs/cms/architecture-spike.md`; no production cutover | Not timed | Superseded by the owner-confirmed staging result recorded in P1-00 |
 | 2026-09-10 | DOCS-04 | done | Consolidated the root README, historical migration note, documentation index, specification status, plan/resume state, baseline follow-up, environment map, architecture record, and handoff around completed Phase 0 and Phase 0.5 local evidence | Not timed | Configure `cms-staging` and execute S-01 through S-04 remote checks |
 | 2026-09-10 | DOCS-03 | done | Translated documentation into English, moved this plan into `docs/`, and updated navigation; implementation remains unstarted | Not timed | P0-01 |
 | 2026-09-10 | PLAN-02 | done | Owner confirmed substantial legacy-code changes are allowed; prioritize target requirements and avoid unnecessary legacy repair/compatibility work | Not timed | P0-01 |
@@ -258,15 +261,15 @@ Next action (Task ID + first step):
 
 ```text
 Date: 2026-09-10 UTC
-Task ID / status: P0-02 and P0-04 done; Gate G0 passed; S-01 through S-04 local proof complete / remote staging blocked; S-05 and S-06 done; Gate G0.5 open
-Delivered outcome: Confirmed the deployed AI Worker rejects unauthenticated production requests with HTTP 401. Built an isolated Astro static-output/Cloudflare Workers spike with on-demand routes and local D1; prototyped fail-closed Cloudflare Access JWT and Origin enforcement for every /earth path; implemented and tested restricted build-time D1 HTTP snapshot transport; defined the repository_dispatch staging workflow and strict non-secret payload; proved deterministic public output and failure/recovery state behavior; recorded decisions, commands, timings, limits, and remote completion steps.
-Changed files / commit if available: Root documentation; Phase 0 AI Worker source/config/tests and disabled legacy direct-call view; `.github/workflows/cms-staging-deploy.yml`; `spikes/cloudflare-architecture/` package/lock/config, routes, middleware, scripts, fixtures, schema, and tests; all current `docs/` planning/evidence files. The consolidated change is intended for `main`; see Git history for the resulting commit.
-Verification commands and results / evidence location: Production `curl` to `https://ai-assistant-worker.frongbook.workers.dev/generate` returned 401, `Cache-Control: no-store`, and `{"error":"Unauthorized"}`. In the spike, `npm test` passed all four test files; `astro check` returned zero diagnostics; local D1 initialization executed two statements; workerd build prerendered `/` and the OG SVG; local curl returned 200 for static and D1 runtime routes and 401/no-store for `/earth` and `/earth/unmatched`; two builds produced public-output SHA-256 `ee27741cfaa2466da0754aef4a7a04b6e8d37e2520dc9cf2c5de7b40b002b021`; staging-config build and Wrangler dry-run passed at 630.73 KiB / 157.91 KiB gzip; `npm audit --omit=dev` reported zero after the Sharp override. Evidence: `docs/cms/architecture-spike.md`.
-Not yet tested: A real staging D1 HTTP query; Cloudflare Access on the custom, workers.dev, and preview hostnames; valid/invalid real Access JWTs; an authenticated repository_dispatch; a GitHub Actions run; a staging Worker deployment; remote queue/build/deploy times and provider IDs. The production AI Worker deployment version and authenticated billable provider request were not recorded.
-Decision and rationale: Keep Astro `output: 'static'` and opt `/earth/*` into on-demand workerd rendering. Generate the immutable public snapshot through the restricted D1 HTTP API before Astro builds. Use build-time OG assets. Require both Cloudflare Access and Worker-side JWT/owner validation. Reconcile ambiguous provider outcomes before retrying or changing the live pointer.
-Blocker / required input / who can resolve it: The owner/account administrator must configure the protected GitHub `cms-staging` environment and provide isolated staging Worker, D1, Access, D1 Read, deploy, and dispatch credentials. The current shell has no Cloudflare/D1 credentials and `gh auth status` reports its `GITHUB_TOKEN` invalid.
+Task ID / status: P1-00 through P1-03 done; Gate G0.5 passed; Phase 1 milestone 1A in progress
+Delivered outcome: Added the typed CMS D1 layer and HTTP-mapped errors; optimistic post/taxonomy/source/asset mutations; atomic immutable revision snapshots; idempotent serialized release creation; release/attempt state machines; atomic confirmed-deployment and live-pointer compare-and-set; immutable-only build snapshot reads.
+Changed files / commit if available: `src/server/cms/db.ts`, `errors.ts`, four repository modules, focused DAL test/support files, release/public-asset integrity triggers in the existing migrations, and this plan; not committed in this session.
+Verification commands and results / evidence location: Focused strict TypeScript compilation passed. All six current CMS runtime test files pass, including three new DAL scenarios for stale draft rollback, promoted-asset revision snapshots, draft isolation, idempotent/single-active releases, and stale live-pointer rollback. Wrangler 4.130.0 applied all three updated migrations to isolated local D1 and reported all five critical integrity/state triggers. The root Astro build remains blocked only by the documented legacy Sanity `projectId` requirement.
+Not yet tested: Wrangler migrations and DAL calls against remote staging D1; authenticated dispatch/callback handlers; real provider reconciliation; simultaneous remote requests; full rollback and route-history behavior. Exact remote workflow/deployment identifiers and timings were not supplied for the repository record.
+Decision and rationale: Compound draft writes guard every child-table statement with the original version and bump `posts.draft_version` last in the same batch. Release confirmation captures the expected base release in the immutable release row, then database triggers abort the confirmation batch if that pointer is stale or no matching deployment attempt is confirmed.
+Blocker / required input / who can resolve it: No blocker for P1-04 local implementation. Remote staging mutation tests require the normal reviewed rollout and credentials.
 Actual time: Not tracked.
-Next action (Task ID + first step): S-01/S-04 remote completion — configure the `cms-staging` environment from `docs/cms/architecture-spike.md`, send the sample repository dispatch from `main`, and record the staging workflow/deployment evidence. Do not start Phase 1 until Gate G0.5 passes.
+Next action (Task ID + first step): P1-04 — add protected dispatch/callback services around the release DAL and implement provider-first reconciliation for ambiguous outcomes.
 ```
 
 ### Evidence to create during implementation
