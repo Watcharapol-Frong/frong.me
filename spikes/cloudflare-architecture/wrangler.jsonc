@@ -20,6 +20,11 @@
       "database_name": "cms-architecture-spike-local",
       "database_id": "00000000-0000-0000-0000-000000000000",
       "preview_database_id": "cms-architecture-spike-local"
+    },
+    {
+      "binding": "DB_STAGING",
+      "database_name": "portfolio-db-staging",
+      "database_id": "71cba742-a269-475d-84b0-8df1223a368a"
     }
   ]
 }
