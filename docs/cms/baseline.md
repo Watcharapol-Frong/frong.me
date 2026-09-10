@@ -36,9 +36,11 @@ This is an expected legacy-environment dependency and does not need repair befor
 
 `npx tsc --noEmit` also fails before checking application files because the installed TypeScript 7.0.2 has removed the legacy `baseUrl` option still present in `tsconfig.json`. That configuration belongs to the old build setup; it was recorded without changing the root toolchain during Phase 0.
 
-At baseline capture, no main-site Cloudflare adapter, main-site Wrangler configuration, D1 migrations, `/earth`, RSS, or English article route existed. Phase 0.5 later added an isolated proof under `spikes/cloudflare-architecture/`; the main application remains unchanged.
+At baseline capture, no main-site Cloudflare adapter, main-site Wrangler configuration, D1 migrations, `/earth`, RSS, or English article route existed. Phase 0.5 later added an isolated proof under `spikes/cloudflare-architecture/`, and Phase 1 added the CMS schema, contracts, data-access layer, tooling, and admin components to the root application without changing any public route.
 
-At baseline capture, the only deployment configuration was `ai-worker/wrangler.jsonc`, and the Sanity backup workflow was the only GitHub Actions workflow. Phase 0.5 later added the isolated `cms-staging-deploy.yml` workflow.
+At baseline capture, the only deployment configuration was `ai-worker/wrangler.jsonc`, and the Sanity backup workflow was the only GitHub Actions workflow. Phase 0.5 later added the isolated `cms-staging-deploy.yml` workflow, and Phase 1 added a root `wrangler.jsonc` binding `DB` to the staging D1 database plus versioned migrations under `db/migrations/`.
+
+The two legacy blockers recorded above were re-checked during the Phase 1 documentation sync and both still reproduce: the root build stops at `Configuration must contain projectId`, and `npx tsc --noEmit` reports only `TS5102: Option 'baseUrl' has been removed`. They remain retired-configuration issues rather than Phase 1 work.
 
 ## Public entry-point observations
 

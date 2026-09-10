@@ -1,6 +1,6 @@
 # Astro Migration — Notes
 
-> Historical notes from the earlier Vite/React-to-Astro migration. File names, content, and completion claims below describe that stage and may no longer match the repository. Phase 0 is now complete, and Phase 0.5 has local architecture evidence with remote staging verification still pending. For current CMS work, use the [implementation plan](docs/plan.md), [specification](docs/cms-migration-plan.md), and [architecture record](docs/cms/architecture-spike.md).
+> Historical notes from the earlier Vite/React-to-Astro migration. Everything below describes that stage and no longer matches the repository: `src/data/projects.ts`, the `/project/[id]` route, and the 18 generated project pages were removed when articles moved to Sanity, and the current article pipeline is being replaced again by the Cloudflare-native CMS. Gates G0 and G0.5 have since passed, and Phase 1 milestone 1A is under way. For current work, use the [implementation plan](docs/plan.md), [specification](docs/cms-migration-plan.md), and [architecture record](docs/cms/architecture-spike.md). This file is kept only for the migration rationale it records.
 
 Scaffolded from the original Vite+React repo (`Watcharapol-Frong/portfolio`), same look & feel, now with SSG.
 

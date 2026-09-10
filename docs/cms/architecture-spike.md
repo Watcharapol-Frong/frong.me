@@ -218,10 +218,14 @@ following identifiers and timings when they become available; this follow-up
 improves auditability but does not reopen the gate.
 
 1. Confirm the workflow exists on the repository default branch and configure the protected `cms-staging` environment names above.
-2. Create or identify an isolated staging Worker and D1 database; do not reuse production IDs.
+2. Create or identify an isolated staging Worker and D1 database; do not reuse production IDs. Partly done: Phase 1 added a root `wrangler.jsonc` binding `DB` to the staging database `portfolio-db-staging` with `migrations_dir: db/migrations`. Applying those migrations remotely and recording the result is still outstanding.
 3. Configure Access for the custom domain and every enabled alternate hostname.
 4. Run `fetch-release.mjs` against staging with the D1 Read token and record the release/hash without recording credentials.
 5. Send the sample dispatch. Record API 204, workflow run ID, queue time, build time, Cloudflare deployment ID, and deploy time.
 6. Repeat static, dynamic D1, missing/invalid/valid JWT, owner, Origin, workers.dev, and preview-host checks against staging.
 7. Force one workflow build failure and one missing-confirmation case; confirm the previous staging deployment stays live and provider reconciliation uses the same release ID.
 8. Append the evidence here without recording credentials or changing the completed gate result.
+
+## Phase 1 relationship to this spike
+
+The spike remains a separate package with its own lockfile and is still the only place where the Astro Cloudflare adapter, the `/earth` Access middleware, the dispatch workflow, and the recovery drills run. Phase 1 did not migrate them into the root application. The root application now holds the durable schema, contracts, and data-access layer that the spike only simulated, so the two must be reconciled during P1-04 through P1-08: the release protocol proven here has to be re-implemented against `src/server/cms/repositories/releases.ts`, and `scripts/build/export-live-snapshot.mjs` supersedes the spike's `fetch-release.mjs` transport for the root build.

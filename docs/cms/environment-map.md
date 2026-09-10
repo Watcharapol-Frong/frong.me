@@ -2,7 +2,7 @@
 
 Updated: 2026-09-10 UTC
 
-Tasks: P0-03 and Phase 0.5 configuration follow-up
+Tasks: P0-03, Phase 0.5 configuration follow-up, and Phase 1 root configuration
 
 This document records resource and secret names, ownership boundaries, and configuration locations. Never store secret values here.
 
@@ -10,9 +10,9 @@ This document records resource and secret names, ownership boundaries, and confi
 
 | Resource | Staging | Production | Owner / authoritative configuration | Current evidence |
 |---|---|---|---|---|
-| Main-site Worker | Prototype defined; remote resource still required | `frong.me`; Worker name/dashboard locator unknown | Cloudflare account and future main-site Wrangler config | Isolated Phase 0.5 workerd build passes; no staging or production cutover |
+| Main-site Worker | Prototype defined; remote resource still required | `frong.me`; Worker name/dashboard locator unknown | Cloudflare account and root `wrangler.jsonc` (Worker name `frong-me`, compatibility date 2026-09-10, `nodejs_compat`) | Isolated Phase 0.5 workerd build passes; the root config is used for D1 migrations only, and no staging or production cutover has occurred |
 | AI Worker | A separate staging environment is recommended before future changes | Worker name `ai-assistant-worker`; URL `https://ai-assistant-worker.frongbook.workers.dev` | `ai-worker/wrangler.jsonc` plus Cloudflare Worker secrets | Production unauthenticated probe returned 401 with `no-store` on 2026-09-10 |
-| CMS D1 | Separate database ID required | `portfolio-db` proposed; actual ID unknown | Main-site Wrangler config/Cloudflare dashboard | Local schema/binding and HTTP contract proven; remote database and credentials unavailable |
+| CMS D1 | `portfolio-db-staging`, bound as `DB` with its database ID recorded in the root `wrangler.jsonc` | `portfolio-db` proposed; actual ID unknown | Root `wrangler.jsonc`, `migrations_dir: db/migrations` | Three migrations, the staging seed, and the verification script pass against local D1; no remote application or verification run is recorded |
 | Private media R2 | Separate private bucket required | Name to decide | Main-site Wrangler config/Cloudflare dashboard | Not present |
 | Public media R2/domain | Separate public bucket/domain required | `portfolio-images` proposed; actual locator unknown | Main-site Wrangler config/Cloudflare dashboard | Not present |
 | Cloudflare Access | Staging application/audience required | `/earth` and `/earth/*`; team domain/AUD unknown | Cloudflare Zero Trust | Worker-side JWT/owner/Origin behavior proven locally; remote Access application unavailable |
@@ -29,11 +29,11 @@ Do not reuse staging databases, buckets, Access audience values, or deployment s
 | `AI_WORKER_SECRET` | AI Worker and future authenticated admin proxy | Cloudflare Worker secret; local `ai-worker/.dev.vars`; proxy secret store | Authenticate server-to-server calls | Owner confirmed production configuration; value is unavailable and never recorded in this repository |
 | `GEMINI_API_KEY` | AI Worker, optional | Cloudflare Worker secret | Gemini provider calls | Optional/unverified |
 | `OPENROUTER_API_KEY` | AI Worker, optional | Cloudflare Worker secret | OpenRouter provider calls | Optional/unverified |
-| `DB` | Future main-site Worker | Per-environment D1 binding | Runtime CMS access | Binding name proven locally in the Phase 0.5 spike; staging ID remains unknown |
+| `DB` | Root Wrangler config and the future main-site Worker | Per-environment D1 binding | Runtime CMS access and migration application | Declared in the root `wrangler.jsonc` against `portfolio-db-staging`; exercised locally through Wrangler and the test adapter. A production binding is still undefined |
 | Private/public R2 binding names | Future main-site Worker | Per-environment R2 bindings | Draft and published media | Phase 1 names to decide after prototype |
-| `CF_ACCOUNT_ID` | Build/CI | GitHub environment secret or protected CI configuration | Identify Cloudflare account | Unset |
-| `CF_D1_DATABASE_ID` | Build/CI | GitHub environment secret or protected CI configuration | Identify the environment's D1 database | Unset |
-| `CF_D1_READ_TOKEN` | Build/CI | GitHub `cms-staging` environment secret | Read approved release snapshots during static builds | Contract proven with a stub; real restricted token unset |
+| `CF_ACCOUNT_ID` | Build/CI, `scripts/build/export-live-snapshot.mjs`, `scripts/db/verify-staging.mjs` | GitHub environment secret or protected CI configuration; local `.env` for the scripts | Identify Cloudflare account | Names listed in `.env.example`; no value recorded here |
+| `CF_D1_DATABASE_ID`, `CF_D1_DATABASE_NAME` | Build/CI and the same two scripts | GitHub environment secret/variable or protected CI configuration | Identify the environment's D1 database | Names listed in `.env.example`; no value recorded here |
+| `CF_D1_READ_TOKEN` | Build/CI and the same two scripts | GitHub `cms-staging` environment secret | Read approved release snapshots and run read-only verification queries | Contract proven with a stub and unit tests; real restricted token not recorded here |
 | `CF_DEPLOY_TOKEN` | Deploy workflow | GitHub `cms-staging` environment secret | Deploy the staging main-site Worker | Separate from D1 read access; real token unset |
 | `GITHUB_DISPATCH_TOKEN` | Future admin server | Cloudflare secret | Trigger the repository's publish workflow | Unset; use a repository-scoped token with only required dispatch permission |
 | `GITHUB_REPO` | Future admin server | Non-secret environment variable | Dispatch target, expected `Watcharapol-Frong/portfolio` | Unset |
@@ -53,6 +53,24 @@ Use `.dev.vars` for local Worker secrets and never commit it. `ai-worker/.dev.va
 3. Isolated staging Worker, D1, and Access resources with owners and dashboard locators. Do not reuse production resource IDs.
 4. Separate D1 Read and Worker deploy credentials with only the permissions their workflow steps require.
 5. Named owners and dashboard locators for future production D1, R2, Access, and backup storage before those phases use them.
+
+## CMS database commands
+
+The root `wrangler.jsonc` binds `DB` to the staging database `portfolio-db-staging` and reads versioned migrations from `db/migrations/`. Run everything against local D1 first; `--remote` touches the real staging database.
+
+```sh
+npm run test:cms
+npx wrangler d1 migrations list DB --local
+npx wrangler d1 migrations apply DB --local
+npx wrangler d1 execute DB --local --file db/seeds/staging.sql
+node scripts/db/verify-staging.mjs --wrangler --local
+```
+
+`db/seeds/staging.sql` is deterministic and idempotent, so repeated execution neither errors nor violates the immutability triggers. `scripts/db/verify-staging.mjs` checks foreign keys and the partial indexes `idx_one_cover_per_post`, `idx_one_active_release`, and `idx_release_visible_routes`. It also accepts `--http` for the Cloudflare D1 HTTP API using `CF_ACCOUNT_ID`, `CF_D1_DATABASE_ID`, and `CF_D1_READ_TOKEN`, and `--sqlite <path>` for a local file.
+
+`scripts/build/export-live-snapshot.mjs` writes the validated live release snapshot to `.cache/cms-live-snapshot.json`, or to `CMS_SNAPSHOT_PATH`. It prefers the D1 HTTP API when the read credentials are present, falls back to local D1 state, and accepts `--mock` for a fixture snapshot when no database is connected. `.cache/` and `.wrangler/` are ignored by git.
+
+Copy `.env.example` for variable names only. Never commit `.env`, and never record credential values in this document.
 
 ## Local and production verification commands
 

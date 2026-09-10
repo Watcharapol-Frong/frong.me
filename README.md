@@ -1,12 +1,14 @@
 # frong.me Portfolio
 
-This repository contains the current Astro portfolio, the protected AI Worker, and an isolated architecture proof for the planned Cloudflare-native CMS.
+This repository contains the current Astro portfolio, the protected AI Worker, the first Phase 1 pieces of the Cloudflare-native CMS, and the isolated architecture proof that preceded them.
 
 ## Project status
 
 - Phase 0 is complete. The production AI Worker requires `X-Auth-Secret`, fails closed, restricts browser CORS to `https://frong.me`, and rejects unauthenticated requests with HTTP 401.
 - Gate G0.5 passed after owner-confirmed staging Worker/workerd, D1 binding/query, and Cloudflare Access guard verification. Exact remote workflow/deployment identifiers remain an evidence follow-up.
-- Phase 1 CMS contracts and versioned D1 migrations are now in progress. The public site still uses the legacy Sanity-backed application; no CMS production cutover has occurred.
+- Phase 1 milestone 1A is partly delivered: data contracts, three versioned D1 migrations, the typed D1 data-access layer with release/live-pointer compare-and-set, a staging seed, and the CMS test suite (`npm run test:cms`) are in place. P1-04 (dispatch, authenticated callbacks, provider reconciliation) is the current task.
+- Supporting build and admin code exists but is not yet wired to a route: the snapshot exporter, the Markdown asset resolver, image metadata extraction, and the three transport-agnostic admin React components under `src/components/cms/`. Their owning tasks (P1-06, P1-08, P1-10) remain open because their acceptance criteria are not met.
+- The public site still uses the legacy Sanity-backed application; no CMS production cutover has occurred. The root static build still requires the legacy Sanity variables.
 
 Use the [implementation plan](docs/plan.md) for the authoritative task status and handoff.
 
@@ -14,8 +16,15 @@ Use the [implementation plan](docs/plan.md) for the authoritative task status an
 
 | Path | Purpose |
 |---|---|
-| `src/`, `public/`, `astro.config.mjs` | Current legacy Astro portfolio and Sanity-backed articles |
-| `sanity/`, `sanity.config.ts` | Legacy Sanity Studio; the unsafe browser-direct AI view is disabled |
+| `src/pages/`, `src/layouts/`, `src/components/`, `public/`, `astro.config.mjs` | Current legacy Astro portfolio and Sanity-backed articles |
+| `src/lib/cms/` | CMS data contracts, runtime validation, image metadata, and Markdown asset resolution |
+| `src/server/cms/` | Typed D1 wrapper, HTTP-mapped domain errors, and post/taxonomy/asset/release repositories |
+| `src/components/cms/` | Admin UI components (article editor, post list, release dashboard); no I/O, all state arrives as props |
+| `db/migrations/`, `db/seeds/` | Versioned D1 schema migrations and the deterministic idempotent staging seed |
+| `scripts/build/`, `scripts/db/` | Build-time release-snapshot exporter and the staging database verification tool |
+| `tests/cms/` | Node test-runner suite for contracts, DAL, asset resolution, seed, and verification |
+| `wrangler.jsonc` | Root Worker/D1 configuration used for migrations and staging verification |
+| `sanity/`, `sanity.config.ts`, `scripts/migrate-to-sanity.mjs` | Legacy Sanity Studio and migration script; the unsafe browser-direct AI view is disabled |
 | `ai-worker/` | Production AI provider Worker with server-to-server authentication and tests |
 | `spikes/cloudflare-architecture/` | Isolated Astro/Cloudflare/D1/Access/dispatch architecture proof |
 | `.github/workflows/` | Sanity backup and CMS staging-release workflows |
@@ -33,7 +42,7 @@ Use the [implementation plan](docs/plan.md) for the authoritative task status an
 
 ## Root application
 
-The root application requires Node.js 22.12 or newer. Its static build currently needs the legacy public Sanity variables.
+The root application requires Node.js 22.12 or newer. Its static build currently needs the legacy public Sanity variables, and `npx tsc --noEmit` still stops on the legacy `baseUrl` option in `tsconfig.json`.
 
 ```sh
 npm ci
@@ -49,6 +58,31 @@ npm run astro -- dev status
 npm run astro -- dev logs
 npm run astro -- dev stop
 ```
+
+## CMS database and tests
+
+The CMS suite runs on the Node test runner through `tsx` and needs no Cloudflare credentials:
+
+```sh
+npm run test:cms
+```
+
+Apply the versioned migrations and the staging seed with Wrangler. `wrangler.jsonc` binds `DB` to the staging database `portfolio-db-staging` and reads migrations from `db/migrations/`:
+
+```sh
+npx wrangler d1 migrations list DB --local
+npx wrangler d1 migrations apply DB --local
+npx wrangler d1 execute DB --local --file db/seeds/staging.sql
+```
+
+Replace `--local` with `--remote` only against the intended staging database. Verify relational integrity and partial-index enforcement, and export the live release snapshot for a static build:
+
+```sh
+node scripts/db/verify-staging.mjs --wrangler --local
+node scripts/build/export-live-snapshot.mjs --mock
+```
+
+`verify-staging.mjs` accepts `--wrangler` (add `--local` to stay on the local database; without it Wrangler targets the remote one), `--http` for the Cloudflare D1 HTTP API, or `--sqlite <path>` for a file. The exporter reads Cloudflare D1 over HTTP when `CF_ACCOUNT_ID`, `CF_D1_DATABASE_ID`, and `CF_D1_READ_TOKEN` are present, falls back to local D1 state, and otherwise writes a validated mock snapshot to `.cache/cms-live-snapshot.json`. Copy `.env.example` for the variable names; never commit values.
 
 ## AI Worker
 

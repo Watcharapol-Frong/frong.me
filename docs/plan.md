@@ -1,10 +1,10 @@
 # frong.me CMS Implementation Plan
 
-Updated: 2026-09-10 · Status: Gates G0 and G0.5 passed. Phase 1 CMS core implementation is in progress.
+Updated: 2026-09-10 · Status: Gates G0 and G0.5 passed. Phase 1 milestone 1A is in progress; P1-01 through P1-03 are accepted and P1-04 is the current task.
 
 Requirements: [CMS migration specification, version 6](cms-migration-plan.md). Documentation index: [README](README.md).
 
-This document began as a specification review and now records implementation progress, evidence, tasks, and acceptance gates. The production AI Worker protection is deployed and verified. The CMS architecture remains isolated under `spikes/`; no main-site CMS production cutover has occurred.
+This document began as a specification review and now records implementation progress, evidence, tasks, and acceptance gates. The production AI Worker protection is deployed and verified. The Phase 0.5 proof remains isolated under `spikes/`, and Phase 1 code now also lives in the root application under `src/lib/cms/`, `src/server/cms/`, `src/components/cms/`, `db/`, `scripts/`, and `tests/cms/`. None of it is reachable from a public or admin route yet, and no main-site CMS production cutover has occurred.
 
 ## Additional direction confirmed by the owner
 
@@ -20,15 +20,33 @@ The repository contains an older implementation that has not been updated to the
 
 | Item | Status |
 |---|---|
-| Completed | P0-01 through P0-04; Gate G0; S-01 through S-06; Gate G0.5; P1-00 |
+| Completed | P0-01 through P0-04; Gate G0; S-01 through S-06; Gate G0.5; P1-00 through P1-03 |
 | Current phase | Phase 1, milestone 1A: deploy/reconcile integration after CMS DAL completion |
 | Next task | P1-04: connect repository dispatch, authenticated callbacks, and provider reconciliation to the release DAL |
 | Current risk | Remote callbacks and provider reconciliation must preserve the DAL's idempotency and compare-and-set guarantees |
-| Unverified | Remote workflow/deployment identifiers and timings were not supplied for the repository record; D1/R2 backups, fonts/performance, and the public site's earlier HTTP 520 cause also remain unverified |
-| Production impact | The AI Worker protection is live. The CMS spike has not changed the public site or production CMS infrastructure |
+| Unverified | Every CMS check so far is local. Remote staging mutations, dispatch runs, provider reconciliation, and the workflow/deployment identifiers and timings were not supplied for the repository record; D1/R2 backups, fonts/performance, and the public site's earlier HTTP 520 cause also remain unverified |
+| Production impact | The AI Worker protection is live. The CMS work has not changed the public site or production CMS infrastructure |
+| Routine checks | `npm run test:cms` (43 tests across six files, all passing at this update); `npx wrangler d1 migrations apply DB --local`; `node scripts/db/verify-staging.mjs --wrangler --local` |
+| Known local blockers | The root `npm run build` still stops at static route generation without `PUBLIC_SANITY_PROJECT_ID`; `npx tsc --noEmit` still stops on the legacy `baseUrl` option in `tsconfig.json`. Both belong to retired legacy configuration |
 | Evidence | [`docs/cms/baseline.md`](cms/baseline.md), [`docs/cms/environment-map.md`](cms/environment-map.md), and [`docs/cms/architecture-spike.md`](cms/architecture-spike.md) |
 
 Backup files and workflow definitions do not prove successful execution or restorability. Record separate test evidence.
+
+### Phase 1 code currently in the repository
+
+Code exists for some tasks whose acceptance criteria are not met. Presence in this table does not check a box.
+
+| Area | Files | Owning task and state |
+|---|---|---|
+| Contracts and validation | `src/lib/cms/contracts.ts`, `src/lib/cms/validation.ts` | P1-01, accepted |
+| Schema | `db/migrations/0001_articles.sql`, `0002_taxonomy_assets.sql`, `0003_releases.sql` | P1-01, accepted; includes the state, compare-and-set, and public-asset integrity triggers |
+| Data access layer | `src/server/cms/db.ts`, `errors.ts`, `repositories/{posts,taxonomy,assets,releases}.ts` | P1-02 and P1-03, accepted |
+| Root Cloudflare configuration | `wrangler.jsonc` (`DB` bound to `portfolio-db-staging`, `migrations_dir: db/migrations`) | P1-01 support |
+| Staging data and verification | `db/seeds/staging.sql`, `scripts/db/verify-staging.mjs` | Support tooling; deterministic and idempotent, exercised locally only |
+| Build snapshot exporter | `scripts/build/export-live-snapshot.mjs` | P1-08 support; not yet consumed by any Astro route |
+| Markdown media resolution | `src/lib/cms/markdown/asset-resolver.ts`, `src/lib/cms/assets/metadata.ts` | P1-06, P1-11, and P1-13 support; the parser, sanitizer, and upload pipeline do not exist yet |
+| Admin UI | `src/components/cms/{ArticleEditor,PostList,ReleaseDashboard}.tsx` | P1-10 and P1-04 support; deliberately transport-agnostic, with no route, server validation, or autosave wiring |
+| Tests | `tests/cms/*.test.ts` plus fixtures and the D1 test adapter | Covers contracts, DAL scenarios, asset resolution, seed idempotency, verification, and snapshot export. `npm run test:cms` runs `tsx --test`, but `tsx` is only present transitively and is not declared in `package.json`; declare it as a dev dependency before relying on the script in CI |
 
 ## 2. Legacy implementation and target-design gaps
 
@@ -36,7 +54,7 @@ Backup files and workflow definitions do not prove successful execution or resto
 |---|---|---|
 | F01 | Legacy root stack matches the specification at the file level | `package-lock.json`: Astro 7.2.2, React 19.2.8, Tailwind 4.3.3. The root build is still blocked without the legacy Sanity project ID; the isolated Cloudflare spike is independently verified |
 | F02 | Public site still depends on Sanity | `astro.config.mjs` mounts Studio at `/admin`; `src/pages/index.astro` and `src/pages/articles/[slug].astro` query Sanity; output is omitted and defaults to static |
-| F03 | Target CMS core is not implemented | The isolated spike now proves the Cloudflare adapter, D1 binding, `/earth` auth boundary, snapshot transport, dispatch workflow, and recovery model. Production routes, schema migrations, RSS, and `/en/articles/` remain Phase 1 work |
+| F03 | Target CMS core is partly implemented | The isolated spike proves the Cloudflare adapter, D1 binding, `/earth` auth boundary, snapshot transport, dispatch workflow, and recovery model. The root application now holds the Phase 1 schema migrations, contracts, and data-access layer. Production routes, the Markdown renderer, media upload, RSS, `/earth`, and `/en/articles/` remain Phase 1 work |
 | F04 | Section 19's historical heading-fix claim does not match current files | `src/lib/slugify.ts` still strips Thai; `PortableTextHeading.astro` reads only immediate `child.text` values. Implement heading criteria in the new renderer without first repairing retired Portable Text code |
 | F05 | AI Worker was unauthenticated — resolved in Phase 0 | `ai-worker/src/index.js` now requires the server-only `X-Auth-Secret`, fails closed, limits requests, and restricts CORS. The deployed endpoint returns HTTP 401 without credentials |
 | F06 | Metadata exists but language/article support is incomplete | `Layout.astro` includes canonical/OG/Twitter, but fixes `lang="en"` and `og:type="website"`; add per-page values and Article JSON-LD |
@@ -221,7 +239,7 @@ These are review proposals, not claims of implemented behavior. Record reasons f
 2. Select the first task with satisfied dependencies and state its ID/deliverable.
 3. Read relevant Astro guides required by `AGENTS.md`; use fixtures/local environments before production.
 4. Start the dev server with `astro dev --background`; manage it with `astro dev status`, `astro dev logs`, and `astro dev stop`.
-5. Verify the change appropriately: critical logic tests, renderer fixture/security checks, UI browser/screenshots, release staging failure drills.
+5. Verify the change appropriately: run `npm run test:cms` for contract/DAL/tooling changes, add renderer fixture and security checks, use the browser or screenshots for UI, and run release failure drills for publishing work.
 6. Record commands, real results, and evidence paths without secrets. Local checks do not satisfy remote gates.
 7. Update checkboxes, time, decisions, blockers, and an immediately actionable next step. Specify a task rather than merely “continue Phase 1.”
 
@@ -229,6 +247,7 @@ These are review proposals, not claims of implemented behavior. Record reasons f
 
 | Date | Task | Status | Changes / evidence | Actual time | Next |
 |---|---|---|---|---|---|
+| 2026-09-10 | DOCS-05 | done | Synchronized the root README, documentation index, plan resume/inventory, environment map, architecture follow-up, historical migration note, specification status line, and agent instructions with the merged Phase 1 code; recorded `npm run test:cms` at 43 passing tests and re-confirmed both legacy local blockers | Not timed | P1-04 |
 | 2026-09-10 | P0-01 | done with recorded external blockers | Added `docs/cms/baseline.md`; root static build reaches route generation but fails without the legacy Sanity project ID; `frong.me` returned HTTP 520; classified legacy code/dependencies for reuse, replacement, or retirement | Not timed | Owner review |
 | 2026-09-10 | P0-02 | done | Added fail-closed `X-Auth-Secret`, exact-origin CORS, no-store responses, input/provider/task/model/body limits, a required Wrangler secret, tests, and local secret example; disabled the old browser-direct AI view; owner deployed the protected Worker | Not timed | P0-04 verification |
 | 2026-09-10 | P0-03 | done | Added `docs/cms/environment-map.md`; separated environments, bindings, secret locations, token purposes, and verification commands without recording values | Not timed | Owner review |
@@ -258,6 +277,21 @@ Next action (Task ID + first step):
 ```
 
 ### Latest session handoff
+
+```text
+Date: 2026-09-10 UTC
+Task ID / status: DOCS-05 done; Phase 1 milestone 1A still in progress at P1-04
+Delivered outcome: Brought every project document back in line with the merged Phase 1 code. Recorded the root Cloudflare configuration, migrations/seed/verification tooling, snapshot exporter, Markdown media modules, admin UI components, and the CMS test suite, and separated code that exists from tasks that are accepted.
+Changed files / commit if available: `README.md`, `README-MIGRATION.md`, `AGENTS.md`, `CLAUDE.md`, `docs/README.md`, `docs/plan.md`, `docs/cms-migration-plan.md`, `docs/cms/baseline.md`, `docs/cms/environment-map.md`, `docs/cms/architecture-spike.md`; not committed in this session.
+Verification commands and results / evidence location: `npm run test:cms` passes 43 of 43 tests across six files. `npm run build` still fails at static route generation with `Configuration must contain projectId`. `npx tsc --noEmit` still reports only `TS5102: Option 'baseUrl' has been removed`. Documented script flags were read from `scripts/db/verify-staging.mjs` and `scripts/build/export-live-snapshot.mjs`.
+Not yet tested: Nothing was executed against remote staging in this session. The remote migration, seed, verification, dispatch, and reconciliation evidence remains outstanding.
+Decision and rationale: Existing but unwired code is listed in a separate inventory table instead of checking P1-06, P1-08, or P1-10, because those tasks are accepted on behavior and tests rather than on file presence.
+Blocker / required input / who can resolve it: None for documentation. Remote evidence still requires the owner's credentials and a reviewed rollout.
+Actual time: Not tracked.
+Next action (Task ID + first step): P1-04 — add protected dispatch/callback services around the release DAL and implement provider-first reconciliation for ambiguous outcomes.
+```
+
+### Previous session handoff
 
 ```text
 Date: 2026-09-10 UTC

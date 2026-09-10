@@ -4,7 +4,7 @@
 > Repository: `Watcharapol-Frong/portfolio` · Site: https://frong.me
 > **Developer: the site owner, assisted by AI · Available time: 5–10 hours/week**
 
-> **Implementation status:** Gates G0 and G0.5 are complete, and Phase 1 CMS core implementation is in progress. Track current status and handoffs in [`plan.md`](plan.md), with technical evidence in [`cms/architecture-spike.md`](cms/architecture-spike.md). This specification remains the requirements source and does not by itself prove deployment.
+> **Implementation status:** Gates G0 and G0.5 are complete. Phase 1 milestone 1A is partly delivered — data contracts, the versioned D1 schema, and the release-aware data-access layer are accepted (P1-01 to P1-03), and P1-04 deploy/reconcile is the current task. The renderer, public routes, editor, and media pipeline described below are not implemented. Track current status and handoffs in [`plan.md`](plan.md), with technical evidence in [`cms/architecture-spike.md`](cms/architecture-spike.md). This specification remains the requirements source and does not by itself prove deployment.
 
 **Version 6 changes — complete the article system before starting the project system**
 
