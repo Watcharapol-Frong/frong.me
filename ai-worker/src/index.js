@@ -1,8 +1,14 @@
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
-};
+const ALLOWED_ORIGIN = "https://frong.me";
+const MAX_REQUEST_BYTES = 16 * 1024;
+const MAX_MODEL_LENGTH = 200;
+const ALLOWED_TASKS = new Set([
+  "title-suggestions",
+  "auto-excerpt",
+  "generate-outline",
+  "seo-optimizer",
+]);
+const ALLOWED_PROVIDERS = new Set(["cloudflare", "gemini", "openrouter"]);
+const MODEL_PATTERN = /^[A-Za-z0-9@._:/-]+$/;
 
 const DEFAULT_MODELS = {
   cloudflare: "@cf/meta/llama-3.1-8b-instruct-fp8",
@@ -25,6 +31,83 @@ function buildPrompt(task, { title, description, bodyText }) {
     default:
       throw new Error(`Unknown task: ${task}`);
   }
+}
+
+function corsHeaders(request) {
+  if (request.headers.get("Origin") !== ALLOWED_ORIGIN) return {};
+
+  return {
+    "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Max-Age": "86400",
+    Vary: "Origin",
+  };
+}
+
+function jsonResponse(request, body, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      ...corsHeaders(request),
+      "Cache-Control": "no-store",
+      "Content-Type": "application/json; charset=utf-8",
+    },
+  });
+}
+
+function isConfiguredSecret(secret) {
+  return typeof secret === "string" && secret.length > 0;
+}
+
+async function secretsMatch(actual, expected) {
+  if (typeof actual !== "string" || !isConfiguredSecret(expected)) return false;
+
+  const encoder = new TextEncoder();
+  const [actualDigest, expectedDigest] = await Promise.all([
+    crypto.subtle.digest("SHA-256", encoder.encode(actual)),
+    crypto.subtle.digest("SHA-256", encoder.encode(expected)),
+  ]);
+  const left = new Uint8Array(actualDigest);
+  const right = new Uint8Array(expectedDigest);
+  let difference = 0;
+
+  for (let index = 0; index < left.length; index += 1) {
+    difference |= left[index] ^ right[index];
+  }
+
+  return difference === 0;
+}
+
+function validateInput(input) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    return "Request body must be a JSON object";
+  }
+
+  const { task, provider, model, title, description, bodyText } = input;
+  if (!ALLOWED_TASKS.has(task)) return "Unknown task";
+  if (!ALLOWED_PROVIDERS.has(provider)) return "Unknown provider";
+  if (model !== undefined && (
+    typeof model !== "string" ||
+    model.length === 0 ||
+    model.length > MAX_MODEL_LENGTH ||
+    !MODEL_PATTERN.test(model)
+  )) {
+    return "Invalid model";
+  }
+
+  const fields = [
+    ["title", title, 500],
+    ["description", description, 2_000],
+    ["bodyText", bodyText, 12_000],
+  ];
+  for (const [name, value, maximum] of fields) {
+    if (value !== undefined && (typeof value !== "string" || value.length > maximum)) {
+      return `Invalid ${name}`;
+    }
+  }
+
+  return null;
 }
 
 async function runCloudflare(env, model, prompt) {
@@ -68,16 +151,55 @@ async function runOpenRouter(env, model, prompt) {
 export default {
   async fetch(request, env) {
     if (request.method === "OPTIONS") {
-      return new Response(null, { headers: CORS_HEADERS });
+      if (request.headers.get("Origin") !== ALLOWED_ORIGIN) {
+        return new Response(null, { status: 403, headers: { "Cache-Control": "no-store" } });
+      }
+      return new Response(null, { status: 204, headers: corsHeaders(request) });
     }
 
     const url = new URL(request.url);
     if (url.pathname !== "/generate" || request.method !== "POST") {
-      return new Response("Not found", { status: 404, headers: CORS_HEADERS });
+      return new Response("Not found", { status: 404, headers: { "Cache-Control": "no-store" } });
+    }
+
+    const origin = request.headers.get("Origin");
+    if (origin !== null && origin !== ALLOWED_ORIGIN) {
+      return jsonResponse(request, { error: "Origin not allowed" }, 403);
+    }
+
+    if (!isConfiguredSecret(env.AI_WORKER_SECRET)) {
+      return jsonResponse(request, { error: "Service unavailable" }, 503);
+    }
+
+    const authenticated = await secretsMatch(
+      request.headers.get("X-Auth-Secret"),
+      env.AI_WORKER_SECRET,
+    );
+    if (!authenticated) {
+      return jsonResponse(request, { error: "Unauthorized" }, 401);
+    }
+
+    const contentType = request.headers.get("Content-Type")?.split(";", 1)[0].trim().toLowerCase();
+    if (contentType !== "application/json") {
+      return jsonResponse(request, { error: "Content-Type must be application/json" }, 415);
+    }
+
+    const declaredLength = Number(request.headers.get("Content-Length"));
+    if (Number.isFinite(declaredLength) && declaredLength > MAX_REQUEST_BYTES) {
+      return jsonResponse(request, { error: "Request body too large" }, 413);
     }
 
     try {
-      const { task, provider, model, title, description, bodyText } = await request.json();
+      const rawBody = await request.text();
+      if (new TextEncoder().encode(rawBody).byteLength > MAX_REQUEST_BYTES) {
+        return jsonResponse(request, { error: "Request body too large" }, 413);
+      }
+
+      const input = JSON.parse(rawBody);
+      const validationError = validateInput(input);
+      if (validationError) return jsonResponse(request, { error: validationError }, 400);
+
+      const { task, provider, model, title, description, bodyText } = input;
       const prompt = buildPrompt(task, { title, description, bodyText });
 
       let result;
@@ -91,14 +213,11 @@ export default {
         throw new Error(`Unknown provider: ${provider}`);
       }
 
-      return new Response(JSON.stringify({ result }), {
-        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-      });
+      return jsonResponse(request, { result });
     } catch (err) {
-      return new Response(JSON.stringify({ error: err.message }), {
-        status: 400,
-        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-      });
+      const message = err instanceof SyntaxError ? "Invalid JSON" : "AI request failed";
+      console.error("AI request failed", err instanceof Error ? err.name : "Unknown error");
+      return jsonResponse(request, { error: message }, err instanceof SyntaxError ? 400 : 502);
     }
   },
 };

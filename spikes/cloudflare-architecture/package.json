@@ -1,0 +1,39 @@
+{
+  "name": "frong-cms-cloudflare-architecture-spike",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "build": "astro build",
+    "check": "astro check",
+    "dev": "astro dev --background",
+    "dev:status": "astro dev status",
+    "dev:logs": "astro dev logs",
+    "dev:stop": "astro dev stop",
+    "preview": "astro preview",
+    "d1:local:init": "wrangler d1 execute cms-architecture-spike-local --local --file=./schema.sql",
+    "d1:snapshot": "node scripts/fetch-release.mjs",
+    "config:staging": "node scripts/write-staging-config.mjs",
+    "dispatch:validate": "node scripts/validate-dispatch.mjs fixtures/repository-dispatch.json",
+    "test": "node --test",
+    "test:determinism": "node scripts/check-determinism.mjs",
+    "deploy:dry": "wrangler deploy --dry-run --outdir .wrangler/dry-run",
+    "deploy:staging": "wrangler deploy --secrets-file .generated/staging.secrets"
+  },
+  "dependencies": {
+    "@astrojs/cloudflare": "14.3.1",
+    "astro": "7.3.2",
+    "jose": "6.1.0"
+  },
+  "devDependencies": {
+    "@astrojs/check": "0.9.6",
+    "typescript": "5.9.3",
+    "wrangler": "4.130.0"
+  },
+  "overrides": {
+    "sharp": "0.35.4"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "frong-cms-architecture-spike",
+  "main": "@astrojs/cloudflare/entrypoints/server",
+  "compatibility_date": "2026-09-10",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "binding": "ASSETS",
+    "directory": "./dist"
+  },
+  "vars": {
+    "CMS_SITE_ORIGIN": "http://127.0.0.1:4321",
+    "CF_ACCESS_TEAM_DOMAIN": "https://example.cloudflareaccess.com",
+    "CF_ACCESS_AUD": "local-placeholder-audience",
+    "CF_ACCESS_ALLOWED_EMAIL": "owner@example.com"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "cms-architecture-spike-local",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "preview_database_id": "cms-architecture-spike-local"
+    }
+  ]
+}

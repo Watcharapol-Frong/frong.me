@@ -1,0 +1,22 @@
+---
+import release from '../data/release.json';
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>CMS architecture spike</title>
+    <meta property="og:image" content="/og/architecture-spike.svg" />
+  </head>
+  <body>
+    <main>
+      <h1>Static release {release.release_id}</h1>
+      <p id="generated-at">Snapshot: {release.generated_at}</p>
+      <ul>
+        {release.articles.map((article) => <li>{article.lang}: {article.title}</li>)}
+      </ul>
+    </main>
+  </body>
+</html>

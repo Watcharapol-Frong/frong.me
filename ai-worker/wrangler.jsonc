@@ -3,6 +3,9 @@
   "name": "ai-assistant-worker",
   "main": "src/index.js",
   "compatibility_date": "2026-08-01",
+  "secrets": {
+    "required": ["AI_WORKER_SECRET"]
+  },
   "ai": {
     "binding": "AI"
   }

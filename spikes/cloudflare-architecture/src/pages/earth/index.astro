@@ -1,0 +1,19 @@
+---
+export const prerender = false;
+const owner = Astro.locals.owner;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="robots" content="noindex,nofollow" />
+    <title>Earth CMS proof</title>
+  </head>
+  <body>
+    <main>
+      <h1>Protected CMS route</h1>
+      <p>Authenticated owner: {owner?.email}</p>
+    </main>
+  </body>
+</html>

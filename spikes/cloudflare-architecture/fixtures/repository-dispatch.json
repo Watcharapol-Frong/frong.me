@@ -1,0 +1,7 @@
+{
+  "event_type": "cms-staging-release",
+  "client_payload": {
+    "release_id": "rel_20260910_spike001",
+    "manifest_sha256": "01419e593ab155f2488b6e5391a6ea09f9edfea64efa76a6f68602508371d708"
+  }
+}

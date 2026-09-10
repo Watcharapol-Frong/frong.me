@@ -1,43 +1,77 @@
-# Astro Starter Kit: Minimal
+# frong.me Portfolio
+
+This repository contains the current Astro portfolio, the protected AI Worker, and an isolated architecture proof for the planned Cloudflare-native CMS.
+
+## Project status
+
+- Phase 0 is complete. The production AI Worker requires `X-Auth-Secret`, fails closed, restricts browser CORS to `https://frong.me`, and rejects unauthenticated requests with HTTP 401.
+- Phase 0.5 has complete local architecture evidence. The remaining Gate G0.5 work is a real staging D1 query, Cloudflare Access verification, authenticated GitHub dispatch, and staging deployment.
+- The existing public site still uses the legacy Sanity-backed application. No CMS production cutover or Phase 1 implementation has occurred.
+
+Use the [implementation plan](docs/plan.md) for the authoritative task status and handoff.
+
+## Repository areas
+
+| Path | Purpose |
+|---|---|
+| `src/`, `public/`, `astro.config.mjs` | Current legacy Astro portfolio and Sanity-backed articles |
+| `sanity/`, `sanity.config.ts` | Legacy Sanity Studio; the unsafe browser-direct AI view is disabled |
+| `ai-worker/` | Production AI provider Worker with server-to-server authentication and tests |
+| `spikes/cloudflare-architecture/` | Isolated Astro/Cloudflare/D1/Access/dispatch architecture proof |
+| `.github/workflows/` | Sanity backup and CMS staging-release workflows |
+| `docs/` | Specification, implementation plan, environment map, architecture evidence, and handoffs |
+
+## Documentation
+
+- [Documentation index](docs/README.md)
+- [CMS implementation plan and current tasks](docs/plan.md)
+- [CMS migration specification](docs/cms-migration-plan.md)
+- [Phase 0 baseline](docs/cms/baseline.md)
+- [Phase 0 environment map](docs/cms/environment-map.md)
+- [Phase 0.5 architecture spike](docs/cms/architecture-spike.md)
+- [Historical Astro migration notes](README-MIGRATION.md)
+
+## Root application
+
+The root application requires Node.js 22.12 or newer. Its static build currently needs the legacy public Sanity variables.
 
 ```sh
-npm create astro@latest -- --template minimal
+npm ci
+npm run dev -- --background
+npm run build
+npm run preview
 ```
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+Manage the background development server with:
 
-## 🚀 Project Structure
-
-Inside of your Astro project, you'll see the following folders and files:
-
-```text
-/
-├── public/
-├── src/
-│   └── pages/
-│       └── index.astro
-└── package.json
+```sh
+npm run astro -- dev status
+npm run astro -- dev logs
+npm run astro -- dev stop
 ```
 
-Astro looks for `.astro` or `.md` files in the `src/pages/` directory. Each page is exposed as a route based on its file name.
+## AI Worker
 
-There's nothing special about `src/components/`, but that's where we like to put any Astro/React/Vue/Svelte/Preact components.
+```sh
+cd ai-worker
+npm ci
+npm test
+XDG_CONFIG_HOME=/tmp/frong-wrangler-config \
+  npx wrangler deploy --dry-run --outdir /tmp/frong-ai-worker-dry-run
+```
 
-Any static assets, like images, can be placed in the `public/` directory.
+Production deployment requires the Cloudflare secrets and access documented in the [environment map](docs/cms/environment-map.md). Never expose `AI_WORKER_SECRET` to browser code.
 
-## 🧞 Commands
+## Cloudflare architecture spike
 
-All commands are run from the root of the project, from a terminal:
+```sh
+cd spikes/cloudflare-architecture
+npm ci
+npm test
+XDG_CONFIG_HOME=/tmp/frong-wrangler npm run check
+XDG_CONFIG_HOME=/tmp/frong-wrangler npm run build
+XDG_CONFIG_HOME=/tmp/frong-wrangler npm run test:determinism
+XDG_CONFIG_HOME=/tmp/frong-wrangler npm run deploy:dry
+```
 
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `npm install`             | Installs dependencies                            |
-| `npm run dev`             | Starts local dev server at `localhost:4321`      |
-| `npm run build`           | Build your production site to `./dist/`          |
-| `npm run preview`         | Preview your build locally, before deploying     |
-| `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `npm run astro -- --help` | Get help using the Astro CLI                     |
-
-## 👀 Want to learn more?
-
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+The spike is intentionally separate from the root application. See the [architecture record](docs/cms/architecture-spike.md) before running its staging workflow.

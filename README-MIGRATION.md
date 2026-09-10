@@ -1,11 +1,13 @@
 # Astro Migration — Notes
 
+> Historical notes from the earlier Vite/React-to-Astro migration. File names, content, and completion claims below describe that stage and may no longer match the repository. Phase 0 is now complete, and Phase 0.5 has local architecture evidence with remote staging verification still pending. For current CMS work, use the [implementation plan](docs/plan.md), [specification](docs/cms-migration-plan.md), and [architecture record](docs/cms/architecture-spike.md).
+
 Scaffolded from the original Vite+React repo (`Watcharapol-Frong/portfolio`), same look & feel, now with SSG.
 
 ## Setup
 ```
 npm install
-npm run dev       # http://localhost:4321
+npm run dev -- --background # Start the development server in background mode
 npm run build     # outputs to dist/
 ```
 
