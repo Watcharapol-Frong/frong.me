@@ -247,6 +247,7 @@ These are review proposals, not claims of implemented behavior. Record reasons f
 
 | Date | Task | Status | Changes / evidence | Actual time | Next |
 |---|---|---|---|---|---|
+| 2026-09-10 | DOCS-06 | done | Replaced the renamed GitHub repository across `.env.example` and the documentation: dispatch target and `GITHUB_REPO` are now `Watcharapol-Frong/frong.me`; recorded that the REST API returns 301 for the old path instead of following the redirect | Not timed | P1-04 |
 | 2026-09-10 | DOCS-05 | done | Synchronized the root README, documentation index, plan resume/inventory, environment map, architecture follow-up, historical migration note, specification status line, and agent instructions with the merged Phase 1 code; recorded `npm run test:cms` at 43 passing tests and re-confirmed both legacy local blockers | Not timed | P1-04 |
 | 2026-09-10 | P0-01 | done with recorded external blockers | Added `docs/cms/baseline.md`; root static build reaches route generation but fails without the legacy Sanity project ID; `frong.me` returned HTTP 520; classified legacy code/dependencies for reuse, replacement, or retirement | Not timed | Owner review |
 | 2026-09-10 | P0-02 | done | Added fail-closed `X-Auth-Secret`, exact-origin CORS, no-store responses, input/provider/task/model/body limits, a required Wrangler secret, tests, and local secret example; disabled the old browser-direct AI view; owner deployed the protected Worker | Not timed | P0-04 verification |
@@ -286,7 +287,7 @@ Changed files / commit if available: `README.md`, `README-MIGRATION.md`, `AGENTS
 Verification commands and results / evidence location: `npm run test:cms` passes 43 of 43 tests across six files. `npm run build` still fails at static route generation with `Configuration must contain projectId`. `npx tsc --noEmit` still reports only `TS5102: Option 'baseUrl' has been removed`. Documented script flags were read from `scripts/db/verify-staging.mjs` and `scripts/build/export-live-snapshot.mjs`.
 Not yet tested: Nothing was executed against remote staging in this session. The remote migration, seed, verification, dispatch, and reconciliation evidence remains outstanding.
 Decision and rationale: Existing but unwired code is listed in a separate inventory table instead of checking P1-06, P1-08, or P1-10, because those tasks are accepted on behavior and tests rather than on file presence.
-Blocker / required input / who can resolve it: None for documentation. Remote evidence still requires the owner's credentials and a reviewed rollout.
+Blocker / required input / who can resolve it: None for documentation. Remote evidence still requires the owner's credentials and a reviewed rollout. Note for P1-04: the repository was renamed to `Watcharapol-Frong/frong.me`, and `repository_dispatch` must target the new path because the REST API returns 301 rather than following the redirect.
 Actual time: Not tracked.
 Next action (Task ID + first step): P1-04 — add protected dispatch/callback services around the release DAL and implement provider-first reconciliation for ambiguous outcomes.
 ```

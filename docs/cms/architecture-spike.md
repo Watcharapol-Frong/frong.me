@@ -129,7 +129,7 @@ curl --fail-with-body -X POST \
   -H 'Accept: application/vnd.github+json' \
   -H "Authorization: Bearer $GITHUB_DISPATCH_TOKEN" \
   -H 'X-GitHub-Api-Version: 2026-03-10' \
-  https://api.github.com/repos/Watcharapol-Frong/portfolio/dispatches \
+  https://api.github.com/repos/Watcharapol-Frong/frong.me/dispatches \
   --data @spikes/cloudflare-architecture/fixtures/repository-dispatch.json
 ```
 

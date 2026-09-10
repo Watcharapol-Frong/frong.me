@@ -12,7 +12,7 @@ This is the P0-01 point-in-time inventory. Phase 0 later deployed the AI Worker 
 
 | Item | Observed value |
 |---|---|
-| Repository | `Watcharapol-Frong/portfolio` |
+| Repository | `Watcharapol-Frong/portfolio`, renamed to `Watcharapol-Frong/frong.me` after this capture |
 | Branch | `main` |
 | HEAD | `b572ae1` (`origin/main` at inspection time) |
 | Runtime | Node 24.20.0; project requires Node >=22.12.0 |

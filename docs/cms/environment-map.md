@@ -16,7 +16,7 @@ This document records resource and secret names, ownership boundaries, and confi
 | Private media R2 | Separate private bucket required | Name to decide | Main-site Wrangler config/Cloudflare dashboard | Not present |
 | Public media R2/domain | Separate public bucket/domain required | `portfolio-images` proposed; actual locator unknown | Main-site Wrangler config/Cloudflare dashboard | Not present |
 | Cloudflare Access | Staging application/audience required | `/earth` and `/earth/*`; team domain/AUD unknown | Cloudflare Zero Trust | Worker-side JWT/owner/Origin behavior proven locally; remote Access application unavailable |
-| GitHub repository | Same repository with protected `cms-staging` environment | `Watcharapol-Frong/portfolio`, default branch `main` | GitHub repository settings and `.github/workflows/cms-staging-deploy.yml` | Workflow and payload validated locally; real dispatch/token permissions unverified |
+| GitHub repository | Same repository with protected `cms-staging` environment | `Watcharapol-Frong/frong.me`, default branch `main` | GitHub repository settings and `.github/workflows/cms-staging-deploy.yml` | Workflow and payload validated locally; real dispatch/token permissions unverified |
 | Backup destination | Separate private test destination required | Off-production-account or encrypted offline destination required | Backup runbook created in Phase 1 | Not selected |
 
 Do not reuse staging databases, buckets, Access audience values, or deployment secrets in production. Cloudflare secrets are environment-specific and must be configured separately.
@@ -36,7 +36,7 @@ Do not reuse staging databases, buckets, Access audience values, or deployment s
 | `CF_D1_READ_TOKEN` | Build/CI and the same two scripts | GitHub `cms-staging` environment secret | Read approved release snapshots and run read-only verification queries | Contract proven with a stub and unit tests; real restricted token not recorded here |
 | `CF_DEPLOY_TOKEN` | Deploy workflow | GitHub `cms-staging` environment secret | Deploy the staging main-site Worker | Separate from D1 read access; real token unset |
 | `GITHUB_DISPATCH_TOKEN` | Future admin server | Cloudflare secret | Trigger the repository's publish workflow | Unset; use a repository-scoped token with only required dispatch permission |
-| `GITHUB_REPO` | Future admin server | Non-secret environment variable | Dispatch target, expected `Watcharapol-Frong/portfolio` | Unset |
+| `GITHUB_REPO` | Future admin server | Non-secret environment variable | Dispatch target, expected `Watcharapol-Frong/frong.me` | Unset; the old `Watcharapol-Frong/portfolio` value must not be reused |
 | `CF_ACCESS_TEAM_DOMAIN` | Main-site Worker | GitHub environment variable / Worker variable | JWT issuer/JWKS location | Name and validation proven; staging value unset |
 | `CF_ACCESS_AUD` | Main-site Worker | GitHub environment secret / Worker secret | Validate the `aud` claim | Name and validation proven; staging value unset |
 | `CF_ACCESS_ALLOWED_EMAIL` | Main-site Worker | GitHub environment secret / Worker secret | Enforce owner authorization | Name and validation proven; staging value unset |
@@ -49,7 +49,7 @@ Use `.dev.vars` for local Worker secrets and never commit it. `ai-worker/.dev.va
 ## Required access for CMS staging and future production
 
 1. A protected GitHub `cms-staging` environment containing the variables and secrets listed in [`architecture-spike.md`](architecture-spike.md).
-2. Valid GitHub authorization to send `repository_dispatch`. The current shell token is invalid; no token value belongs in documentation or committed configuration.
+2. Valid GitHub authorization to send `repository_dispatch`. The current shell token is invalid; no token value belongs in documentation or committed configuration. Use the current repository name `Watcharapol-Frong/frong.me`: git pushes to the old `portfolio` path still follow GitHub's redirect, but the REST API answers `301 Moved Permanently` and does not follow it for you, so a dispatch sent to the old path fails.
 3. Isolated staging Worker, D1, and Access resources with owners and dashboard locators. Do not reuse production resource IDs.
 4. Separate D1 Read and Worker deploy credentials with only the permissions their workflow steps require.
 5. Named owners and dashboard locators for future production D1, R2, Access, and backup storage before those phases use them.
