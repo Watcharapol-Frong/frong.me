@@ -8,14 +8,13 @@
  *
  * This page ships **no data**. Every value the admin shows is fetched in the
  * browser from `/earth/api/*` through `src/lib/cms/client/api.ts`, which keeps
- * two properties that matter while the root application is still a static
- * Astro build:
+ * two properties that matter while the public application remains static:
  *
  * - Nothing private is baked into a prerendered file. The HTML below is an
  *   empty frame, so the release snapshot never has to exclude it.
- * - The shell remains safe to prerender even though the root Cloudflare adapter
- *   now serves the on-demand `/earth/api/*` routes. It can move on-demand later
- *   without changing the shell or browser client.
+ * - The shell is on-demand so every request crosses the Access-verifying
+ *   middleware. Prerendering would turn the build-time unauthenticated response
+ *   into a static file and bypass runtime JWT verification.
  *
  * Access control lives in front of this page, not inside it: Cloudflare Access
  * on `/earth` and `/earth/*`, plus the Worker middleware that re-validates the
@@ -24,6 +23,8 @@
  */
 import '../../styles/global.css';
 import EarthAdminShell from '../../components/cms/EarthAdminShell';
+
+export const prerender = false;
 ---
 
 <!DOCTYPE html>

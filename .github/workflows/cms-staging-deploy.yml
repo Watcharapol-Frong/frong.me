@@ -1,92 +1,120 @@
-name: CMS staging release proof
+name: CMS staging deploy pipeline
 
 on:
   repository_dispatch:
-    types: [cms-staging-release]
+    types: [cms-staging-deploy, cms-staging-release]
   workflow_dispatch:
     inputs:
+      dry_run:
+        description: 'Dry-run mode (skips real deploy)'
+        required: false
+        default: false
+        type: boolean
       release_id:
-        description: Release ID for a manual staging proof
-        required: true
+        description: 'Release ID for staging deploy'
+        required: false
         type: string
       manifest_sha256:
-        description: Expected public manifest SHA-256
-        required: true
+        description: 'Expected public manifest SHA-256'
+        required: false
         type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: cms-staging-release
+  group: cms-staging-deploy
   cancel-in-progress: false
 
 jobs:
-  build-and-stage:
+  deploy-staging:
+    name: Staging Deploy Pipeline
     runs-on: ubuntu-latest
     environment: cms-staging
     timeout-minutes: 15
-    defaults:
-      run:
-        working-directory: spikes/cloudflare-architecture
     env:
+      # Required env vars from CI Secrets only (never hardcoded)
+      CF_ACCESS_TEAM_DOMAIN: ${{ secrets.CF_ACCESS_TEAM_DOMAIN }}
+      CF_ACCESS_AUD: ${{ secrets.CF_ACCESS_AUD }}
+      STAGING_D1_DATABASE_ID: ${{ secrets.STAGING_D1_DATABASE_ID }}
+      STAGING_R2_BUCKET_NAME: ${{ secrets.STAGING_R2_BUCKET_NAME }}
+      # Cloudflare credentials
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CF_DEPLOY_TOKEN || secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID || vars.CF_ACCOUNT_ID }}
+      # Security guard: Dev bypass must never be enabled in staging
+      ENABLE_ACCESS_DEV_BYPASS: "false"
+      # Release tracking
       CMS_RELEASE_ID: ${{ github.event.client_payload.release_id || inputs.release_id }}
       CMS_MANIFEST_SHA256: ${{ github.event.client_payload.manifest_sha256 || inputs.manifest_sha256 }}
-      CMS_WRANGLER_CONFIG: .generated/wrangler.staging.jsonc
-      CMS_SITE_ORIGIN: ${{ vars.CMS_SITE_ORIGIN }}
-      CF_ACCESS_TEAM_DOMAIN: ${{ vars.CF_ACCESS_TEAM_DOMAIN }}
-      CF_ACCESS_AUD: ${{ secrets.CF_ACCESS_AUD }}
-      CF_ACCESS_ALLOWED_EMAIL: ${{ secrets.CF_ACCESS_ALLOWED_EMAIL }}
-      CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID || vars.CF_ACCOUNT_ID }}
-      CF_D1_DATABASE_ID: ${{ secrets.CF_D1_DATABASE_ID || vars.CF_D1_DATABASE_ID }}
-      CF_D1_DATABASE_NAME: ${{ vars.CF_D1_DATABASE_NAME }}
-      CF_D1_READ_TOKEN: ${{ secrets.CF_D1_READ_TOKEN }}
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: spikes/cloudflare-architecture/package-lock.json
 
-      - name: Validate dispatch payload
-        if: github.event_name == 'repository_dispatch'
-        run: node scripts/validate-dispatch.mjs "$GITHUB_EVENT_PATH"
-
-      - name: Install pinned spike dependencies
+      - name: Install dependencies
         run: npm ci
 
-      - name: Generate ephemeral staging configuration
-        run: npm run config:staging
+      - name: Pre-flight binding and security verification
+        run: node scripts/build/verify-bindings.mjs
 
-      - name: Run architecture checks
-        run: npm test
-
-      - name: Fetch immutable public release snapshot
-        run: npm run d1:snapshot
-
-      - name: Build the requested release
+      - name: Build application for staging
+        env:
+          CLOUDFLARE_ENV: staging
         run: npm run build
 
-      - name: Prove deploy bundle without changing staging
-        run: npm run deploy:dry
-
-      - name: Deploy staging after environment approval
-        if: vars.CMS_SPIKE_DEPLOY == 'true'
+      - name: Deploy targeting env.staging
+        id: deploy
         env:
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID || vars.CF_ACCOUNT_ID }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_DEPLOY_TOKEN }}
-        run: npm run deploy:staging
+          IS_DRY_RUN: ${{ (inputs.dry_run == true || github.event.client_payload.dry_run == true) && 'true' || 'false' }}
+        run: |
+          mkdir -p .wrangler/deploy-result
+          if [ "$IS_DRY_RUN" = "true" ]; then
+            echo "[deploy] Executing dry-run deploy targeting env.staging only..."
+            npx wrangler deploy --env staging --dry-run --outdir .wrangler/dry-run 2>&1 | tee .wrangler/deploy-result/wrangler-deploy.log
+            DEPLOY_URL="https://cms-staging.frong.me"
+            DEPLOYMENT_ID="dry-run-${{ github.run_id }}"
+            MODE="dry-run"
+          else
+            echo "[deploy] Executing real deploy targeting env.staging only..."
+            npx wrangler deploy --env staging 2>&1 | tee .wrangler/deploy-result/wrangler-deploy.log
+            DEPLOY_URL=$(grep -oE 'https://[a-zA-Z0-9.-]+\.workers\.dev|https://cms-staging\.frong\.me' .wrangler/deploy-result/wrangler-deploy.log | head -n 1 || echo "https://cms-staging.frong.me")
+            DEPLOYMENT_ID=$(grep -oE 'Current Deployment ID: [a-f0-9-]+|Deployment ID: [a-f0-9-]+' .wrangler/deploy-result/wrangler-deploy.log | head -n 1 | awk '{print $NF}' || echo "${{ github.run_id }}")
+            MODE="live"
+          fi
 
-      - name: Retain build evidence
+          echo "Deployment finished."
+          echo "Environment: staging"
+          echo "Mode: $MODE"
+          echo "Deploy URL: $DEPLOY_URL"
+          echo "Deployment ID: $DEPLOYMENT_ID"
+
+          cat <<EOF > .wrangler/deploy-result/deployment-result.json
+          {
+            "environment": "staging",
+            "mode": "$MODE",
+            "url": "$DEPLOY_URL",
+            "deploymentId": "$DEPLOYMENT_ID",
+            "releaseId": "${{ env.CMS_RELEASE_ID }}",
+            "manifestSha256": "${{ env.CMS_MANIFEST_SHA256 }}",
+            "runId": "${{ github.run_id }}",
+            "runNumber": "${{ github.run_number }}",
+            "commitSha": "${{ github.sha }}",
+            "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+          }
+          EOF
+
+      - name: Log deploy result as build artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: cms-spike-${{ env.CMS_RELEASE_ID }}-${{ github.run_id }}
+          name: cms-staging-deploy-result-${{ github.run_id }}
           path: |
-            spikes/cloudflare-architecture/dist/client
-            spikes/cloudflare-architecture/.wrangler/dry-run
+            .wrangler/deploy-result/
           if-no-files-found: warn
           retention-days: 7

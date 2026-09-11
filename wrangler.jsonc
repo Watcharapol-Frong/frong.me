@@ -10,5 +10,47 @@
       "database_id": "71cba742-a269-475d-84b0-8df1223a368a",
       "migrations_dir": "db/migrations"
     }
-  ]
+  ],
+  "r2_buckets": [
+    {
+      "binding": "MEDIA_BUCKET",
+      "bucket_name": "portfolio-media-staging"
+    }
+  ],
+  "env": {
+    "staging": {
+      "name": "frong-me-staging",
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "portfolio-db-staging",
+          "database_id": "71cba742-a269-475d-84b0-8df1223a368a",
+          "migrations_dir": "db/migrations"
+        }
+      ],
+      "r2_buckets": [
+        {
+          "binding": "MEDIA_BUCKET",
+          "bucket_name": "portfolio-media-staging"
+        }
+      ]
+    },
+    "production": {
+      "name": "frong-me",
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "portfolio-db-production",
+          "database_id": "portfolio-db-production-id",
+          "migrations_dir": "db/migrations"
+        }
+      ],
+      "r2_buckets": [
+        {
+          "binding": "MEDIA_BUCKET",
+          "bucket_name": "portfolio-media-production"
+        }
+      ]
+    }
+  }
 }

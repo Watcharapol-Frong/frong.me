@@ -1,10 +1,10 @@
 # frong.me CMS Implementation Plan
 
-Updated: 2026-09-10 · Status: Gates G0 and G0.5 passed. Phase 1 milestone 1A is in progress; P1-01 through P1-03 are accepted and P1-04 is the current task.
+Updated: 2026-09-11 · Status: Gates G0 and G0.5 passed. The missing asset-attach and release-dispatch HTTP bridges are implemented and locally verified; P1-04 callback authentication and provider reconciliation remain the current release-protocol task.
 
 Requirements: [CMS migration specification, version 6](cms-migration-plan.md). Documentation index: [README](README.md).
 
-This document began as a specification review and now records implementation progress, evidence, tasks, and acceptance gates. The production AI Worker protection is deployed and verified. The Phase 0.5 proof remains isolated under `spikes/`, and Phase 1 code now also lives in the root application under `src/lib/cms/`, `src/server/cms/`, `src/components/cms/`, `db/`, `scripts/`, and `tests/cms/`. None of it is reachable from a public or admin route yet, and no main-site CMS production cutover has occurred.
+This document began as a specification review and now records implementation progress, evidence, tasks, and acceptance gates. The production AI Worker protection is deployed and verified. The Phase 0.5 proof remains isolated under `spikes/`, and Phase 1 code now also lives in the root application under `src/lib/cms/`, `src/server/cms/`, `src/components/cms/`, `src/pages/earth/`, `db/`, `scripts/`, and `tests/cms/`. The Earth admin shell and API routes now exist locally; no main-site CMS production cutover has occurred.
 
 ## Additional direction confirmed by the owner
 
@@ -20,14 +20,14 @@ The repository contains an older implementation that has not been updated to the
 
 | Item | Status |
 |---|---|
-| Completed | P0-01 through P0-04; Gate G0; S-01 through S-06; Gate G0.5; P1-00 through P1-03 |
-| Current phase | Phase 1, milestone 1A: deploy/reconcile integration after CMS DAL completion |
-| Next task | P1-04: connect repository dispatch, authenticated callbacks, and provider reconciliation to the release DAL |
+| Completed | P0-01 through P0-04; Gate G0; S-01 through S-06; Gate G0.5; P1-00 through P1-03; P1-API-01; 1C-01; 1C-02; 1C-03; 1C-06 |
+| Current phase | Phase 1: Earth API/DAL integration complete locally; deploy/reconcile integration remains |
+| Next task | P1-04 remainder: protect the release confirmation callback and add provider-first reconciliation |
 | Current risk | Remote callbacks and provider reconciliation must preserve the DAL's idempotency and compare-and-set guarantees |
 | Unverified | Every CMS check so far is local. Remote staging mutations, dispatch runs, provider reconciliation, and the workflow/deployment identifiers and timings were not supplied for the repository record; D1/R2 backups, fonts/performance, and the public site's earlier HTTP 520 cause also remain unverified |
 | Production impact | The AI Worker protection is live. The CMS work has not changed the public site or production CMS infrastructure |
-| Routine checks | `npm run test:cms` (43 tests across six files, all passing at this update); `npx wrangler d1 migrations apply DB --local`; `node scripts/db/verify-staging.mjs --wrangler --local` |
-| Known local blockers | The root `npm run build` still stops at static route generation without `PUBLIC_SANITY_PROJECT_ID`; `npx tsc --noEmit` still stops on the legacy `baseUrl` option in `tsconfig.json`. Both belong to retired legacy configuration |
+| Routine checks | `npm run test:cms` (135 tests, all passing at this update); `npx wrangler d1 migrations apply DB --local`; `node scripts/db/verify-staging.mjs --wrangler --local` |
+| Known local blockers | `npx tsc --noEmit` still stops on the legacy `baseUrl` option in `tsconfig.json`. The root Astro/Cloudflare build now succeeds without legacy Sanity credentials |
 | Evidence | [`docs/cms/baseline.md`](cms/baseline.md), [`docs/cms/environment-map.md`](cms/environment-map.md), and [`docs/cms/architecture-spike.md`](cms/architecture-spike.md) |
 
 Backup files and workflow definitions do not prove successful execution or restorability. Record separate test evidence.
@@ -41,20 +41,28 @@ Code exists for some tasks whose acceptance criteria are not met. Presence in th
 | Contracts and validation | `src/lib/cms/contracts.ts`, `src/lib/cms/validation.ts` | P1-01, accepted |
 | Schema | `db/migrations/0001_articles.sql`, `0002_taxonomy_assets.sql`, `0003_releases.sql` | P1-01, accepted; includes the state, compare-and-set, and public-asset integrity triggers |
 | Data access layer | `src/server/cms/db.ts`, `errors.ts`, `repositories/{posts,taxonomy,assets,releases}.ts` | P1-02 and P1-03, accepted |
-| Root Cloudflare configuration | `wrangler.jsonc` (`DB` bound to `portfolio-db-staging`, `migrations_dir: db/migrations`) | P1-01 support |
+| Root Cloudflare configuration | `astro.config.mjs` with `@astrojs/cloudflare` and workerd prerendering; `wrangler.jsonc` with `DB` bound to `portfolio-db-staging` | Earth SSR/API and P1-01 support |
+| Earth API and wire DTOs | `src/pages/earth/api/`, `src/server/cms/{api,dispatch}.ts` | API/DAL integration, asset attachment, and GitHub repository dispatch are complete locally; callback authentication and provider reconciliation remain P1-04 |
+| Earth Access enforcement | `src/middleware.ts`, `src/server/cms/{access,access-guard}.ts` | 1C-02 complete locally; RS256/issuer/audience/time verification through `jose`, TTL-cached remote JWKS, exact route matching, and two-factor development bypass |
 | Staging data and verification | `db/seeds/staging.sql`, `scripts/db/verify-staging.mjs` | Support tooling; deterministic and idempotent, exercised locally only |
 | Build snapshot exporter | `scripts/build/export-live-snapshot.mjs` | P1-08 support; not yet consumed by any Astro route |
+| E2E build verification | `scripts/build/test-e2e-build.mjs`, `scripts/build/astro.config.mjs`, `scripts/build/e2e-src/` | P1-08 support; exercises snapshot export, Astro build, and bilingual HTML title assertions |
+| CI automation | `.github/workflows/cms-ci.yml` | Workflow running `test:cms`, `tsc --noEmit`, and `test-e2e-build.mjs` on PRs to main |
+| Staging deployment | `.github/workflows/cms-staging-deploy.yml`, `scripts/build/{verify-bindings,deploy-staging}.mjs` | 1C-01, accepted; targets env.staging, validates D1/R2/AUD bindings, guards dev-bypass, and logs deploy artifacts |
+| Staging Access verification | `scripts/build/verify-access-staging.mjs` | 1C-03, accepted; verifies unauthenticated 401/403/302, service-token authenticated 200, public bypass 200, with --dry-run mock stub |
 | Markdown media resolution | `src/lib/cms/markdown/asset-resolver.ts`, `src/lib/cms/assets/metadata.ts` | P1-06, P1-11, and P1-13 support; the parser, sanitizer, and upload pipeline do not exist yet |
-| Admin UI | `src/components/cms/{ArticleEditor,PostList,ReleaseDashboard}.tsx` | P1-10 and P1-04 support; deliberately transport-agnostic, with no route, server validation, or autosave wiring |
-| Tests | `tests/cms/*.test.ts` plus fixtures and the D1 test adapter | Covers contracts, DAL scenarios, asset resolution, seed idempotency, verification, and snapshot export. `npm run test:cms` runs `tsx --test`, but `tsx` is only present transitively and is not declared in `package.json`; declare it as a dev dependency before relying on the script in CI |
+| R2 upload smoke verification | `scripts/db/verify-r2-staging.mjs`, `tests/cms/verify-r2-staging.test.ts`, `npm run verify:r2:dry` | 1C-04 support; dry-run verification passes locally (118 CMS tests green); real staging-bucket run pending the public R2 bucket |
+| Full E2E staging smoke test orchestration | `scripts/build/smoke-test-staging.mjs`, `tests/cms/smoke-test-staging.test.ts`, `npm run test:smoke:dry` | 1C-05 support; drives create draft → optimistic-locking conflict → media attach → release begin/confirm → public reader (by the slug captured from the response, never assumed) → mandatory try/finally archive teardown. `--dry-run` passes fully against an in-process mock server. 1C-06 added the real asset-attach route and an explicit release-dispatch route locally; a live run remains gated, undeployed, and still needs the smoke client to pass a registered asset ID and invoke `/dispatch` before `/confirm`. |
+| Admin UI | `src/pages/earth/index.astro`, `src/components/cms/{EarthAdminShell,ArticleEditor,PostList,ReleaseDashboard}.tsx`, `src/lib/cms/client/api.ts` | Browser/API wiring exists; autosave and full P1-10 acceptance remain pending |
+| Tests | `tests/cms/*.test.ts` plus fixtures and the D1 test adapter | Covers endpoint validation/CRUD/conflicts/releases, browser wire contracts, DAL scenarios, assets, seed idempotency, verification, and snapshots. `tsx` is now an explicit dev dependency |
 
 ## 2. Legacy implementation and target-design gaps
 
 | ID | Finding / gap | Evidence and planning implication |
 |---|---|---|
-| F01 | Legacy root stack matches the specification at the file level | `package-lock.json`: Astro 7.2.2, React 19.2.8, Tailwind 4.3.3. The root build is still blocked without the legacy Sanity project ID; the isolated Cloudflare spike is independently verified |
-| F02 | Public site still depends on Sanity | `astro.config.mjs` mounts Studio at `/admin`; `src/pages/index.astro` and `src/pages/articles/[slug].astro` query Sanity; output is omitted and defaults to static |
-| F03 | Target CMS core is partly implemented | The isolated spike proves the Cloudflare adapter, D1 binding, `/earth` auth boundary, snapshot transport, dispatch workflow, and recovery model. The root application now holds the Phase 1 schema migrations, contracts, and data-access layer. Production routes, the Markdown renderer, media upload, RSS, `/earth`, and `/en/articles/` remain Phase 1 work |
+| F01 | Root stack matches the Cloudflare target while retaining legacy content | Astro `^7.3.2`, Cloudflare adapter 14.3.1, React 19.2.8, and Tailwind 4.3.3 are configured. The root build and sitemap pass; when legacy Sanity credentials are absent, an empty read-only fallback prevents retired demo content from blocking local/CI builds |
+| F02 | Public site still depends on Sanity | `astro.config.mjs` mounts Studio at `/admin`; `src/pages/index.astro` and `src/pages/articles/[slug].astro` still query Sanity even though the root now has the Cloudflare adapter |
+| F03 | Target CMS core is partly implemented | The root now has the Phase 1 schema, DAL, Earth shell/browser client, and D1-backed Earth API routes. The Markdown renderer, media upload flow, RSS, public snapshot routes, and protected dispatch/reconciliation remain Phase 1 work |
 | F04 | Section 19's historical heading-fix claim does not match current files | `src/lib/slugify.ts` still strips Thai; `PortableTextHeading.astro` reads only immediate `child.text` values. Implement heading criteria in the new renderer without first repairing retired Portable Text code |
 | F05 | AI Worker was unauthenticated — resolved in Phase 0 | `ai-worker/src/index.js` now requires the server-only `X-Auth-Secret`, fails closed, limits requests, and restricts CORS. The deployed endpoint returns HTTP 401 without credentials |
 | F06 | Metadata exists but language/article support is incomplete | `Layout.astro` includes canonical/OG/Twitter, but fixes `lang="en"` and `og:type="website"`; add per-page values and Article JSON-LD |
@@ -143,7 +151,7 @@ Workflow concurrency is an additional safeguard. Verify the chosen queue/cancell
 #### 1C: Editor and media
 
 - [ ] **P1-10 Editor** — Title/slug/body/excerpt/tags/lang/cover form, server validation, draft-only autosave, and local recovery keyed by post/version without silent server overwrites. Show saved/unsaved/conflict/error states.
-- [ ] **P1-11 Upload/preview** — One pipeline for drag/drop/paste/file picker. Resize JPEGs without upscaling; preserve charts as PNG by default. Server validates signature/MIME/bytes/dimensions/pixel count and rejects SVG. Set limits from fixtures and real platform constraints.
+- [ ] **P1-11 Upload/preview** — One pipeline for drag/drop/paste/file picker. Resize JPEGs without upscaling; preserve charts as PNG by default. Server validates signature/MIME/bytes/dimensions/pixel count and rejects SVG. Set limits from fixtures and real platform constraints. R2 upload smoke verification (task 1C-04) is complete: `scripts/db/verify-r2-staging.mjs` verifies the canonical `https://images.frong.me/assets/<sha256>/<filename>` URL contract, payload idempotency, and the put/get/delete lifecycle with mandatory cleanup; `npm run verify:r2:dry` runs it against an in-memory mock bucket and `tests/cms/verify-r2-staging.test.ts` covers the routine. 1C-06 added the version-guarded HTTP attachment step for an asset row already registered in D1. The upload/registration UI pipeline and a real staging-bucket run remain pending.
 - [ ] **P1-12 Private media lifecycle** — Upload privately and preview through authentication. Explicit publish approval promotes only referenced release assets to immutable public keys. Document when bytes become public and that previously public files may remain cached after withdrawal. Failed builds do not expose unrelated draft files.
 - [ ] **P1-13 Freeze media metadata** — Store contextual alt, dimensions/format/checksum/crop in the revision/snapshot. Editing A's draft alt/image then publishing B must not change live A. Handle R2-success/D1-failure with retries/orphan tracking, not automatic deletion.
 - [ ] **P1-14 Reader image UX** — Add width/height, appropriate in-body lazy loading, and non-lazy covers. Crop/zoom preserve originals. Display 1600px charts at up to 800px without color inversion and with readable mobile details.
@@ -247,6 +255,12 @@ These are review proposals, not claims of implemented behavior. Record reasons f
 
 | Date | Task | Status | Changes / evidence | Actual time | Next |
 |---|---|---|---|---|---|
+| 2026-09-11 | 1C-06 | done locally | Added `POST /earth/api/posts/[id]/assets` over `addPostAssetUsage`, returning the camelCase post detail DTO and current-version details on stale 409s. Added `POST /earth/api/releases/[id]/dispatch`, which creates the requested DAL attempt, sends the constrained `cms-staging-release` GitHub payload using server-only configuration, and advances accepted dispatches to building; `/confirm` now accepts the provider-success callback from that building state before the existing atomic live-pointer confirmation. Added two handler-level HTTP integration tests. Exact baseline `npm run test:cms`: 133/133; final: 135/135. Local D1 migration/verification and the root Astro build pass. No remote dispatch, callback, or deployment was attempted. | Not tracked | P1-04 remainder: authenticate callbacks and implement provider-first reconciliation; then align the gated live smoke client with the registered-asset and explicit-dispatch contracts |
+| 2026-09-11 | 1C-05 | authored + dry-run verified; live run remains gated | Added `scripts/build/smoke-test-staging.mjs` orchestrating the full draft → optimistic-locking → media attach → release begin/confirm → public reader → mandatory archive teardown lifecycle against the Earth API, with an in-process mock server implementing the same request/response contracts (including the `{error:{code,message,details}}` conflict shape) for `--dry-run`. Teardown runs via try/finally so it executes even after an earlier step fails, and reports the orphaned post ID if teardown itself fails. Added `tests/cms/smoke-test-staging.test.ts` and `npm run test:smoke:dry`. Per the task's own GATE, live (non-dry-run) execution is refused with the unmet precondition(s) printed until Step 1's real deploy reports success, and until `SMOKE_GATE_1C03_LIVE_PASSED`/`SMOKE_GATE_1C04_R2_PASSED` are explicitly attested after those checks truly pass live — none of that has happened yet, so live mode has not been run. | Not timed | P1-04: protect the release confirmation callback, connect repository dispatch, and add provider reconciliation — this also closes the real gap the smoke test surfaced (no HTTP route yet creates a release deployment attempt, so live Step 4's confirm cannot succeed even once the GATE opens) |
+| 2026-09-11 | 1C-03 | done locally | Implemented Zero Trust verification script `scripts/build/verify-access-staging.mjs` verifying Case 1 (unauthenticated admin / API rejected with 401/403/302), Case 2 (authenticated via service token headers `CF-Access-Client-Id` & `CF-Access-Client-Secret` or JWT assertion -> 200 OK), and Case 3 (public route bypass -> 200 OK with article/root fallback). Added in-process mock Cloudflare Access HTTP server for `--dry-run` and comprehensive integration tests in `tests/cms/verify-access-staging.test.ts`. All 103 CMS tests passing; verified clean local dry-run output and missing-credential guard. | Not timed | P1-04: protect release confirmation callback, connect repository dispatch, and add provider reconciliation |
+| 2026-09-11 | 1C-02 | done locally | Added runtime Access JWT enforcement for `/earth` and descendants, TTL-cached Cloudflare JWKS verification with `jose`, generic 401/403 responses, exact public-route exclusion, strict DEV-plus-flag bypass, and generated-key integration tests. Made the Earth shell on-demand so runtime middleware cannot be replaced by a build-time static 401. Final combined `npm run test:cms`: 94/94; focused strict TypeScript: pass; local D1 migration/verification: pass; `npx astro build`: pass and `/earth` absent from static client output | Not timed | Deploy through the reviewed staging path and verify authenticated/unauthenticated HTTP behavior before 1C-03 removes any spike files |
+| 2026-09-10 | P1-API-01 | done locally | Added strict D1-backed post/release endpoints, explicit camelCase DTOs, atomic editor bundle saves, 409 current-version details, draft-to-revision release creation, atomic live confirmation, browser-compatible overview/detail payloads, Cloudflare adapter configuration, and endpoint tests. `npm run test:cms`: 79/79; focused strict TypeScript: pass; local D1 migrations and verification: pass; `npx astro build`: pass, including sitemap generation | Not timed | P1-04: authenticate confirmation callbacks, dispatch releases, and reconcile provider state before remote exposure |
+| 2026-09-10 | CI-01 | done | Created `scripts/build/test-e2e-build.mjs`, `scripts/build/astro.config.mjs`, `scripts/build/e2e-src/`, and `.github/workflows/cms-ci.yml`; verified live snapshot export (mock and SQLite), Astro static compilation, and bilingual article assertions (`/articles/...` and `/en/articles/...`) | Not timed | P1-04 |
 | 2026-09-10 | DOCS-06 | done | Replaced the renamed GitHub repository across `.env.example` and the documentation: dispatch target and `GITHUB_REPO` are now `Watcharapol-Frong/frong.me`; recorded that the REST API returns 301 for the old path instead of following the redirect | Not timed | P1-04 |
 | 2026-09-10 | DOCS-05 | done | Synchronized the root README, documentation index, plan resume/inventory, environment map, architecture follow-up, historical migration note, specification status line, and agent instructions with the merged Phase 1 code; recorded `npm run test:cms` at 43 passing tests and re-confirmed both legacy local blockers | Not timed | P1-04 |
 | 2026-09-10 | P0-01 | done with recorded external blockers | Added `docs/cms/baseline.md`; root static build reaches route generation but fails without the legacy Sanity project ID; `frong.me` returned HTTP 520; classified legacy code/dependencies for reuse, replacement, or retirement | Not timed | Owner review |
@@ -280,16 +294,124 @@ Next action (Task ID + first step):
 ### Latest session handoff
 
 ```text
-Date: 2026-09-10 UTC
-Task ID / status: DOCS-05 done; Phase 1 milestone 1A still in progress at P1-04
-Delivered outcome: Brought every project document back in line with the merged Phase 1 code. Recorded the root Cloudflare configuration, migrations/seed/verification tooling, snapshot exporter, Markdown media modules, admin UI components, and the CMS test suite, and separated code that exists from tasks that are accepted.
-Changed files / commit if available: `README.md`, `README-MIGRATION.md`, `AGENTS.md`, `CLAUDE.md`, `docs/README.md`, `docs/plan.md`, `docs/cms-migration-plan.md`, `docs/cms/baseline.md`, `docs/cms/environment-map.md`, `docs/cms/architecture-spike.md`; not committed in this session.
-Verification commands and results / evidence location: `npm run test:cms` passes 43 of 43 tests across six files. `npm run build` still fails at static route generation with `Configuration must contain projectId`. `npx tsc --noEmit` still reports only `TS5102: Option 'baseUrl' has been removed`. Documented script flags were read from `scripts/db/verify-staging.mjs` and `scripts/build/export-live-snapshot.mjs`.
-Not yet tested: Nothing was executed against remote staging in this session. The remote migration, seed, verification, dispatch, and reconciliation evidence remains outstanding.
-Decision and rationale: Existing but unwired code is listed in a separate inventory table instead of checking P1-06, P1-08, or P1-10, because those tasks are accepted on behavior and tests rather than on file presence.
-Blocker / required input / who can resolve it: None for documentation. Remote evidence still requires the owner's credentials and a reviewed rollout. Note for P1-04: the repository was renamed to `Watcharapol-Frong/frong.me`, and `repository_dispatch` must target the new path because the REST API returns 301 rather than following the redirect.
+Date: 2026-09-11 UTC
+Task ID / status: 1C-06 done locally
+Delivered outcome: Confirmed that `POST /earth/api/posts/[id]/assets` is the correct attachment path and exposed the existing version-guarded `addPostAssetUsage` DAL operation there. The strict body is `{id, assetId, role, altText, caption?, crop?, position?, expectedDraftVersion}` and the response is the existing camelCase post detail DTO. Exposed repository dispatch separately as `POST /earth/api/releases/[id]/dispatch` with `{attemptId, attemptNumber}`; it calls GitHub's repository-dispatch endpoint with only release ID and manifest SHA-256, persists the DAL attempt, and returns camelCase release/attempt DTOs. The existing `/confirm` body remains `{attemptId, providerDeploymentId}` and now advances a matching building release/attempt to deploying before using the existing atomic `confirmReleaseLive` operation.
+Changed files / commit if available: `src/pages/earth/api/posts/[id]/assets.ts`, `src/pages/earth/api/releases/[id]/{dispatch,confirm}.ts`, `src/server/cms/{api,dispatch}.ts`, `src/lib/cms/{contracts,validation}.ts`, `tests/cms/api-endpoints.test.ts`, and `docs/plan.md`; not committed in this session.
+Verification commands and results / evidence location:
+1. Pre-change `npm run test:cms`: exactly 133 tests, 133 pass, 0 fail.
+2. Post-change `npm run test:cms`: exactly 135 tests, 135 pass, 0 fail.
+3. `npx wrangler d1 migrations apply DB --local`: no migrations to apply, exit 0.
+4. `node scripts/db/verify-staging.mjs --wrangler --local`: foreign keys, three partial indexes, and population checks passed, exit 0.
+5. `npm run build`: root Astro/Cloudflare build passed and generated the sitemap, exit 0.
+Not yet tested: No real GitHub dispatch, authenticated provider callback, remote D1 mutation, or staging deployment was attempted. The gated 1C-05 live smoke client still uses its earlier mock shortcut and must be aligned with the registered-asset ID and explicit `/dispatch` request contracts before a real run.
+Decision and rationale: Kept release creation and dispatch as separate HTTP operations so an idempotent release snapshot exists before an external side effect and dispatch retries can use the same release ID. Added shared request types/parsers because these two routes introduce genuinely new strict JSON contracts; no unrelated validation or contract behavior changed.
+Blocker / required input / who can resolve it: Remote proof requires configured `GITHUB_DISPATCH_TOKEN`/`GITHUB_REPO`, reviewed staging deployment, and callback authentication/provider reconciliation from the remaining P1-04 work.
 Actual time: Not tracked.
-Next action (Task ID + first step): P1-04 — add protected dispatch/callback services around the release DAL and implement provider-first reconciliation for ambiguous outcomes.
+Next action (Task ID + first step): P1-04 remainder — authenticate `/confirm` for the workflow/provider boundary and reconcile ambiguous dispatch/deployment outcomes before updating and running the live smoke test.
+```
+
+### Previous session handoff (1C-05)
+
+```text
+Date: 2026-09-11 UTC
+Task ID / status: 1C-05 authored and --dry-run verified; live run remains gated behind the task's own GATE and behind P1-04/P1-11
+Delivered outcome: Implemented `scripts/build/smoke-test-staging.mjs`, the full live-staging E2E smoke test orchestrator: Step 1 creates a draft with bilingual TH/EN content via POST /earth/api/posts and captures id/draftVersion/slug only from the response body (never assumed); Step 2 exercises optimistic locking (stale expectedDraftVersion -> 409, correct -> 200 with a bumped version) via PUT; Step 3 attaches a smoke-test media asset key (reusing the canonical `assets/<sha256>/<filename>` contract from `scripts/db/verify-r2-staging.mjs`) via POST /earth/api/posts/:id/assets; Step 4 fetches the current live release id as the release base, begins a release via POST /earth/api/releases with a canonically-hashed manifest matching the real server's `canonicalReleaseManifest` algorithm exactly, and confirms it live via POST /earth/api/releases/:id/confirm; Step 5 reads the public route using the slug captured in Step 1 and asserts the bilingual content is present; Step 6 archives the post via POST /earth/api/posts/:id/archive inside a try/finally so teardown always runs, even after an earlier step throws, and reports the orphaned post ID clearly if teardown itself fails (exit 1 in that case regardless of prior assertions). `--dry-run` runs the full lifecycle against an in-process mock server implementing the same contracts (including the real `{error:{code,message,details}}` conflict shape), with no network access. Live mode is fail-closed: `checkLiveGates` reads `.wrangler/deploy-result/deployment-result.json` for Step 1's real-deploy evidence and requires explicit `SMOKE_GATE_1C03_LIVE_PASSED=true` / `SMOKE_GATE_1C04_R2_PASSED=true` environment attestations for the other two preconditions (neither check can be verified from this process's own state), refusing to run and printing exactly which precondition is unmet otherwise. Documented (in code comments and in the plan row above) that even after the GATE opens, live Step 3 and the confirm half of Step 4 will still fail against the currently deployed API: no HTTP route yet creates a release deployment attempt (P1-04) or attaches an uploaded asset to a draft (P1-11) — verified this directly by reading `src/pages/earth/api/**`, `src/server/cms/repositories/{posts,assets,releases}.ts`, and `tests/cms/api-endpoints.test.ts` (which drives release confirmation through internal DAL calls with no HTTP equivalent).
+Changed files / commit if available: `scripts/build/smoke-test-staging.mjs`, `tests/cms/smoke-test-staging.test.ts`, `package.json`, `docs/plan.md`; not committed in this session.
+Verification commands and results / evidence location:
+1. `npm run test:smoke:dry`: full lifecycle PASSED (all 6 steps), exit code 0.
+2. `npx tsx --test tests/cms/smoke-test-staging.test.ts`: 15/15 passing, including the GATE-refusal path (no network call attempted), the full dry-run lifecycle, teardown-still-runs-after-a-mid-lifecycle failure, and teardown-itself-fails reporting the orphaned post ID.
+3. `npm run test:cms`: 133/133 passing (118 prior + 15 new).
+4. `npx wrangler d1 migrations apply DB --local` & `node scripts/db/verify-staging.mjs --wrangler --local`: passed.
+5. `npx tsc --noEmit`: still stops only on the known retired `baseUrl` option in `tsconfig.json` (no new errors).
+Not yet tested: Live execution against `https://cms-staging.frong.me` — correctly refused by the GATE, since none of Step 1's real deploy, a live 1C-03 pass, or a live 1C-04 R2 report currently exist in this workspace.
+Decision and rationale: Interpreted "bilingual TH/EN draft content" as one `lang: 'th'` post whose Markdown body contains both Thai and English paragraphs, since `CreatePostInput` is single-language per post and no translation-group pairing was in scope for a lifecycle smoke test. Imported `CMS_SCHEMA_VERSION` and reused `canonicalManifestSha256`'s exact key order/sort so a manifest hash computed by this script also validates against the real server once it's reachable. Reused `sha256Hex`/`buildAssetKey`/`smokeFixtureBytes` from the 1C-04 R2 script rather than duplicating the fixture, tying the two smoke tests to the same canonical asset contract. Chose explicit environment-variable attestation over a persisted evidence file for the 1C-03/1C-04 GATE preconditions because neither check currently writes a machine-readable artifact to read.
+Blocker / required input / who can resolve it: None for authoring/dry-run. A true live run needs, in order: (a) a real non-dry-run staging deploy reporting `success: true` to `.wrangler/deploy-result/deployment-result.json`, (b) a live (non-`:dry`) `npm run verify:access` pass attested via `SMOKE_GATE_1C03_LIVE_PASSED=true`, (c) an R2 staging-bucket success attested via `SMOKE_GATE_1C04_R2_PASSED=true`, and — beyond the stated GATE — P1-04 dispatch/attempt creation and a P1-11 asset-attach route before Steps 3–4 can pass live.
+Actual time: Not tracked.
+Next action (Task ID + first step): P1-04 — authenticate the confirmation callback, then connect idempotent repository dispatch and provider-first reconciliation; this is also the change that lets 1C-05's Step 4 confirm succeed against the live API once the GATE opens.
+```
+
+### Previous session handoff (1C-03)
+
+```text
+Date: 2026-09-11 UTC
+Task ID / status: 1C-03 done locally; P1-04 next
+Delivered outcome: Created `scripts/build/verify-access-staging.mjs` for live and mock staging Zero Trust verification. Verifies Case 1 (unauthenticated /earth and /earth/api/posts receive 401, 403, or 302 redirect to Cloudflare Access login), Case 2 (authenticated via service tokens CF-Access-Client-Id / CF-Access-Client-Secret or Cf-Access-Jwt-Assertion assertion headers receive 200 OK), and Case 3 (public route bypass without auth headers receives 200 OK, with automatic fallback from specific article to public root / if 404). Built in-process ephemeral mock Cloudflare Access server for --dry-run mode. Added npm scripts `verify:access` and `verify:access:dry`, and wrote full unit/integration test suite `tests/cms/verify-access-staging.test.ts`.
+Changed files / commit if available: `scripts/build/verify-access-staging.mjs`, `tests/cms/verify-access-staging.test.ts`, `package.json`, `.env.example`, `docs/plan.md`.
+Verification commands and results / evidence location:
+1. `npm run test:cms`: 103/103 tests passing (all 94 prior tests + 9 new tests).
+2. `npm run verify:access:dry`: all 3 cases PASSED (Case 1: HTTP 302 redirect & HTTP 401; Case 2: HTTP 200 OK for /earth and /earth/api/posts; Case 3: HTTP 200 OK for /articles/cloudflare-cms-architecture).
+3. `node scripts/build/verify-access-staging.mjs`: correctly fails with code 1 and logs missing Access credentials when run live without env vars.
+4. `npx wrangler d1 migrations apply DB --local` & `node scripts/db/verify-staging.mjs --wrangler --local`: passed.
+Not yet tested: Live HTTP invocation against deployed staging host `https://cms-staging.frong.me` using production Service Token secrets.
+Decision and rationale: Kept script zero-dependency using Node standard library (`node:http`, `node:url`) and global `fetch` with `redirect: 'manual'` to reliably intercept 302 Cloudflare Access redirects without following them to login HTML. Prohibited hardcoded tokens, strictly reading from `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET` (or `CF_ACCESS_JWT_ASSERTION`).
+Blocker / required input / who can resolve it: None for local CI/dev. Live run requires configuring CF Access Service Token in staging environment.
+Actual time: Not tracked.
+Next action (Task ID + first step): P1-04 — protect the release confirmation callback, connect repository dispatch, and add provider reconciliation.
+```
+
+### Previous session handoff (1C-01)
+
+```text
+Date: 2026-09-11 UTC
+Task ID / status: 1C-01 done; 1C-03 next
+Delivered outcome: Implemented Cloudflare staging deployment pipeline and pre-flight binding verification. Created `scripts/build/verify-bindings.mjs` with JSONC-safe parsing (jsonc-parser), strict ENABLE_ACCESS_DEV_BYPASS guard, D1 database ID matching, R2 bucket name matching, Access Application AUD validation, and env.production isolation checks. Updated `.github/workflows/cms-staging-deploy.yml` targeting env.staging only with workflow_dispatch dry-run option and deployment result artifact logging (`.wrangler/deploy-result/deployment-result.json`). Added helper `scripts/build/deploy-staging.mjs` and comprehensive unit tests in `tests/cms/verify-bindings.test.ts`.
+Changed files / commit if available: `scripts/build/verify-bindings.mjs`, `scripts/build/deploy-staging.mjs`, `.github/workflows/cms-staging-deploy.yml`, `wrangler.jsonc`, `package.json`, `.env.example`, `tests/cms/verify-bindings.test.ts`, `docs/plan.md`.
+Verification commands and results / evidence location:
+1. `npm run test:cms`: 94/94 tests passing.
+2. `node scripts/build/verify-bindings.mjs --dry-run`: all 4 checks passed (D1, R2, AUD, dev-bypass guard).
+3. `node scripts/build/deploy-staging.mjs --dry-run`: full pipeline execution passed (pre-flight checks, Astro build, Wrangler staging dry-run deploy, deployment-result.json artifact written).
+4. `npx wrangler d1 migrations apply DB --local` & `node scripts/db/verify-staging.mjs --wrangler --local`: passed.
+Not yet tested: Remote live staging deploy using real Cloudflare API token in GitHub Actions runner.
+Decision and rationale: Used `jsonc-parser` to handle comments and trailing commas in `wrangler.jsonc`. Configured `wrangler.jsonc` with explicit `env.staging` and `env.production` blocks to prevent cross-environment contamination. Ensured all CI secret names come strictly from secrets/env vars without hardcoding.
+Blocker / required input / who can resolve it: None. Staging pipeline is ready for remote dispatch or manual trigger in GitHub Actions.
+Actual time: Not tracked.
+Next action (Task ID + first step): 1C-03 — exercise staged deploy in staging environment.
+```
+
+### Previous session handoff (1C-02)
+
+```text
+Date: 2026-09-11 UTC
+Task ID / status: 1C-02 done locally; live staging verification remains for 1C-03
+Delivered outcome: Added fail-closed Cloudflare Access enforcement for `/earth` and `/earth/*`. The Worker verifies RS256 signature, issuer, audience, and registered time claims with `jose`; reuses a remote JWKS cache with a five-minute TTL; returns generic no-store 401/403 responses; excludes public routes; and permits bypass only when both the Vite DEV boolean and the exact `ENABLE_ACCESS_DEV_BYPASS=true` setting are present. The Earth shell is now on-demand so it cannot become a prerendered static 401 or bypass runtime authentication.
+Changed files / commit if available: `src/middleware.ts`, `src/server/cms/access.ts`, `src/server/cms/access-guard.ts`, `src/pages/earth/index.astro`, `tests/cms/access-middleware.test.ts`, `.env.example`, `package.json`, `package-lock.json`, and this plan; not committed in this session.
+Verification commands and results / evidence location: Generated-RSA-key middleware integration tests pass; focused strict TypeScript passes; final combined `npm run test:cms` passes 94/94; local D1 has no pending migrations; `verify-staging.mjs --wrangler --local` passes; `npx astro build` passes and does not emit `dist/client/earth/index.html`.
+Not yet tested: Authenticated and unauthenticated requests against the deployed staging hostname; remote JWKS rotation/fetch behavior in the deployed Worker.
+Decision and rationale: The framework-independent guard enables real `jose` verification in Node tests while `src/middleware.ts` remains the production Astro wrapper. The remote JWK set is retained per isolate and configured with `cacheMaxAge`, preventing a JWKS fetch on each request while allowing rotation after the TTL.
+Blocker / required input / who can resolve it: No local blocker. Live verification requires the normal reviewed staging deployment and configured Access team domain/audience.
+Actual time: Not tracked.
+Next action (Task ID + first step): 1C-03 — deploy through staging, exercise missing/forged/expired/valid assertions over HTTP, and only then consider deleting the spike files.
+```
+
+### Previous session handoff (P1-API-01)
+
+```text
+Date: 2026-09-10 UTC
+Task ID / status: P1-API-01 done locally; P1-04 authentication/dispatch/reconciliation still pending
+Delivered outcome: Implemented the Earth post and release APIs over D1 with strict request parsing, explicit DTOs, atomic version-guarded editor saves, revision-backed release creation, dashboard state, and atomic live confirmation. Wired the root Cloudflare adapter required by on-demand API routes.
+Changed files / commit if available: Commit `1e33b41` (`feat(cms): add Earth API endpoints`) contains `src/pages/earth/api/`, `src/server/cms/api.ts`, CMS contracts/validation/errors/repositories, `tests/cms/api-endpoints.test.ts`, the Cloudflare/Astro dependency changes, and the legacy-Sanity build fallback. This plan remains a workspace handoff because it also contains concurrent CI-session documentation.
+Verification commands and results / evidence location: `npm run test:cms` passes 79/79; focused strict TypeScript compilation passes; local D1 reports no pending migrations; `verify-staging.mjs --wrangler --local` passes foreign keys, partial indexes, and population checks; `npx astro build` passes and generates `sitemap-index.xml`.
+Not yet tested: Remote staging mutations or authenticated HTTP traffic; release dispatch/provider reconciliation; callback authentication; simultaneous remote requests.
+Decision and rationale: `PUT` uses one D1 batch to replace the core draft, taxonomy, and sources and increments `draft_version` once. `PATCH` supports a strict core-draft update. Archive preserves revisions. API payloads never serialize raw D1 rows.
+Blocker / required input / who can resolve it: No local blocker. Remote validation requires the normal reviewed staging rollout and credentials. The confirmation route must remain behind the existing Access/application authentication boundary until P1-04 callback authentication is implemented.
+Actual time: Not tracked.
+Next action (Task ID + first step): P1-04 — authenticate the confirmation callback, then connect idempotent repository dispatch and provider-first reconciliation.
+```
+
+### Previous session handoff (CI-01)
+
+```text
+Date: 2026-09-10 UTC
+Task ID / status: CI-01 done; Phase 1 milestone 1A still in progress at P1-04
+Delivered outcome: Created automated CMS CI workflow and E2E static build verification under scripts/build/ and .github/workflows/. Added scripts/build/test-e2e-build.mjs to export live snapshots (--mock or --sqlite), run Astro static build, and assert bilingual output HTML existence and titles. Added .github/workflows/cms-ci.yml to run test:cms, tsc --noEmit, and test-e2e-build.mjs on PRs to main.
+Changed files / commit if available: `scripts/build/test-e2e-build.mjs`, `scripts/build/astro.config.mjs`, `scripts/build/e2e-src/`, `.github/workflows/cms-ci.yml`, `docs/plan.md`.
+Verification commands and results / evidence location: `node scripts/build/test-e2e-build.mjs --mock` and `node scripts/build/test-e2e-build.mjs --sqlite /tmp/test-staging.sqlite` both passed with 0 exit code, verifying dist/articles/cloudflare-cms-architecture/index.html and dist/en/articles/cloudflare-cms-architecture/index.html with expected Thai and English titles.
+Not yet tested: Remote PR execution on GitHub Actions runners.
+Decision and rationale: Kept changes strictly within scripts/build/ and .github/workflows/. Configured dedicated E2E build routing in scripts/build/ so static verification functions immediately in parallel with ongoing Phase 1 CMS development without requiring root Astro/Sanity route refactoring first.
+Blocker / required input / who can resolve it: None.
+Actual time: Not tracked.
+Next action (Task ID + first step): P1-04 — connect repository dispatch, authenticated callbacks, and provider reconciliation to the release DAL.
 ```
 
 ### Previous session handoff

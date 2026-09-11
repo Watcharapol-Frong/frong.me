@@ -1,0 +1,31 @@
+---
+import { readFileSync, existsSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+const snapshotPath = process.env.CMS_SNAPSHOT_PATH || resolve(process.cwd(), '.cache/cms-live-snapshot.json');
+let articles = [];
+if (existsSync(snapshotPath)) {
+  const snapshot = JSON.parse(readFileSync(snapshotPath, 'utf8'));
+  articles = snapshot.articles || [];
+}
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>frong.me</title>
+  </head>
+  <body>
+    <h1>Articles</h1>
+    <ul>
+      {articles.map((a) => (
+        <li>
+          <a href={a.lang === 'en' ? `/en/articles/${a.slug}` : `/articles/${a.slug}`}>
+            {a.title}
+          </a>
+        </li>
+      ))}
+    </ul>
+  </body>
+</html>
+

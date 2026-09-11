@@ -11,8 +11,14 @@ import { createCmsDatabase, type CmsDatabase, type D1DatabaseBinding } from './d
 import { CmsBadRequestError, CmsDatabaseError, CmsInvariantError } from './errors.ts';
 
 export interface CmsApiLocals {
-  runtime?: { env?: { DB?: D1DatabaseBinding } };
-  env?: { DB?: D1DatabaseBinding };
+  runtime?: { env?: CmsApiEnvironment };
+  env?: CmsApiEnvironment;
+}
+
+export interface CmsApiEnvironment {
+  DB?: D1DatabaseBinding;
+  GITHUB_DISPATCH_TOKEN?: string;
+  GITHUB_REPO?: string;
 }
 
 export function databaseFromLocals(locals: unknown): CmsDatabase {
@@ -133,6 +139,20 @@ export function releaseRowToSummary(row: ReleaseRow, itemCount: number) {
     errorMessage: row.error_message,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    finishedAt: row.finished_at,
+  };
+}
+
+export function releaseAttemptDto(row: import('../../lib/cms/contracts.ts').ReleaseAttemptRow) {
+  return {
+    id: row.id,
+    releaseId: row.release_id,
+    attemptNumber: row.attempt_number,
+    workflowRunId: row.workflow_run_id,
+    providerDeploymentId: row.provider_deployment_id,
+    status: row.status,
+    errorMessage: row.error_message,
+    startedAt: row.started_at,
     finishedAt: row.finished_at,
   };
 }

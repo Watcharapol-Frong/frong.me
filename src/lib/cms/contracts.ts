@@ -293,6 +293,22 @@ export interface ConfirmReleaseInput {
   providerDeploymentId: string;
 }
 
+export interface AttachPostAssetInput {
+  id: string;
+  assetId: string;
+  role: AssetRole;
+  altText: string;
+  caption?: string | null;
+  crop?: { x: number; y: number; zoom: number } | null;
+  position?: number;
+  expectedDraftVersion: number;
+}
+
+export interface DispatchReleaseInput {
+  attemptId: string;
+  attemptNumber: number;
+}
+
 export interface ReleaseDispatchPayload {
   releaseId: string;
   manifestSha256: string;

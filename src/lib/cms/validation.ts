@@ -2,8 +2,10 @@ import {
   CMS_SCHEMA_VERSION,
   type CreatePostInput,
   type BeginReleaseInput,
+  type AttachPostAssetInput,
   type ConfirmReleaseInput,
   type CreateReleaseInput,
+  type DispatchReleaseInput,
   type Language,
   type PublicArticle,
   type PublicAsset,
@@ -464,6 +466,55 @@ export function parseConfirmReleaseInput(value: unknown): ConfirmReleaseInput {
       'confirmation.providerDeploymentId',
       200,
     ),
+  };
+}
+
+export function parseAttachPostAssetInput(value: unknown): AttachPostAssetInput {
+  const row = object(value, 'assetUsage', [
+    'id', 'assetId', 'role', 'altText', 'caption', 'crop', 'position',
+    'expectedDraftVersion',
+  ]);
+  if (row.role !== 'cover' && row.role !== 'body') {
+    throw new CmsValidationError('assetUsage.role', 'must be cover or body');
+  }
+  const caption = nullableString(row.caption, 'assetUsage.caption', 1_000);
+  let crop: AttachPostAssetInput['crop'];
+  if (row.crop === null) {
+    crop = null;
+  } else if (row.crop !== undefined) {
+    const cropRow = object(row.crop, 'assetUsage.crop', ['x', 'y', 'zoom']);
+    const x = finiteNumber(cropRow.x, 'assetUsage.crop.x', 0);
+    const y = finiteNumber(cropRow.y, 'assetUsage.crop.y', 0);
+    const zoom = finiteNumber(cropRow.zoom, 'assetUsage.crop.zoom', Number.EPSILON);
+    if (x > 100 || y > 100) {
+      throw new CmsValidationError('assetUsage.crop', 'x and y must be percentages from 0 to 100');
+    }
+    crop = { x, y, zoom };
+  }
+  const position = row.position === undefined
+    ? undefined
+    : integer(row.position, 'assetUsage.position', 0);
+  return {
+    id: identifier(row.id, 'assetUsage.id'),
+    assetId: identifier(row.assetId, 'assetUsage.assetId'),
+    role: row.role,
+    altText: string(row.altText, 'assetUsage.altText', 500),
+    ...(caption === undefined ? {} : { caption }),
+    ...(crop === undefined ? {} : { crop }),
+    ...(position === undefined ? {} : { position }),
+    expectedDraftVersion: integer(
+      row.expectedDraftVersion,
+      'assetUsage.expectedDraftVersion',
+      1,
+    ),
+  };
+}
+
+export function parseDispatchReleaseInput(value: unknown): DispatchReleaseInput {
+  const row = object(value, 'dispatch', ['attemptId', 'attemptNumber']);
+  return {
+    attemptId: identifier(row.attemptId, 'dispatch.attemptId'),
+    attemptNumber: integer(row.attemptNumber, 'dispatch.attemptNumber', 1),
   };
 }
 

@@ -1,0 +1,35 @@
+---
+import { readFileSync, existsSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+export async function getStaticPaths() {
+  const snapshotPath = process.env.CMS_SNAPSHOT_PATH || resolve(process.cwd(), '.cache/cms-live-snapshot.json');
+  if (!existsSync(snapshotPath)) {
+    throw new Error(`Snapshot file not found at ${snapshotPath}`);
+  }
+  const snapshot = JSON.parse(readFileSync(snapshotPath, 'utf8'));
+  const thArticles = (snapshot.articles || []).filter((a) => a.lang === 'th');
+  return thArticles.map((article) => ({
+    params: { slug: article.slug },
+    props: { article },
+  }));
+}
+
+const { article } = Astro.props;
+---
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{article.title} - frong.me</title>
+  </head>
+  <body>
+    <main>
+      <h1>{article.title}</h1>
+      <p>{article.excerpt}</p>
+      <div class="content">{article.bodyMarkdown}</div>
+    </main>
+  </body>
+</html>
+

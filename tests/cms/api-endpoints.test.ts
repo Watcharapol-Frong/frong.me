@@ -8,11 +8,13 @@ import {
   PATCH as patchPost,
   PUT as putPost,
 } from '../../src/pages/earth/api/posts/[id].ts';
+import { POST as attachPostAsset } from '../../src/pages/earth/api/posts/[id]/assets.ts';
 import {
   GET as listReleases,
   POST as createRelease,
 } from '../../src/pages/earth/api/releases/index.ts';
 import { POST as confirmRelease } from '../../src/pages/earth/api/releases/[id]/confirm.ts';
+import { POST as dispatchRelease } from '../../src/pages/earth/api/releases/[id]/dispatch.ts';
 import { canonicalReleaseManifest, startReleaseAttempt, transitionRelease, transitionReleaseAttempt } from '../../src/server/cms/repositories/releases.ts';
 import { createAsset, addPostAssetUsage } from '../../src/server/cms/repositories/assets.ts';
 import { replacePostSources, replacePostTaxonomy, upsertCategory, upsertTag } from '../../src/server/cms/repositories/taxonomy.ts';
@@ -26,6 +28,26 @@ function context(binding: unknown, request: Request, params: Record<string, stri
     request,
     params,
     locals: { runtime: { env: { DB: binding } } },
+  } as never;
+}
+
+function dispatchContext(
+  binding: unknown,
+  request: Request,
+  params: Record<string, string>,
+) {
+  return {
+    request,
+    params,
+    locals: {
+      runtime: {
+        env: {
+          DB: binding,
+          GITHUB_DISPATCH_TOKEN: 'test-dispatch-token',
+          GITHUB_REPO: 'Watcharapol-Frong/frong.me',
+        },
+      },
+    },
   } as never;
 }
 
@@ -199,6 +221,65 @@ test('post detail, update conflict, and archive endpoints preserve the draft con
   assert.equal((await body(archived)).lifecycle, 'archived');
 });
 
+test('asset attach endpoint uses optimistic locking and returns the post DTO', async (t) => {
+  const { binding, db } = createCmsDbFixture();
+  t.after(() => binding.close());
+
+  await createPost(context(binding, jsonRequest('https://cms.test/earth/api/posts', 'POST', {
+    id: POST_ID,
+    lang: 'en',
+    slug: 'asset-route-proof',
+    title: 'Asset route proof',
+    bodyMarkdown: '# Asset',
+  })));
+  await createAsset(db, {
+    id: 'asset_route_0001',
+    mediaKind: 'illustration',
+    privateR2Key: 'draft/asset-route.png',
+    originalName: 'asset-route.png',
+    mimeType: 'image/png',
+    width: 1200,
+    height: 630,
+    byteSize: 4096,
+    sha256: 'b'.repeat(64),
+  }, NOW);
+
+  const attached = await attachPostAsset(context(
+    binding,
+    jsonRequest(`https://cms.test/earth/api/posts/${POST_ID}/assets`, 'POST', {
+      id: 'usage_route_001',
+      assetId: 'asset_route_0001',
+      role: 'cover',
+      altText: 'Route-attached illustration',
+      expectedDraftVersion: 1,
+    }),
+    { id: POST_ID },
+  ));
+  const attachedBody = await body(attached);
+  assert.equal(attached.status, 200);
+  assert.equal(attachedBody.draftVersion, 2);
+  assert.equal(attachedBody.assets[0].assetId, 'asset_route_0001');
+  assert.equal(attachedBody.assets[0].alt, 'Route-attached illustration');
+  assert.equal(attachedBody.assets[0].asset_id, undefined);
+  assert.equal(attached.headers.get('cache-control'), 'no-store');
+
+  const stale = await attachPostAsset(context(
+    binding,
+    jsonRequest(`https://cms.test/earth/api/posts/${POST_ID}/assets`, 'POST', {
+      id: 'usage_route_002',
+      assetId: 'asset_route_0001',
+      role: 'body',
+      altText: 'Stale attachment',
+      expectedDraftVersion: 1,
+    }),
+    { id: POST_ID },
+  ));
+  const staleBody = await body(stale);
+  assert.equal(stale.status, 409);
+  assert.equal(staleBody.error.code, 'DRAFT_VERSION_CONFLICT');
+  assert.equal(staleBody.error.details.currentDraftVersion, 2);
+});
+
 test('release endpoints snapshot a draft, list state, and confirm live atomically', async (t) => {
   const { binding, db } = createCmsDbFixture();
   t.after(() => binding.close());
@@ -283,4 +364,92 @@ test('release endpoints snapshot a draft, list state, and confirm live atomicall
   ));
   assert.equal(repeated.status, 201);
   assert.equal((await body(repeated)).id, releaseId);
+});
+
+test('release dispatch endpoint creates an attempt, calls GitHub, and enables HTTP confirmation', async (t) => {
+  const { binding } = createCmsDbFixture();
+  t.after(() => binding.close());
+
+  await createPost(context(binding, jsonRequest('https://cms.test/earth/api/posts', 'POST', {
+    id: POST_ID,
+    lang: 'en',
+    slug: 'dispatch-route-proof',
+    title: 'Dispatch route proof',
+    bodyMarkdown: '# Dispatch',
+  })));
+  const releaseId = 'release_dispatch1';
+  const revisionId = 'revision_dispatch1';
+  const manifest = {
+    schemaVersion: 1 as const,
+    releaseId,
+    generatedAt: new Date(NOW).toISOString(),
+    articles: [{
+      postId: POST_ID,
+      revisionId,
+      lang: 'en' as const,
+      slug: 'dispatch-route-proof',
+      visible: true,
+    }],
+  };
+  const canonical = await canonicalReleaseManifest(manifest);
+  await createRelease(context(binding, jsonRequest('https://cms.test/earth/api/releases', 'POST', {
+    id: releaseId,
+    triggerKind: 'publish',
+    triggerPostId: POST_ID,
+    idempotencyKey: 'dispatch_route_key_01',
+    manifest,
+    manifestSha256: canonical.sha256,
+    revisionSnapshot: {
+      revisionId,
+      postId: POST_ID,
+      expectedDraftVersion: 1,
+      publishedAt: NOW,
+    },
+  })));
+
+  const originalFetch = globalThis.fetch;
+  let dispatchedRequest: Request | undefined;
+  globalThis.fetch = async (input, init) => {
+    dispatchedRequest = new Request(input, init);
+    return new Response(null, { status: 204 });
+  };
+  t.after(() => { globalThis.fetch = originalFetch; });
+
+  const attemptId = 'attempt_dispatch1';
+  const dispatched = await dispatchRelease(dispatchContext(
+    binding,
+    jsonRequest(`https://cms.test/earth/api/releases/${releaseId}/dispatch`, 'POST', {
+      attemptId,
+      attemptNumber: 1,
+    }),
+    { id: releaseId },
+  ));
+  const dispatchedBody = await body(dispatched);
+  assert.equal(dispatched.status, 202);
+  assert.equal(dispatchedBody.release.status, 'building');
+  assert.equal(dispatchedBody.attempt.id, attemptId);
+  assert.equal(dispatchedBody.attempt.status, 'building');
+  assert.equal(dispatchedBody.attempt.release_id, undefined);
+  assert.equal(dispatchedRequest?.url, 'https://api.github.com/repos/Watcharapol-Frong/frong.me/dispatches');
+  assert.equal(dispatchedRequest?.headers.get('authorization'), 'Bearer test-dispatch-token');
+  assert.deepEqual(await dispatchedRequest?.json(), {
+    event_type: 'cms-staging-release',
+    client_payload: {
+      release_id: releaseId,
+      manifest_sha256: canonical.sha256,
+    },
+  });
+
+  const confirmed = await confirmRelease(context(
+    binding,
+    jsonRequest(`https://cms.test/earth/api/releases/${releaseId}/confirm`, 'POST', {
+      attemptId,
+      providerDeploymentId: 'deployment-dispatch-001',
+    }),
+    { id: releaseId },
+  ));
+  const confirmedBody = await body(confirmed);
+  assert.equal(confirmed.status, 200);
+  assert.equal(confirmedBody.liveReleaseId, releaseId);
+  assert.equal(confirmedBody.release.status, 'live');
 });

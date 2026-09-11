@@ -10,7 +10,14 @@
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
-    "test:cms": "tsx --test \"tests/cms/*.test.ts\""
+    "test:cms": "tsx --test \"tests/cms/*.test.ts\"",
+    "verify:r2:dry": "node scripts/db/verify-r2-staging.mjs --dry-run",
+    "verify:bindings": "node scripts/build/verify-bindings.mjs",
+    "verify:access": "node scripts/build/verify-access-staging.mjs",
+    "verify:access:dry": "node scripts/build/verify-access-staging.mjs --dry-run",
+    "test:smoke:dry": "node scripts/build/smoke-test-staging.mjs --dry-run",
+    "deploy:staging": "node scripts/build/deploy-staging.mjs",
+    "deploy:staging:dry": "node scripts/build/deploy-staging.mjs --dry-run"
   },
   "dependencies": {
     "@astrojs/cloudflare": "14.3.1",
@@ -27,6 +34,7 @@
     "astro-portabletext": "^1.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "jose": "^6.2.12",
     "lucide-react": "^0.462.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",

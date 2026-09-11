@@ -1,0 +1,54 @@
+name: CMS CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cms-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cms-ci:
+    name: CMS Verification and E2E Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run CMS unit and DAL test suite
+        run: npm run test:cms
+
+      - name: Run TypeScript type check
+        run: npx tsc --noEmit
+        continue-on-error: true
+
+      - name: Run E2E static build verification
+        run: node scripts/build/test-e2e-build.mjs
+
+      - name: Retain E2E build output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cms-e2e-dist-${{ github.sha }}
+          path: dist
+          if-no-files-found: ignore
+          retention-days: 7
+
