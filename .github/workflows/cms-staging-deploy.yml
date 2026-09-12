@@ -91,24 +91,34 @@ jobs:
       - name: Deploy targeting env.staging
         id: deploy
         run: |
+          set -uo pipefail
           mkdir -p .wrangler/deploy-result
           if [ "$IS_DRY_RUN" = "true" ]; then
             echo "[deploy] Executing dry-run deploy targeting env.staging only..."
             npx wrangler deploy --env staging --dry-run --outdir .wrangler/dry-run 2>&1 | tee .wrangler/deploy-result/wrangler-deploy.log
+            DEPLOY_EXIT_CODE=${PIPESTATUS[0]}
             DEPLOY_URL="https://cms-staging.frong.me"
             DEPLOYMENT_ID="dry-run-${{ github.run_id }}"
             MODE="dry-run"
           else
             echo "[deploy] Executing real deploy targeting env.staging only..."
             npx wrangler deploy --env staging 2>&1 | tee .wrangler/deploy-result/wrangler-deploy.log
-            DEPLOY_URL=$(grep -oE 'https://[a-zA-Z0-9.-]+\.workers\.dev|https://cms-staging\.frong\.me' .wrangler/deploy-result/wrangler-deploy.log | head -n 1 || echo "https://cms-staging.frong.me")
-            DEPLOYMENT_ID=$(grep -oE 'Current Deployment ID: [a-f0-9-]+|Deployment ID: [a-f0-9-]+' .wrangler/deploy-result/wrangler-deploy.log | head -n 1 | awk '{print $NF}' || echo "${{ github.run_id }}")
+            DEPLOY_EXIT_CODE=${PIPESTATUS[0]}
+            DEPLOY_URL=$(grep -oE 'https://[a-zA-Z0-9.-]+\.workers\.dev|https://cms-staging\.frong\.me' .wrangler/deploy-result/wrangler-deploy.log | head -n 1)
+            DEPLOY_URL=${DEPLOY_URL:-https://cms-staging.frong.me}
+            DEPLOYMENT_ID=$(grep -oE 'Current Deployment ID: [a-f0-9-]+|Deployment ID: [a-f0-9-]+' .wrangler/deploy-result/wrangler-deploy.log | head -n 1 | awk '{print $NF}')
+            DEPLOYMENT_ID=${DEPLOYMENT_ID:-${{ github.run_id }}}
             MODE="live"
+          fi
+
+          if [ "$DEPLOY_EXIT_CODE" -ne 0 ]; then
+            MODE="failed"
           fi
 
           echo "Deployment finished."
           echo "Environment: staging"
           echo "Mode: $MODE"
+          echo "Deploy exit code: $DEPLOY_EXIT_CODE"
           echo "Deploy URL: $DEPLOY_URL"
           echo "Deployment ID: $DEPLOYMENT_ID"
 
@@ -126,6 +136,11 @@ jobs:
             "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
           }
           EOF
+
+          if [ "$DEPLOY_EXIT_CODE" -ne 0 ]; then
+            echo "::error::wrangler deploy exited with code $DEPLOY_EXIT_CODE"
+            exit "$DEPLOY_EXIT_CODE"
+          fi
 
       - name: Log deploy result as build artifact
         if: always()
