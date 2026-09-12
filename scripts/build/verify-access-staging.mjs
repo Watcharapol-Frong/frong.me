@@ -146,7 +146,7 @@ export function createMockAccessServer(options = {}) {
  * Executes Zero Trust staging access verification against the target host.
  *
  * @param {object} [options]
- * @param {string} [options.host] Target staging host (default: STAGING_HOST or https://cms-staging.frong.me)
+ * @param {string} [options.host] Target staging host (default: CMS_STAGING_HOST or https://cms-staging.frong.me)
  * @param {boolean} [options.dryRun] If true, run locally against mock server stubs
  * @param {string} [options.clientId] Cloudflare Access Service Token Client ID
  * @param {string} [options.clientSecret] Cloudflare Access Service Token Client Secret
@@ -167,7 +167,7 @@ export async function verifyAccessStaging(options = {}) {
   } = options;
 
   let serverInstance = null;
-  let targetHost = options.host || env.STAGING_HOST || env.CMS_STAGING_URL || '';
+  let targetHost = options.host || env.CMS_STAGING_HOST || env.STAGING_HOST || env.CMS_STAGING_URL || '';
 
   let clientId = options.clientId || env.CF_ACCESS_CLIENT_ID || env.STAGING_CF_ACCESS_CLIENT_ID || '';
   let clientSecret = options.clientSecret || env.CF_ACCESS_CLIENT_SECRET || env.STAGING_CF_ACCESS_CLIENT_SECRET || '';
@@ -420,7 +420,7 @@ export function parseCliArgs(args) {
 Zero Trust Verification Script for Cloudflare Staging.
 
 Options:
-  --host <url>           Target staging host (or set STAGING_HOST env var)
+  --host <url>           Target staging host (or set CMS_STAGING_HOST env var)
   --dry-run              Verify assertions locally using mock stub server
   --client-id <id>       Access Service Token Client ID (or CF_ACCESS_CLIENT_ID env var)
   --client-secret <sec>  Access Service Token Client Secret (or CF_ACCESS_CLIENT_SECRET env var)

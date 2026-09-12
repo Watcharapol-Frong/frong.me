@@ -21,6 +21,51 @@ This document records resource and secret names, ownership boundaries, and confi
 
 Do not reuse staging databases, buckets, Access audience values, or deployment secrets in production. Cloudflare secrets are environment-specific and must be configured separately.
 
+## SSOT: canonical environment variable names
+
+Updated: 2026-09-12 UTC
+
+These are the canonical (SSOT) names for all project environment configuration. `.env.example` mirrors this table. Scripts and CI workflows read SSOT names first; legacy names are temporary fallbacks only and must not be used in new code or new GitHub Environment configuration.
+
+### Secrets (GitHub `cms-staging` Environment Secrets / Cloudflare Worker secrets)
+
+| SSOT name | Used by | Environment scope | Purpose | Legacy fallback |
+|---|---|---|---|---|
+| `CLOUDFLARE_API_TOKEN` | Staging deploy workflow (`cms-staging-deploy.yml`) | GitHub `cms-staging` secret | Deploy the staging main-site Worker via `wrangler deploy` | `CF_API_TOKEN`, `CF_DEPLOY_TOKEN` |
+| `CF_ACCESS_CLIENT_ID` | `scripts/build/verify-access-staging.mjs` (1C-03) and the deploy workflow's release confirm/fail callbacks (P1-04) | GitHub `cms-staging` secret; Cloudflare Access Service Token scoped to the staging Access application | Machine identity to reach `/earth/*` so Access mints the JWT assertion | `STAGING_CF_ACCESS_CLIENT_ID` |
+| `CF_ACCESS_CLIENT_SECRET` | Same as above | GitHub `cms-staging` secret | Second half of the Access Service Token pair | `STAGING_CF_ACCESS_CLIENT_SECRET` |
+| `RELEASE_CALLBACK_SECRET` | `/earth/api/releases/[id]/confirm` and `/fail` routes; the deploy workflow | GitHub `cms-staging` secret AND Cloudflare Worker secret (both required) | Independent defense-in-depth check in the callback routes so a leaked/misscoped Access token alone cannot forge a deployment outcome | — |
+
+### Variables (GitHub `cms-staging` Environment Variables / Worker vars — non-secret)
+
+| SSOT name | Used by | Environment scope | Purpose | Legacy fallback |
+|---|---|---|---|---|
+| `CLOUDFLARE_ACCOUNT_ID` | Build/CI, `scripts/build/export-live-snapshot.mjs`, `scripts/db/verify-staging.mjs` | GitHub `cms-staging` variable (preferred) or secret | Identify the Cloudflare account | `CF_ACCOUNT_ID` |
+| `CF_D1_DATABASE_ID` | Deploy workflow pre-flight (`verify-bindings.mjs`), D1 HTTP verification | GitHub `cms-staging` variable | Identify the environment's D1 database (`portfolio-db-staging`) | `STAGING_D1_DATABASE_ID` |
+| `CF_R2_BUCKET_NAME` | Deploy workflow pre-flight (`verify-bindings.mjs`) | GitHub `cms-staging` variable | Identify the environment's public media R2 bucket | `STAGING_R2_BUCKET_NAME` |
+| `CF_ACCESS_TEAM_DOMAIN` | Main-site Worker, `verify-bindings.mjs` | GitHub `cms-staging` variable or secret | JWT issuer / JWKS location | — |
+| `CF_ACCESS_AUD` | Main-site Worker, `verify-bindings.mjs` | GitHub `cms-staging` variable or secret | Validate the `aud` claim | — |
+
+### Supporting configuration (unchanged names)
+
+| Name | Scope | Purpose |
+|---|---|---|
+| `CMS_STAGING_HOST` | Variable | Staging host for verification scripts and workflow callbacks (legacy: `STAGING_HOST`, `CMS_STAGING_URL`) |
+| `CMS_SITE_ORIGIN` | Variable | Exact mutation Origin allowlist |
+| `CF_ACCESS_ALLOWED_EMAIL` | Secret | Owner email enforced by the Access middleware |
+| `ENABLE_ACCESS_DEV_BYPASS` | Local only; must be `false`/unset in CI | Development bypass guard |
+| `CF_D1_READ_TOKEN` | GitHub `cms-staging` secret | Read-only D1 HTTP verification (`scripts/db/verify-staging.mjs --http`) |
+| `CF_D1_DATABASE_NAME` | Variable | D1 database name for HTTP verification |
+| `GITHUB_REPO`, `GITHUB_DISPATCH_TOKEN` | Variable / Cloudflare secret | Future admin server dispatch target |
+| `AI_WORKER_URL`, `AI_WORKER_SECRET` | Variable / secret | AI Worker server-to-server proxy |
+
+### Enforcement rules
+
+1. New code must read SSOT names first. Legacy fallbacks exist only for backward compatibility during the transition and will be removed once GitHub Environments are reconfigured.
+2. The deploy workflow maps legacy GitHub secrets/vars to SSOT names, so existing environment configuration keeps working without changes.
+3. When configuring GitHub Environments, create only the SSOT names above. Do not add new legacy names.
+4. Never record secret values in this document, `.env.example`, or committed configuration.
+
 ## Bindings and secrets
 
 | Name | Used by | Storage location | Minimum purpose | Current status |

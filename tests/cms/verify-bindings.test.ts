@@ -9,8 +9,8 @@ import {
 } from '../../scripts/build/verify-bindings.mjs';
 
 const VALID_ENV = {
-  STAGING_D1_DATABASE_ID: '71cba742-a269-475d-84b0-8df1223a368a',
-  STAGING_R2_BUCKET_NAME: 'portfolio-media-staging',
+  CF_D1_DATABASE_ID: '71cba742-a269-475d-84b0-8df1223a368a',
+  CF_R2_BUCKET_NAME: 'portfolio-media-staging',
   CF_ACCESS_AUD: 'test-staging-access-aud',
   CF_ACCESS_TEAM_DOMAIN: 'https://staging.cloudflareaccess.com',
   ENABLE_ACCESS_DEV_BYPASS: 'false',
@@ -107,8 +107,8 @@ describe('scripts/build/verify-bindings.mjs', () => {
 
     assert.equal(result.success, true);
     assert.equal(result.dryRun, true);
-    assert.ok(logs.some((l) => l.includes('Check 1/4: D1 database ID matches STAGING_D1_DATABASE_ID: PASSED')));
-    assert.ok(logs.some((l) => l.includes('Check 2/4: R2 bucket name matches STAGING_R2_BUCKET_NAME: PASSED')));
+    assert.ok(logs.some((l) => l.includes('Check 1/4: D1 database ID matches CF_D1_DATABASE_ID: PASSED')));
+    assert.ok(logs.some((l) => l.includes('Check 2/4: R2 bucket name matches CF_R2_BUCKET_NAME: PASSED')));
     assert.ok(logs.some((l) => l.includes('Check 3/4: Access Application AUD matches CF_ACCESS_AUD: PASSED')));
     assert.ok(logs.some((l) => l.includes('Check 4/4: Access dev-bypass guard (ENABLE_ACCESS_DEV_BYPASS): PASSED')));
   });
@@ -151,13 +151,13 @@ describe('scripts/build/verify-bindings.mjs', () => {
     );
   });
 
-  it('fails before real deploy if D1 binding mismatches STAGING_D1_DATABASE_ID', () => {
+  it('fails before real deploy if D1 binding mismatches CF_D1_DATABASE_ID', () => {
     assert.throws(
       () =>
         verifyBindings({
           env: {
             ...VALID_ENV,
-            STAGING_D1_DATABASE_ID: 'mismatched-db-id-0000',
+            CF_D1_DATABASE_ID: 'mismatched-db-id-0000',
           },
         }),
       (err: any) =>
@@ -167,13 +167,13 @@ describe('scripts/build/verify-bindings.mjs', () => {
     );
   });
 
-  it('fails before real deploy if R2 binding mismatches STAGING_R2_BUCKET_NAME', () => {
+  it('fails before real deploy if R2 binding mismatches CF_R2_BUCKET_NAME', () => {
     assert.throws(
       () =>
         verifyBindings({
           env: {
             ...VALID_ENV,
-            STAGING_R2_BUCKET_NAME: 'mismatched-bucket-name',
+            CF_R2_BUCKET_NAME: 'mismatched-bucket-name',
           },
         }),
       (err: any) =>
@@ -238,7 +238,7 @@ describe('scripts/build/verify-bindings.mjs', () => {
             configPath: tmpFile,
             env: {
               ...VALID_ENV,
-              STAGING_D1_DATABASE_ID: 'prod-d1-id-12345',
+              CF_D1_DATABASE_ID: 'prod-d1-id-12345',
             },
           }),
         (err: any) =>
@@ -276,10 +276,30 @@ describe('scripts/build/verify-bindings.mjs', () => {
     }
   });
 
+  it('falls back to legacy STAGING_D1_DATABASE_ID / STAGING_R2_BUCKET_NAME when SSOT names are absent', () => {
+    const logs: string[] = [];
+    const result = verifyBindings({
+      configPath: path.resolve(process.cwd(), 'wrangler.jsonc'),
+      env: {
+        ...VALID_ENV,
+        CF_D1_DATABASE_ID: undefined,
+        CF_R2_BUCKET_NAME: undefined,
+        STAGING_D1_DATABASE_ID: '71cba742-a269-475d-84b0-8df1223a368a',
+        STAGING_R2_BUCKET_NAME: 'portfolio-media-staging',
+      },
+      dryRun: true,
+      log: (msg) => logs.push(msg),
+    });
+
+    assert.equal(result.success, true);
+    assert.equal(result.d1DatabaseId, '71cba742-a269-475d-84b0-8df1223a368a');
+    assert.equal(result.r2BucketName, 'portfolio-media-staging');
+  });
+
   it('fails if required environment variables are missing', () => {
     const requiredVars = [
-      'STAGING_D1_DATABASE_ID',
-      'STAGING_R2_BUCKET_NAME',
+      'CF_D1_DATABASE_ID',
+      'CF_R2_BUCKET_NAME',
       'CF_ACCESS_AUD',
       'CF_ACCESS_TEAM_DOMAIN',
     ] as const;

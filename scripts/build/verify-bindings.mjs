@@ -5,8 +5,8 @@
  *
  * Verifies that the wrangler.jsonc configuration and the staging build environment
  * are properly wired before deploying to staging:
- * 1. D1 database binding matches STAGING_D1_DATABASE_ID.
- * 2. R2 bucket binding matches STAGING_R2_BUCKET_NAME.
+ * 1. D1 database binding matches CF_D1_DATABASE_ID (legacy: STAGING_D1_DATABASE_ID).
+ * 2. R2 bucket binding matches CF_R2_BUCKET_NAME (legacy: STAGING_R2_BUCKET_NAME).
  * 3. Configured Access Application AUD (if present in wrangler.jsonc) matches CF_ACCESS_AUD.
  * 4. Dev-bypass guard: ENABLE_ACCESS_DEV_BYPASS must NEVER be true in staging build env.
  * 5. Production isolation: verifies staging bindings never point to env.production.
@@ -106,19 +106,21 @@ export function verifyBindings({
     );
   }
 
-  // Verify required environment variables
-  const stagingD1DbId = (env.STAGING_D1_DATABASE_ID ?? '').trim();
+  // Verify required environment variables.
+  // SSOT names (docs/cms/environment-map.md) are read first; legacy names are
+  // temporary fallbacks for backward compatibility with older CI configuration.
+  const stagingD1DbId = (env.CF_D1_DATABASE_ID ?? env.STAGING_D1_DATABASE_ID ?? '').trim();
   if (!stagingD1DbId) {
     throw new BindingVerificationError(
-      'Missing required environment variable: STAGING_D1_DATABASE_ID',
+      'Missing required environment variable: CF_D1_DATABASE_ID (legacy: STAGING_D1_DATABASE_ID)',
       'missing-env-var'
     );
   }
 
-  const stagingR2BucketName = (env.STAGING_R2_BUCKET_NAME ?? '').trim();
+  const stagingR2BucketName = (env.CF_R2_BUCKET_NAME ?? env.STAGING_R2_BUCKET_NAME ?? '').trim();
   if (!stagingR2BucketName) {
     throw new BindingVerificationError(
-      'Missing required environment variable: STAGING_R2_BUCKET_NAME',
+      'Missing required environment variable: CF_R2_BUCKET_NAME (legacy: STAGING_R2_BUCKET_NAME)',
       'missing-env-var'
     );
   }
@@ -241,8 +243,8 @@ export function verifyBindings({
   if (dryRun) {
     log('[verify-bindings] Running in --dry-run mode.');
   }
-  log(`[verify-bindings] Check 1/4: D1 database ID matches STAGING_D1_DATABASE_ID: PASSED (${stagingD1DbId})`);
-  log(`[verify-bindings] Check 2/4: R2 bucket name matches STAGING_R2_BUCKET_NAME: PASSED (${stagingR2BucketName})`);
+  log(`[verify-bindings] Check 1/4: D1 database ID matches CF_D1_DATABASE_ID: PASSED (${stagingD1DbId})`);
+  log(`[verify-bindings] Check 2/4: R2 bucket name matches CF_R2_BUCKET_NAME: PASSED (${stagingR2BucketName})`);
   if (configuredAud) {
     log(`[verify-bindings] Check 3/4: Access Application AUD matches CF_ACCESS_AUD: PASSED (${cfAccessAud})`);
   } else {

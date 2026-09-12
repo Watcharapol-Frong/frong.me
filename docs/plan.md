@@ -1,6 +1,6 @@
 # frong.me CMS Implementation Plan
 
-Updated: 2026-09-12 · Status: Gates G0 and G0.5 passed. The release confirm/fail callbacks now require a dedicated secret independent of Cloudflare Access, and the deploy workflow calls them back automatically; provider-first reconciliation for ambiguous/stuck attempts (P1-04b) remains the current release-protocol task.
+Updated: 2026-09-12 · Status: Gates G0 and G0.5 passed. The release confirm/fail callbacks now require a dedicated secret independent of Cloudflare Access, and the deploy workflow calls them back automatically; provider-first reconciliation for ambiguous/stuck attempts (P1-04b) remains the current release-protocol task. Environment variable SSOT names are now defined in [`docs/cms/environment-map.md`](cms/environment-map.md) and enforced by the deploy workflow and verification scripts with temporary legacy fallbacks.
 
 Requirements: [CMS migration specification, version 6](cms-migration-plan.md). Documentation index: [README](README.md).
 
@@ -26,9 +26,27 @@ The repository contains an older implementation that has not been updated to the
 | Current risk | Reconciliation must preserve the DAL's idempotency and compare-and-set guarantees, and must not confirm a release live from provider signals weaker than the existing callback contract |
 | Unverified | Every CMS check so far is local. Remote staging mutations, dispatch runs, the real callback round-trip against a deployed Worker, provider reconciliation, and the workflow/deployment identifiers and timings were not supplied for the repository record; D1/R2 backups, fonts/performance, and the public site's earlier HTTP 520 cause also remain unverified |
 | Production impact | The AI Worker protection is live. The CMS work has not changed the public site or production CMS infrastructure |
-| Routine checks | `npm run test:cms` (137 tests, all passing at this update); `npx wrangler d1 migrations apply DB --local`; `node scripts/db/verify-staging.mjs --wrangler --local` |
+| Routine checks | `npm run test:cms` (138 tests, all passing at this update); `npx wrangler d1 migrations apply DB --local`; `node scripts/db/verify-staging.mjs --wrangler --local` |
 | Known local blockers | `npx tsc --noEmit` still stops on the legacy `baseUrl` option in `tsconfig.json`. The root Astro/Cloudflare build now succeeds without legacy Sanity credentials |
 | Evidence | [`docs/cms/baseline.md`](cms/baseline.md), [`docs/cms/environment-map.md`](cms/environment-map.md), and [`docs/cms/architecture-spike.md`](cms/architecture-spike.md) |
+
+### SSOT environment variable enforcement (2026-09-12)
+
+Canonical environment variable names are now defined as a Single Source of Truth in [`docs/cms/environment-map.md`](cms/environment-map.md) ("SSOT" section) and mirrored in `.env.example`:
+
+- **Secrets:** `CLOUDFLARE_API_TOKEN`, `CF_ACCESS_CLIENT_ID`, `CF_ACCESS_CLIENT_SECRET`, `RELEASE_CALLBACK_SECRET`
+- **Variables:** `CLOUDFLARE_ACCOUNT_ID`, `CF_D1_DATABASE_ID`, `CF_R2_BUCKET_NAME`, `CF_ACCESS_TEAM_DOMAIN`, `CF_ACCESS_AUD`
+
+Changes made to enforce the SSOT:
+
+| File | Change |
+|---|---|
+| `.env.example` | Rewritten around the SSOT names with Secrets/Variables sections, legacy-name deprecation notes, and GitHub Environments mapping |
+| `.github/workflows/cms-staging-deploy.yml` | Env block now maps SSOT names first (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `CF_D1_DATABASE_ID`, `CF_R2_BUCKET_NAME`) with temporary legacy fallbacks (`CF_API_TOKEN`, `CF_DEPLOY_TOKEN`, `CF_ACCOUNT_ID`, `STAGING_D1_DATABASE_ID`, `STAGING_R2_BUCKET_NAME`); legacy aliases are still exported so existing consumers keep working |
+| `scripts/build/verify-bindings.mjs` | Reads `CF_D1_DATABASE_ID` and `CF_R2_BUCKET_NAME` first, falling back to `STAGING_D1_DATABASE_ID`/`STAGING_R2_BUCKET_NAME`; error messages and log lines updated to SSOT names |
+| `scripts/build/verify-access-staging.mjs` | Reads `CMS_STAGING_HOST` first (legacy `STAGING_HOST`/`CMS_STAGING_URL` fallbacks retained); CLI help updated |
+
+Backward compatibility: existing GitHub `cms-staging` environment configuration keeps working because the workflow maps legacy names into the SSOT variables. When reconfiguring GitHub Environments, create only the SSOT names; legacy fallbacks will be removed in a later cleanup task.
 
 Backup files and workflow definitions do not prove successful execution or restorability. Record separate test evidence.
 
@@ -347,7 +365,6 @@ Verification commands and results / evidence location:
 2. `npx tsx --test tests/cms/smoke-test-staging.test.ts`: 15/15 passing, including the GATE-refusal path (no network call attempted), the full dry-run lifecycle, teardown-still-runs-after-a-mid-lifecycle failure, and teardown-itself-fails reporting the orphaned post ID.
 3. `npm run test:cms`: 133/133 passing (118 prior + 15 new).
 4. `npx wrangler d1 migrations apply DB --local` & `node scripts/db/verify-staging.mjs --wrangler --local`: passed.
-5. `npx tsc --noEmit`: still stops only on the known retired `baseUrl` option in `tsconfig.json` (no new errors).
 Not yet tested: Live execution against `https://cms-staging.frong.me` — correctly refused by the GATE, since none of Step 1's real deploy, a live 1C-03 pass, or a live 1C-04 R2 report currently exist in this workspace.
 Decision and rationale: Interpreted "bilingual TH/EN draft content" as one `lang: 'th'` post whose Markdown body contains both Thai and English paragraphs, since `CreatePostInput` is single-language per post and no translation-group pairing was in scope for a lifecycle smoke test. Imported `CMS_SCHEMA_VERSION` and reused `canonicalManifestSha256`'s exact key order/sort so a manifest hash computed by this script also validates against the real server once it's reachable. Reused `sha256Hex`/`buildAssetKey`/`smokeFixtureBytes` from the 1C-04 R2 script rather than duplicating the fixture, tying the two smoke tests to the same canonical asset contract. Chose explicit environment-variable attestation over a persisted evidence file for the 1C-03/1C-04 GATE preconditions because neither check currently writes a machine-readable artifact to read.
 Blocker / required input / who can resolve it: None for authoring/dry-run. A true live run needs, in order: (a) a real non-dry-run staging deploy reporting `success: true` to `.wrangler/deploy-result/deployment-result.json`, (b) a live (non-`:dry`) `npm run verify:access` pass attested via `SMOKE_GATE_1C03_LIVE_PASSED=true`, (c) an R2 staging-bucket success attested via `SMOKE_GATE_1C04_R2_PASSED=true`, and — beyond the stated GATE — P1-04 dispatch/attempt creation and a P1-11 asset-attach route before Steps 3–4 can pass live.
@@ -418,7 +435,7 @@ Changed files / commit if available: Commit `1e33b41` (`feat(cms): add Earth API
 Verification commands and results / evidence location: `npm run test:cms` passes 79/79; focused strict TypeScript compilation passes; local D1 reports no pending migrations; `verify-staging.mjs --wrangler --local` passes foreign keys, partial indexes, and population checks; `npx astro build` passes and generates `sitemap-index.xml`.
 Not yet tested: Remote staging mutations or authenticated HTTP traffic; release dispatch/provider reconciliation; callback authentication; simultaneous remote requests.
 Decision and rationale: `PUT` uses one D1 batch to replace the core draft, taxonomy, and sources and increments `draft_version` once. `PATCH` supports a strict core-draft update. Archive preserves revisions. API payloads never serialize raw D1 rows.
-Blocker / required input / who can resolve it: No local blocker. Remote validation requires the normal reviewed staging rollout and credentials. The confirmation route must remain behind the existing Access/application authentication boundary until P1-04 callback authentication is implemented.
+Blocker / required input / who can resolve it: No local blocker. Remote validation requires the normal reviewed rollout and credentials. The confirmation route must remain behind the existing Access/application authentication boundary until P1-04 callback authentication is implemented.
 Actual time: Not tracked.
 Next action (Task ID + first step): P1-04 — authenticate the confirmation callback, then connect idempotent repository dispatch and provider-first reconciliation.
 ```
