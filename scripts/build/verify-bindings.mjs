@@ -5,11 +5,12 @@
  *
  * Verifies that the wrangler.jsonc configuration and the staging build environment
  * are properly wired before deploying to staging:
- * 1. D1 database binding matches CF_D1_DATABASE_ID (legacy: STAGING_D1_DATABASE_ID).
- * 2. R2 bucket binding matches CF_R2_BUCKET_NAME (legacy: STAGING_R2_BUCKET_NAME).
- * 3. Configured Access Application AUD (if present in wrangler.jsonc) matches CF_ACCESS_AUD.
- * 4. Dev-bypass guard: ENABLE_ACCESS_DEV_BYPASS must NEVER be true in staging build env.
- * 5. Production isolation: verifies staging bindings never point to env.production.
+ * 1. All five SSOT variables are present and non-blank, including legacy fallback resolution.
+ * 2. D1 database binding matches CF_D1_DATABASE_ID (legacy: STAGING_D1_DATABASE_ID).
+ * 3. R2 bucket binding matches CF_R2_BUCKET_NAME (legacy: STAGING_R2_BUCKET_NAME).
+ * 4. Configured Access Application AUD (if present in wrangler.jsonc) matches CF_ACCESS_AUD.
+ * 5. Dev-bypass guard: ENABLE_ACCESS_DEV_BYPASS must NEVER be true in staging build env.
+ * 6. Production isolation: verifies staging bindings never point to env.production.
  *
  * Parses wrangler.jsonc using jsonc-parser (never raw JSON.parse) and fails loudly on syntax errors.
  */
@@ -29,6 +30,42 @@ export class BindingVerificationError extends Error {
     this.name = 'BindingVerificationError';
     this.checkName = checkName;
   }
+}
+
+/**
+ * Resolves one required SSOT environment variable without allowing an explicitly
+ * blank value to fall through to another source. GitHub Actions resolves
+ * unavailable vars/secrets to an empty string, so accepting a later fallback here
+ * could hide a misconfigured canonical variable.
+ *
+ * @param {NodeJS.ProcessEnv} env
+ * @param {string} canonicalName
+ * @param {string[]} [legacyNames]
+ * @returns {string}
+ */
+export function requiredSsotVariable(env, canonicalName, legacyNames = []) {
+  for (const variableName of [canonicalName, ...legacyNames]) {
+    const rawValue = env[variableName];
+    if (rawValue === undefined || rawValue === null) continue;
+
+    const value = String(rawValue).trim();
+    if (!value) {
+      const sourceDetail = variableName === canonicalName
+        ? `${canonicalName} resolved to an empty string`
+        : `legacy fallback ${variableName} resolved to an empty string`;
+      throw new BindingVerificationError(
+        `Missing required environment variable: ${canonicalName} (${sourceDetail})`,
+        'missing-env-var'
+      );
+    }
+    return value;
+  }
+
+  const legacyDetail = legacyNames.length > 0 ? ` (legacy: ${legacyNames.join(', ')})` : '';
+  throw new BindingVerificationError(
+    `Missing required environment variable: ${canonicalName}${legacyDetail}`,
+    'missing-env-var'
+  );
 }
 
 /**
@@ -76,7 +113,7 @@ export function parseWranglerJsonc(configPath) {
  * @param {NodeJS.ProcessEnv} [options.env]
  * @param {boolean} [options.dryRun]
  * @param {(msg: string) => void} [options.log]
- * @returns {{ success: boolean, d1DatabaseId: string, r2BucketName: string, accessAud: string, configuredAud: string | null, devBypass: boolean, dryRun: boolean }}
+ * @returns {{ success: boolean, accountId: string, d1DatabaseId: string, r2BucketName: string, accessTeamDomain: string, accessAud: string, configuredAud: string | null, devBypass: boolean, dryRun: boolean }}
  */
 export function verifyBindings({
   configPath = path.resolve(process.cwd(), 'wrangler.jsonc'),
@@ -94,6 +131,15 @@ export function verifyBindings({
     );
   }
 
+  // Validate the five canonical variables before reading binding configuration,
+  // so an empty GitHub vars/secrets resolution stops the pre-flight immediately.
+  // Legacy names remain temporary, explicitly identified fallback sources.
+  const cloudflareAccountId = requiredSsotVariable(env, 'CLOUDFLARE_ACCOUNT_ID', ['CF_ACCOUNT_ID']);
+  const stagingD1DbId = requiredSsotVariable(env, 'CF_D1_DATABASE_ID', ['STAGING_D1_DATABASE_ID']);
+  const stagingR2BucketName = requiredSsotVariable(env, 'CF_R2_BUCKET_NAME', ['STAGING_R2_BUCKET_NAME']);
+  const cfAccessTeamDomain = requiredSsotVariable(env, 'CF_ACCESS_TEAM_DOMAIN');
+  const cfAccessAud = requiredSsotVariable(env, 'CF_ACCESS_AUD');
+
   // Parse wrangler.jsonc using JSONC-safe parser
   const config = parseWranglerJsonc(configPath);
 
@@ -106,42 +152,7 @@ export function verifyBindings({
     );
   }
 
-  // Verify required environment variables.
-  // SSOT names (docs/cms/environment-map.md) are read first; legacy names are
-  // temporary fallbacks for backward compatibility with older CI configuration.
-  const stagingD1DbId = (env.CF_D1_DATABASE_ID ?? env.STAGING_D1_DATABASE_ID ?? '').trim();
-  if (!stagingD1DbId) {
-    throw new BindingVerificationError(
-      'Missing required environment variable: CF_D1_DATABASE_ID (legacy: STAGING_D1_DATABASE_ID)',
-      'missing-env-var'
-    );
-  }
-
-  const stagingR2BucketName = (env.CF_R2_BUCKET_NAME ?? env.STAGING_R2_BUCKET_NAME ?? '').trim();
-  if (!stagingR2BucketName) {
-    throw new BindingVerificationError(
-      'Missing required environment variable: CF_R2_BUCKET_NAME (legacy: STAGING_R2_BUCKET_NAME)',
-      'missing-env-var'
-    );
-  }
-
-  const cfAccessAud = (env.CF_ACCESS_AUD ?? '').trim();
-  if (!cfAccessAud) {
-    throw new BindingVerificationError(
-      'Missing required environment variable: CF_ACCESS_AUD',
-      'missing-env-var'
-    );
-  }
-
-  const cfAccessTeamDomain = (env.CF_ACCESS_TEAM_DOMAIN ?? '').trim();
-  if (!cfAccessTeamDomain) {
-    throw new BindingVerificationError(
-      'Missing required environment variable: CF_ACCESS_TEAM_DOMAIN',
-      'missing-env-var'
-    );
-  }
-
-  // Check 1/4: D1 database verification
+  // D1 database verification
   const d1Databases = targetEnvConfig.d1_databases;
   if (!Array.isArray(d1Databases) || d1Databases.length === 0) {
     throw new BindingVerificationError(
@@ -153,12 +164,12 @@ export function verifyBindings({
   if (!matchingD1) {
     const foundIds = d1Databases.map((db) => db.database_id).join(', ');
     throw new BindingVerificationError(
-      `D1 database binding mismatch: env.${envName}.d1_databases does not contain database_id matching STAGING_D1_DATABASE_ID. Expected: "${stagingD1DbId}", Found: [${foundIds}]`,
+      `D1 database binding mismatch: env.${envName}.d1_databases does not contain database_id matching CF_D1_DATABASE_ID. Expected: "${stagingD1DbId}", Found: [${foundIds}]`,
       'd1-binding'
     );
   }
 
-  // Check 2/4: R2 bucket verification
+  // R2 bucket verification
   const r2Buckets = targetEnvConfig.r2_buckets;
   if (!Array.isArray(r2Buckets) || r2Buckets.length === 0) {
     throw new BindingVerificationError(
@@ -170,12 +181,12 @@ export function verifyBindings({
   if (!matchingR2) {
     const foundBuckets = r2Buckets.map((b) => b.bucket_name).join(', ');
     throw new BindingVerificationError(
-      `R2 bucket binding mismatch: env.${envName}.r2_buckets does not contain bucket_name matching STAGING_R2_BUCKET_NAME. Expected: "${stagingR2BucketName}", Found: [${foundBuckets}]`,
+      `R2 bucket binding mismatch: env.${envName}.r2_buckets does not contain bucket_name matching CF_R2_BUCKET_NAME. Expected: "${stagingR2BucketName}", Found: [${foundBuckets}]`,
       'r2-binding'
     );
   }
 
-  // Check 3/4: Access Application AUD verification (if present in wrangler.jsonc)
+  // Access Application AUD verification (if present in wrangler.jsonc)
   const configuredAud =
     targetEnvConfig.vars?.CF_ACCESS_AUD ??
     targetEnvConfig.vars?.ACCESS_AUD ??
@@ -243,21 +254,24 @@ export function verifyBindings({
   if (dryRun) {
     log('[verify-bindings] Running in --dry-run mode.');
   }
-  log(`[verify-bindings] Check 1/4: D1 database ID matches CF_D1_DATABASE_ID: PASSED (${stagingD1DbId})`);
-  log(`[verify-bindings] Check 2/4: R2 bucket name matches CF_R2_BUCKET_NAME: PASSED (${stagingR2BucketName})`);
+  log('[verify-bindings] Check 1/5: Required SSOT variables are present and non-blank: PASSED');
+  log(`[verify-bindings] Check 2/5: D1 database ID matches CF_D1_DATABASE_ID: PASSED (${stagingD1DbId})`);
+  log(`[verify-bindings] Check 3/5: R2 bucket name matches CF_R2_BUCKET_NAME: PASSED (${stagingR2BucketName})`);
   if (configuredAud) {
-    log(`[verify-bindings] Check 3/4: Access Application AUD matches CF_ACCESS_AUD: PASSED (${cfAccessAud})`);
+    log(`[verify-bindings] Check 4/5: Access Application AUD matches CF_ACCESS_AUD: PASSED (${cfAccessAud})`);
   } else {
-    log(`[verify-bindings] Check 3/4: Access Application AUD matches CF_ACCESS_AUD: PASSED (CF_ACCESS_AUD validated from environment; not hardcoded in wrangler.jsonc)`);
+    log(`[verify-bindings] Check 4/5: Access Application AUD matches CF_ACCESS_AUD: PASSED (CF_ACCESS_AUD validated from environment; not hardcoded in wrangler.jsonc)`);
   }
-  log(`[verify-bindings] Check 4/4: Access dev-bypass guard (ENABLE_ACCESS_DEV_BYPASS): PASSED (disabled)`);
+  log(`[verify-bindings] Check 5/5: Access dev-bypass guard (ENABLE_ACCESS_DEV_BYPASS): PASSED (disabled)`);
   log(`[verify-bindings] Production isolation guard: PASSED (no bindings point at env.production)`);
   log(`[verify-bindings] All staging pre-flight checks PASSED successfully.`);
 
   return {
     success: true,
+    accountId: cloudflareAccountId,
     d1DatabaseId: stagingD1DbId,
     r2BucketName: stagingR2BucketName,
+    accessTeamDomain: cfAccessTeamDomain,
     accessAud: cfAccessAud,
     configuredAud: configuredAud ?? null,
     devBypass: false,
@@ -307,4 +321,3 @@ if (isDirectRun) {
     process.exit(1);
   }
 }
-

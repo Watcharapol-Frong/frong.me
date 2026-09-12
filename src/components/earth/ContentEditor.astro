@@ -1,0 +1,191 @@
+/**
+ * Markdown / content editor surface for the Earth admin.
+ *
+ * Presentational only: a toolbar of formatting buttons that operate on the
+ * textarea via `document.execCommand`-free, selection-based wrapping, a
+ * character/word counter, and a live preview pane. All behaviour is wired by
+ * the delegated script in `PostEditor.astro` — this component ships no script
+ * of its own.
+ */
+export interface ContentEditorProps {
+  /** Seed markdown body. */
+  initial?: string;
+  /** Show the live preview pane (default: true). */
+  showPreview?: boolean;
+}
+
+interface Props extends ContentEditorProps {}
+
+const { initial = '', showPreview = true } = Astro.props as Props;
+
+const toolbarButtons: { label: string; title: string; action: string; arg?: string }[] = [
+  { label: 'B', title: 'Bold', action: 'bold' },
+  { label: 'I', title: 'Italic', action: 'italic' },
+  { label: 'H2', title: 'Heading', action: 'prefix', arg: '## ' },
+  { label: '•', title: 'List item', action: 'prefix', arg: '- ' },
+  { label: '❝', title: 'Blockquote', action: 'prefix', arg: '> ' },
+  { label: '</>', title: 'Inline code', action: 'wrap', arg: '`' },
+  { label: '🔗', title: 'Link', action: 'link' },
+];
+---
+
+<section class="earth-content" data-earth-content>
+  <div class="earth-content__toolbar" role="toolbar" aria-label="Markdown formatting">
+    {
+      toolbarButtons.map((btn) => (
+        <button
+          type="button"
+          class="earth-content__tool"
+          title={btn.title}
+          aria-label={btn.title}
+          data-earth-tool={btn.action}
+          data-earth-tool-arg={btn.arg ?? ''}
+        >
+          {btn.label}
+        </button>
+      ))
+    }
+    <span class="earth-content__spacer" aria-hidden="true"></span>
+    <span class="earth-content__count" data-earth-count>0 words</span>
+  </div>
+
+  <div class:list={['earth-content__panes', { 'earth-content__panes--single': !showPreview }]}>
+    <textarea
+      class="earth-content__input"
+      name="body"
+      data-earth-field="body"
+      data-earth-editor-input
+      placeholder="Write in Markdown…"
+      spellcheck="true"
+>{initial}</textarea>
+
+    {
+      showPreview && (
+        <div class="earth-content__preview" data-earth-preview aria-live="polite">
+          <p class="earth-content__preview-empty">Preview appears as you type.</p>
+        </div>
+      )
+    }
+  </div>
+</section>
+
+<style>
+  .earth-content {
+    border: 1px solid var(--earth-border, color-mix(in oklab, currentColor 15%, transparent));
+    border-radius: 0.75rem;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .earth-content__toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.375rem 0.5rem;
+    border-bottom: 1px solid var(--earth-border, color-mix(in oklab, currentColor 15%, transparent));
+    background: color-mix(in oklab, currentColor 4%, transparent);
+    flex-wrap: wrap;
+  }
+
+  .earth-content__tool {
+    min-width: 2rem;
+    height: 1.75rem;
+    padding-inline: 0.4rem;
+    border: none;
+    border-radius: 0.375rem;
+    background: transparent;
+    color: inherit;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 100ms ease;
+  }
+
+  .earth-content__tool:hover {
+    background: color-mix(in oklab, currentColor 10%, transparent);
+  }
+
+  .earth-content__spacer {
+    flex: 1;
+  }
+
+  .earth-content__count {
+    font-size: 0.75rem;
+    opacity: 0.6;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .earth-content__panes {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    min-height: 22rem;
+  }
+
+  .earth-content__panes--single {
+    grid-template-columns: 1fr;
+  }
+
+  .earth-content__input {
+    border: none;
+    background: transparent;
+    color: inherit;
+    padding: 1rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.875rem;
+    line-height: 1.6;
+    resize: vertical;
+    outline: none;
+  }
+
+  .earth-content__preview {
+    border-left: 1px solid var(--earth-border, color-mix(in oklab, currentColor 15%, transparent));
+    padding: 1rem;
+    font-size: 0.9375rem;
+    line-height: 1.7;
+    overflow: auto;
+    max-height: 32rem;
+  }
+
+  .earth-content__preview-empty {
+    opacity: 0.5;
+    font-size: 0.8125rem;
+  }
+
+  .earth-content__preview :global(h1),
+  .earth-content__preview :global(h2),
+  .earth-content__preview :global(h3) {
+    font-weight: 600;
+    margin: 0.75em 0 0.35em;
+  }
+
+  .earth-content__preview :global(p) {
+    margin: 0.5em 0;
+  }
+
+  .earth-content__preview :global(code) {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.85em;
+    background: color-mix(in oklab, currentColor 8%, transparent);
+    padding: 0.1em 0.3em;
+    border-radius: 0.25rem;
+  }
+
+  .earth-content__preview :global(blockquote) {
+    border-left: 3px solid var(--earth-accent, currentColor);
+    margin: 0.5em 0;
+    padding-left: 0.75em;
+    opacity: 0.85;
+  }
+
+  @media (max-width: 768px) {
+    .earth-content__panes {
+      grid-template-columns: 1fr;
+    }
+
+    .earth-content__preview {
+      border-left: none;
+      border-top: 1px solid var(--earth-border, color-mix(in oklab, currentColor 15%, transparent));
+    }
+  }
+</style>

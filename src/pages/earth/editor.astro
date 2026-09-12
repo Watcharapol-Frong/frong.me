@@ -1,0 +1,78 @@
+---
+/**
+ * Demo page for the Earth admin editor UI.
+ *
+ * Mounts `PostEditor.astro` with a seed post so the component can be exercised
+ * in the browser. This page ships no data and performs no real persistence —
+ * the editor's script uses a mock API surface that is ready to be pointed at
+ * the real `/earth/api/posts` routes.
+ *
+ * Like `/earth` itself, this is on-demand so every request crosses the
+ * Access-verifying middleware. Do not prerender.
+ */
+export const prerender = false;
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow, noarchive" />
+    <meta name="referrer" content="same-origin" />
+    <title>Editor · Earth · frong.me</title>
+    <style>
+      :root {
+        --earth-accent: #6d5bd0;
+        --earth-accent-contrast: #ffffff;
+        --earth-border: rgba(128, 128, 128, 0.3);
+        color-scheme: light dark;
+      }
+      body {
+        margin: 0;
+        padding: 2rem 1.25rem 4rem;
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        background: #fafafa;
+        color: #1a1a1a;
+      }
+      @media (prefers-color-scheme: dark) {
+        body { background: #141414; color: #ededed; }
+      }
+      .earth-page-header {
+        max-width: 60rem;
+        margin: 0 auto 1.5rem;
+      }
+      .earth-page-header h1 {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin: 0 0 0.25rem;
+      }
+      .earth-page-header p {
+        margin: 0;
+        font-size: 0.8125rem;
+        opacity: 0.6;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="earth-page-header">
+      <h1>Post Editor</h1>
+      <p>
+        Client-side editor with localStorage autosave. Saving uses a mock API
+        surface ready to be wired to <code>/earth/api/posts</code>.
+      </p>
+    </header>
+
+    <PostEditor
+      initial={{
+        id: 'demo-1',
+        title: 'A demo post',
+        slug: 'a-demo-post',
+        excerpt: 'Short description for listings and social cards.',
+        tags: ['astro', 'demo'],
+        status: 'draft',
+        body: '## Heading\n\nSome **markdown** body text with `code`.\n\n- item one\n- item two\n\n> A quote line',
+      }}
+    />
+  </body>
+</html>

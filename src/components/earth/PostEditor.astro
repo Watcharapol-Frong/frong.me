@@ -1,0 +1,379 @@
+/**
+ * Earth admin post editor — composition root for the client-side editor UI.
+ *
+ * Composes `MetadataForm`, `ContentEditor`, and `ActionBar`, then wires them
+ * with one delegated client-side script that provides:
+ *
+ * - Field collection into an API-shaped payload (`buildPayload`).
+ * - A mock persistence layer (`MockPostApi`) implementing the same surface the
+ *   real `/earth/api/posts` endpoints will expose, so switching to `fetch` is
+ *   a one-line change in `createPostApi`.
+ * - Local draft backup: debounced autosave to `localStorage` on every change,
+ *   restore on load, and "last saved" status in the action bar.
+ *
+ * This component never touches `src/middleware.ts` or the API route handlers;
+ * it only prepares and sends fetch payloads.
+ */
+import MetadataForm from './MetadataForm.astro';
+import ContentEditor from './ContentEditor.astro';
+import ActionBar from './ActionBar.astro';
+
+export interface PostEditorProps {
+  /** Seed values for a new or existing post. */
+  initial?: {
+    id?: string;
+    title?: string;
+    slug?: string;
+    excerpt?: string;
+    tags?: string[];
+    status?: 'draft' | 'published';
+    body?: string;
+  };
+  /** localStorage key for the autosave backup. Derived from the post id. */
+  storageKey?: string;
+}
+
+interface Props extends PostEditorProps {}
+
+const {
+  initial = {},
+  storageKey,
+} = Astro.props as Props;
+
+const resolvedKey = storageKey ?? `earth:draft:${initial.id ?? 'new'}`;
+const seed = {
+  id: initial.id ?? '',
+  title: initial.title ?? '',
+  slug: initial.slug ?? '',
+  excerpt: initial.excerpt ?? '',
+  tags: initial.tags ?? [],
+  status: initial.status ?? ('draft' as const),
+  body: initial.body ?? '',
+};
+---
+
+<form class="earth-editor" data-earth-editor data-earth-storage-key={resolvedKey} data-earth-post-id={seed.id || 'new'}>
+  <ActionBar status={seed.status} />
+  <MetadataForm initial={seed} />
+  <ContentEditor initial={seed.body} />
+
+  <!-- Hidden inputs so the full payload round-trips with native form data too. -->
+  <input type="hidden" name="id" value={seed.id} />
+</form>
+
+<script>
+  /* ------------------------------------------------------------------ */
+  /* Types                                                               */
+  /* ------------------------------------------------------------------ */
+
+  /** Payload shape prepared for `POST /earth/api/posts` (create) and
+   *  `PUT /earth/api/posts/[id]` (update). Mirrors the DAL contract. */
+  interface PostPayload {
+    id?: string;
+    title: string;
+    slug: string;
+    excerpt: string;
+    tags: string[];
+    status: 'draft' | 'published';
+    bodyMarkdown: string;
+  }
+
+  interface PostApi {
+    save(payload: PostPayload): Promise<{ id: string; status: string }>;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Mock API — swap for the real fetch transport when routes are wired. */
+  /* ------------------------------------------------------------------ */
+
+  function createMockPostApi(): PostApi {
+    return {
+      async save(payload) {
+        // Simulated latency + echo. Replace with:
+        //   const res = await fetch(payload.id ? `/earth/api/posts/${payload.id}` : '/earth/api/posts', {
+        //     method: payload.id ? 'PUT' : 'POST',
+        //     headers: { 'Content-Type': 'application/json' },
+        //     body: JSON.stringify(payload),
+        //   });
+        await new Promise((r) => setTimeout(r, 250));
+        return { id: payload.id || `mock-${Date.now().toString(36)}`, status: payload.status };
+      },
+    };
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Editor controller                                                   */
+  /* ------------------------------------------------------------------ */
+
+  function initEditor(form: HTMLFormElement) {
+    const api = createMockPostApi();
+    const storageKey = form.dataset.earthStorageKey || 'earth:draft:new';
+    const postId = form.dataset.earthPostId || 'new';
+
+    const fields = {
+      title: form.querySelector<HTMLInputElement>('[data-earth-field="title"]'),
+      slug: form.querySelector<HTMLInputElement>('[data-earth-field="slug"]'),
+      excerpt: form.querySelector<HTMLTextAreaElement>('[data-earth-field="excerpt"]'),
+      tags: form.querySelector<HTMLInputElement>('[data-earth-field="tags"]'),
+      status: form.querySelector<HTMLSelectElement>('[data-earth-field="status"]'),
+      body: form.querySelector<HTMLTextAreaElement>('[data-earth-field="body"]'),
+    };
+
+    const saveStatus = form.querySelector<HTMLElement>('[data-earth-save-status]');
+    const aiToolbar = form.querySelector<HTMLElement>('[data-earth-ai-toolbar]');
+    const aiToggle = form.querySelector<HTMLButtonElement>('[data-earth-action="toggle-ai"]');
+    const publishBtn = form.querySelector<HTMLButtonElement>('[data-earth-action="publish"]');
+    const preview = form.querySelector<HTMLElement>('[data-earth-preview]');
+    const counter = form.querySelector<HTMLElement>('[data-earth-count]');
+
+    /* ---------------- Payload ---------------- */
+
+    function buildPayload(statusOverride?: 'draft' | 'published'): PostPayload {
+      const tagsRaw = fields.tags?.value ?? '';
+      return {
+        ...(postId !== 'new' ? { id: postId } : {}),
+        title: fields.title?.value.trim() ?? '',
+        slug: fields.slug?.value.trim() ?? '',
+        excerpt: fields.excerpt?.value.trim() ?? '',
+        tags: tagsRaw.split(',').map((t) => t.trim()).filter(Boolean),
+        status: statusOverride ?? ((fields.status?.value as PostPayload['status']) || 'draft'),
+        bodyMarkdown: fields.body?.value ?? '',
+      };
+    }
+
+    /* ---------------- Local draft backup ---------------- */
+
+    let saveTimer: ReturnType<typeof setTimeout> | undefined;
+    let saving = false;
+
+    function readBackup(): PostPayload | null {
+      try {
+        const raw = localStorage.getItem(storageKey);
+        return raw ? (JSON.parse(raw) as PostPayload) : null;
+      } catch {
+        return null;
+      }
+    }
+
+    function writeBackup(payload: PostPayload) {
+      try {
+        localStorage.setItem(storageKey, JSON.stringify({ ...payload, savedAt: Date.now() }));
+      } catch {
+        /* quota or private mode — backup is best-effort */
+      }
+    }
+
+    function setStatus(text: string) {
+      if (saveStatus) saveStatus.textContent = text;
+    }
+
+    function scheduleAutosave() {
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => {
+        writeBackup(buildPayload());
+        const t = new Date().toLocaleTimeString();
+        setStatus(`Backed up locally · ${t}`);
+      }, 800);
+    }
+
+    function restoreBackup() {
+      const backup = readBackup();
+      if (!backup) return;
+      if (fields.title && backup.title) fields.title.value = backup.title;
+      if (fields.slug && backup.slug) fields.slug.value = backup.slug;
+      if (fields.excerpt && backup.excerpt) fields.excerpt.value = backup.excerpt;
+      if (fields.tags && Array.isArray(backup.tags)) fields.tags.value = backup.tags.join(', ');
+      if (fields.body && backup.bodyMarkdown) fields.body.value = backup.bodyMarkdown;
+      setStatus('Restored local draft');
+    }
+
+    /* ---------------- Markdown preview (minimal, preview-only) ---------------- */
+
+    function esc(s: string): string {
+      return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function renderPreview(md: string): string {
+      const lines = esc(md).split('\n');
+      const out: string[] = [];
+      let inList = false;
+      for (const line of lines) {
+        const inline = line
+          .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+          .replace(/\*(.+?)\*/g, '<em>$1</em>')
+          .replace(/`([^`]+)`/g, '<code>$1</code>');
+        if (/^###\s+/.test(line)) { closeList(); out.push(`<h3>${inline.replace(/^###\s+/, '')}</h3>`); }
+        else if (/^##\s+/.test(line)) { closeList(); out.push(`<h2>${inline.replace(/^##\s+/, '')}</h2>`); }
+        else if (/^#\s+/.test(line)) { closeList(); out.push(`<h1>${inline.replace(/^#\s+/, '')}</h1>`); }
+        else if (/^>\s?/.test(line)) { closeList(); out.push(`<blockquote>${inline.replace(/^>\s?/, '')}</blockquote>`); }
+        else if (/^[-*]\s+/.test(line)) { if (!inList) { out.push('<ul>'); inList = true; } out.push(`<li>${inline.replace(/^[-*]\s+/, '')}</li>`); }
+        else if (/^\d+\.\s+/.test(line)) { if (!inList) { out.push('<ol>'); inList = true; } out.push(`<li>${inline.replace(/^\d+\.\s+/, '')}</li>`); }
+        else if (line.trim() === '') { closeList(); }
+        else { closeList(); out.push(`<p>${inline}</p>`); }
+      }
+      function closeList() { if (inList) { out.push(inList === true ? '</ul>' : ''); inList = false; } }
+      closeList();
+      return out.join('');
+    }
+
+    function updatePreview() {
+      if (!preview || !fields.body) return;
+      const md = fields.body.value;
+      preview.innerHTML = md.trim() ? renderPreview(md) : '<p class="earth-content__preview-empty">Preview appears as you type.</p>';
+    }
+
+    function updateCount() {
+      if (!counter || !fields.body) return;
+      const words = fields.body.value.trim().split(/\s+/).filter(Boolean).length;
+      counter.textContent = `${words} word${words === 1 ? '' : 's'}`;
+    }
+
+    /* ---------------- Persistence ---------------- */
+
+    async function persist(statusOverride: 'draft' | 'published') {
+      const payload = buildPayload(statusOverride);
+      if (!payload.title) {
+        setStatus('Title is required');
+        fields.title?.focus();
+        return;
+      }
+      if (saving) return;
+      saving = true;
+      setStatus(statusOverride === 'published' ? 'Publishing…' : 'Saving…');
+      try {
+        const result = await api.save(payload);
+        // Clear the local backup once the server has accepted the post.
+        localStorage.removeItem(storageKey);
+        if (statusOverride === 'published') {
+          if (fields.status) fields.status.value = 'published';
+          if (publishBtn) publishBtn.disabled = true;
+        }
+        setStatus(`${statusOverride === 'published' ? 'Published' : 'Saved'} · ${result.id}`);
+      } catch (err) {
+        writeBackup(payload); // keep the local copy on failure
+        setStatus(`Save failed — draft kept locally (${(err as Error).message})`);
+      } finally {
+        saving = false;
+      }
+    }
+
+    /* ---------------- Toolbar actions on the textarea ---------------- */
+
+    function applyTool(action: string, arg: string) {
+      const ta = fields.body;
+      if (!ta) return;
+      const { selectionStart: s, selectionEnd: e, value } = ta;
+      const sel = value.slice(s, e);
+      let next = value;
+      let cursor = e;
+
+      if (action === 'bold') {
+        next = value.slice(0, s) + `**${sel || 'bold text'}**` + value.slice(e);
+        cursor = s + 2 + (sel || 'bold text').length;
+      } else if (action === 'italic') {
+        next = value.slice(0, s) + `*${sel || 'italic text'}*` + value.slice(e);
+        cursor = s + 1 + (sel || 'italic text').length;
+      } else if (action === 'wrap') {
+        next = value.slice(0, s) + `\`${sel || 'code'}\`` + value.slice(e);
+        cursor = s + 1 + (sel || 'code').length;
+      } else if (action === 'prefix') {
+        const lineStart = value.lastIndexOf('\n', s - 1) + 1;
+        next = value.slice(0, lineStart) + arg + value.slice(lineStart);
+        cursor = e + arg.length;
+      } else if (action === 'link') {
+        const text = sel || 'link text';
+        next = value.slice(0, s) + `[${text}](https://)` + value.slice(e);
+        cursor = s + text.length + 3;
+      }
+
+      ta.value = next;
+      ta.focus();
+      ta.setSelectionRange(cursor, cursor);
+      ta.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    /* ---------------- AI toolbar (mock triggers) ---------------- */
+
+    function runAiAction(id: string) {
+      // Mock interface: real implementation will POST to the AI worker.
+      const body = fields.body?.value ?? '';
+      if (id === 'summarize' && fields.excerpt) {
+        const first = body.split('\n').find((l) => l.trim() && !l.startsWith('#'));
+        fields.excerpt.value = (first ?? '').slice(0, 160);
+        fields.excerpt.dispatchEvent(new Event('input', { bubbles: true }));
+      } else if (id === 'tags' && fields.tags && !fields.tags.value.trim()) {
+        fields.tags.value = 'untagged';
+        fields.tags.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      setStatus(`AI action "${id}" queued (mock)`);
+    }
+
+    /* ---------------- Events (delegated) ---------------- */
+
+    form.addEventListener('input', (ev) => {
+      const target = ev.target as HTMLElement;
+      if (target === fields.body) {
+        updatePreview();
+        updateCount();
+      }
+      scheduleAutosave();
+    });
+
+    form.addEventListener('change', (ev) => {
+      if ((ev.target as HTMLElement).closest('[data-earth-meta]')) scheduleAutosave();
+    });
+
+    form.addEventListener('click', (ev) => {
+      const btn = (ev.target as HTMLElement).closest<HTMLElement>('[data-earth-action], [data-earth-tool], [data-earth-ai]');
+      if (!btn) return;
+
+      if (btn.dataset.earthTool) {
+        ev.preventDefault();
+        applyTool(btn.dataset.earthTool, btn.dataset.earthToolArg ?? '');
+        scheduleAutosave();
+      } else if (btn.dataset.earthAi) {
+        runAiAction(btn.dataset.earthAi);
+      } else if (btn.dataset.earthAction === 'save-draft') {
+        persist('draft');
+      } else if (btn.dataset.earthAction === 'publish') {
+        persist('published');
+      } else if (btn.dataset.earthAction === 'toggle-ai') {
+        if (!aiToolbar) return;
+        aiToolbar.hidden = !aiToolbar.hidden;
+        btn.setAttribute('aria-expanded', String(!aiToolbar.hidden));
+      }
+    });
+
+    form.addEventListener('submit', (ev) => ev.preventDefault());
+
+    window.addEventListener('beforeunload', () => {
+      // Final safety write so nothing typed in the last debounce window is lost.
+      writeBackup(buildPayload());
+    });
+
+    /* ---------------- Boot ---------------- */
+
+    restoreBackup();
+    updatePreview();
+    updateCount();
+    if (seedPublished()) {
+      if (publishBtn) publishBtn.disabled = true;
+    }
+
+    function seedPublished() {
+      return (fields.status?.value as string) === 'published';
+    }
+  }
+
+  document.querySelectorAll<HTMLFormElement>('[data-earth-editor]').forEach(initEditor);
+</script>
+
+<style>
+  .earth-editor {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    max-width: 60rem;
+    margin-inline: auto;
+  }
+</style>

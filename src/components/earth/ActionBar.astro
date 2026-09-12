@@ -1,0 +1,165 @@
+/**
+ * Action bar for the Earth admin editor.
+ *
+ * Renders Save Draft / Publish buttons and the AI Assistant trigger. Pure
+ * markup: `PostEditor.astro`'s script handles the clicks via delegation and
+ * toggles the AI toolbar's visibility.
+ */
+export interface ActionBarProps {
+  status?: 'draft' | 'published';
+}
+
+interface Props extends ActionBarProps {}
+
+const { status = 'draft' } = Astro.props as Props;
+---
+
+<div class="earth-actions" data-earth-actions>
+  <button
+    type="button"
+    class="earth-actions__btn earth-actions__btn--ghost"
+    data-earth-action="save-draft"
+  >
+    Save Draft
+  </button>
+
+  <button
+    type="button"
+    class="earth-actions__btn earth-actions__btn--primary"
+    data-earth-action="publish"
+    disabled={status === 'published'}
+    title={status === 'published' ? 'Already published' : 'Publish this post'}
+  >
+    Publish
+  </button>
+
+  <span class="earth-actions__divider" aria-hidden="true"></span>
+
+  <button
+    type="button"
+    class="earth-actions__btn earth-actions__btn--ai"
+    data-earth-action="toggle-ai"
+    aria-expanded="false"
+    aria-controls="earth-ai-toolbar"
+  >
+    ✨ AI Assistant
+  </button>
+
+  <span class="earth-actions__status" data-earth-save-status aria-live="polite"></span>
+</div>
+
+<!-- Hidden AI toolbar; revealed by the trigger button. -->
+<div class="earth-ai" id="earth-ai-toolbar" data-earth-ai-toolbar hidden>
+  <span class="earth-ai__label">AI Assistant</span>
+  {
+    [
+      { id: 'improve', label: 'Improve writing' },
+      { id: 'summarize', label: 'Generate excerpt' },
+      { id: 'tags', label: 'Suggest tags' },
+      { id: 'translate', label: 'Translate' },
+    ].map((a) => (
+      <button type="button" class="earth-ai__btn" data-earth-ai={a.id}>
+        {a.label}
+      </button>
+    ))
+  }
+</div>
+
+<style>
+  .earth-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .earth-actions__btn {
+    height: 2.25rem;
+    padding-inline: 0.9rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--earth-border, color-mix(in oklab, currentColor 15%, transparent));
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 120ms ease, opacity 120ms ease, transform 60ms ease;
+  }
+
+  .earth-actions__btn:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+
+  .earth-actions__btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .earth-actions__btn--primary {
+    background: var(--earth-accent, currentColor);
+    border-color: transparent;
+    color: var(--earth-accent-contrast, #fff);
+  }
+
+  .earth-actions__btn--primary:hover:not(:disabled) {
+    opacity: 0.9;
+  }
+
+  .earth-actions__btn--ghost:hover:not(:disabled),
+  .earth-actions__btn--ai:hover:not(:disabled) {
+    background: color-mix(in oklab, currentColor 8%, transparent);
+  }
+
+  .earth-actions__divider {
+    width: 1px;
+    height: 1.25rem;
+    background: var(--earth-border, color-mix(in oklab, currentColor 15%, transparent));
+  }
+
+  .earth-actions__status {
+    font-size: 0.75rem;
+    opacity: 0.65;
+    margin-left: auto;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .earth-ai {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    flex-wrap: wrap;
+    margin-top: 0.5rem;
+    padding: 0.5rem 0.625rem;
+    border: 1px dashed var(--earth-accent, currentColor);
+    border-radius: 0.5rem;
+  }
+
+  .earth-ai[hidden] {
+    display: none;
+  }
+
+  .earth-ai__label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    opacity: 0.7;
+    margin-right: 0.25rem;
+  }
+
+  .earth-ai__btn {
+    height: 1.75rem;
+    padding-inline: 0.6rem;
+    border-radius: 999px;
+    border: 1px solid var(--earth-border, color-mix(in oklab, currentColor 15%, transparent));
+    background: transparent;
+    color: inherit;
+    font-size: 0.75rem;
+    cursor: pointer;
+  }
+
+  .earth-ai__btn:hover {
+    background: color-mix(in oklab, currentColor 8%, transparent);
+  }
+</style>

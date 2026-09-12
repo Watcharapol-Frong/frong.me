@@ -1,0 +1,181 @@
+/**
+ * Metadata form for the Earth admin editor.
+ *
+ * Pure presentational Astro component: renders the fields and emits nothing
+ * itself. `PostEditor.astro` owns the single delegated `input`/`change`
+ * listener that reads values out of these fields, so this file stays free of
+ * any script and can be re-composed freely.
+ *
+ * Field naming matches the wire contract used by `/earth/api/posts`
+ * (`title`, `slug`, `excerpt`, `tags`, `status`) so the collected payload can
+ * be posted without renaming.
+ */
+export interface MetadataFormProps {
+  /** Seed values; every field is optional so the form works for new posts. */
+  initial?: {
+    title?: string;
+    slug?: string;
+    excerpt?: string;
+    tags?: string[];
+    status?: 'draft' | 'published';
+  };
+}
+
+interface Props extends MetadataFormProps {}
+
+const {
+  initial = {},
+} = Astro.props as Props;
+
+const status = initial.status ?? 'draft';
+const tags = (initial.tags ?? []).join(', ');
+---
+
+<fieldset class="earth-meta" data-earth-meta>
+  <legend class="earth-meta__legend">Metadata</legend>
+
+  <div class="earth-meta__grid">
+    <label class="earth-field earth-field--full">
+      <span class="earth-field__label">Title</span>
+      <input
+        class="earth-field__input"
+        type="text"
+        name="title"
+        data-earth-field="title"
+        value={initial.title ?? ''}
+        placeholder="Post title"
+        autocomplete="off"
+        required
+      />
+    </label>
+
+    <label class="earth-field">
+      <span class="earth-field__label">Slug</span>
+      <input
+        class="earth-field__input earth-field__input--mono"
+        type="text"
+        name="slug"
+        data-earth-field="slug"
+        value={initial.slug ?? ''}
+        placeholder="my-post-slug"
+        autocomplete="off"
+        pattern="[a-z0-9]+(-[a-z0-9]+)*"
+        title="Lowercase letters, numbers and hyphens"
+      />
+    </label>
+
+    <label class="earth-field">
+      <span class="earth-field__label">Status</span>
+      <select
+        class="earth-field__input"
+        name="status"
+        data-earth-field="status"
+      >
+        <option value="draft" selected={status === 'draft'}>Draft</option>
+        <option value="published" selected={status === 'published'}>Published</option>
+      </select>
+    </label>
+
+    <label class="earth-field earth-field--full">
+      <span class="earth-field__label">Description / Excerpt</span>
+      <textarea
+        class="earth-field__input earth-field__input--area"
+        name="excerpt"
+        data-earth-field="excerpt"
+        rows="3"
+        placeholder="Short summary shown in listings and social cards"
+      >{initial.excerpt ?? ''}</textarea>
+    </label>
+
+    <label class="earth-field earth-field--full">
+      <span class="earth-field__label">Tags <small class="earth-field__hint">(comma separated)</small></span>
+      <input
+        class="earth-field__input"
+        type="text"
+        name="tags"
+        data-earth-field="tags"
+        value={tags}
+        placeholder="astro, cms, notes"
+        autocomplete="off"
+      />
+    </label>
+  </div>
+</fieldset>
+
+<style>
+  .earth-meta {
+    border: 1px solid var(--earth-border, color-mix(in oklab, currentColor 15%, transparent));
+    border-radius: 0.75rem;
+    padding: 1rem 1.25rem 1.25rem;
+    margin: 0;
+  }
+
+  .earth-meta__legend {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    opacity: 0.7;
+    padding-inline: 0.5rem;
+  }
+
+  .earth-meta__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  .earth-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+  }
+
+  .earth-field--full {
+    grid-column: 1 / -1;
+  }
+
+  .earth-field__label {
+    font-size: 0.8125rem;
+    font-weight: 500;
+  }
+
+  .earth-field__hint {
+    font-weight: 400;
+    opacity: 0.6;
+  }
+
+  .earth-field__input {
+    width: 100%;
+    border: 1px solid var(--earth-border, color-mix(in oklab, currentColor 15%, transparent));
+    border-radius: 0.5rem;
+    background: transparent;
+    color: inherit;
+    padding: 0.5rem 0.75rem;
+    font: inherit;
+    font-size: 0.9375rem;
+    outline: none;
+    transition: border-color 120ms ease, box-shadow 120ms ease;
+  }
+
+  .earth-field__input:focus-visible {
+    border-color: var(--earth-accent, currentColor);
+    box-shadow: 0 0 0 2px color-mix(in oklab, var(--earth-accent, currentColor) 25%, transparent);
+  }
+
+  .earth-field__input--mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.875rem;
+  }
+
+  .earth-field__input--area {
+    resize: vertical;
+    min-height: 4.5rem;
+  }
+
+  @media (max-width: 640px) {
+    .earth-meta__grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
