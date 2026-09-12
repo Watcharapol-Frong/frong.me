@@ -91,29 +91,32 @@ jobs:
       - name: Deploy targeting env.staging
         id: deploy
         env:
-          # Disables wrangler's post-deploy telemetry POST. Confirmed by run 34665791591:
-          # the Worker deployed successfully (visible "Current Version ID:" and a live
-          # workers.dev URL) but `wrangler` still exited non-zero right after that call,
-          # which — now that pipefail correctly propagates real failures — flipped the
-          # step to a false failure. Telemetry adds no value to a CI deploy anyway.
+          # Telemetry adds nothing to a CI deploy and one less network call at exit.
           WRANGLER_SEND_METRICS: "false"
         run: |
           set -uo pipefail
           mkdir -p .wrangler/deploy-result
+          DEPLOY_LOG=.wrangler/deploy-result/wrangler-deploy.log
+          DEPLOY_EXIT_CODE=0
+
+          # `|| DEPLOY_EXIT_CODE=$?` keeps errexit from aborting here, so a real
+          # failure is still recorded in the artifact JSON before the step exits.
           if [ "$IS_DRY_RUN" = "true" ]; then
             echo "[deploy] Executing dry-run deploy targeting env.staging only..."
-            npx wrangler deploy --env staging --dry-run --outdir .wrangler/dry-run 2>&1 | tee .wrangler/deploy-result/wrangler-deploy.log
-            DEPLOY_EXIT_CODE=${PIPESTATUS[0]}
+            npx wrangler deploy --env staging --dry-run --outdir .wrangler/dry-run 2>&1 \
+              | tee "$DEPLOY_LOG" || DEPLOY_EXIT_CODE=$?
             DEPLOY_URL="https://cms-staging.frong.me"
             DEPLOYMENT_ID="dry-run-${{ github.run_id }}"
             MODE="dry-run"
           else
             echo "[deploy] Executing real deploy targeting env.staging only..."
-            npx wrangler deploy --env staging 2>&1 | tee .wrangler/deploy-result/wrangler-deploy.log
-            DEPLOY_EXIT_CODE=${PIPESTATUS[0]}
-            DEPLOY_URL=$(grep -oE 'https://[a-zA-Z0-9.-]+\.workers\.dev|https://cms-staging\.frong\.me' .wrangler/deploy-result/wrangler-deploy.log | head -n 1)
+            npx wrangler deploy --env staging 2>&1 \
+              | tee "$DEPLOY_LOG" || DEPLOY_EXIT_CODE=$?
+            DEPLOY_URL=$(grep -oE 'https://[a-zA-Z0-9.-]+\.workers\.dev|https://cms-staging\.frong\.me' "$DEPLOY_LOG" | head -n 1 || true)
             DEPLOY_URL=${DEPLOY_URL:-https://cms-staging.frong.me}
-            DEPLOYMENT_ID=$(grep -oE 'Current Deployment ID: [a-f0-9-]+|Deployment ID: [a-f0-9-]+' .wrangler/deploy-result/wrangler-deploy.log | head -n 1 | awk '{print $NF}')
+            # wrangler 4.x prints "Current Version ID:"; the older "Deployment ID:"
+            # spellings stay as fallbacks. A missing match must not abort the step.
+            DEPLOYMENT_ID=$(grep -oE 'Current Deployment ID: [a-f0-9-]+|Current Version ID: [a-f0-9-]+|Deployment ID: [a-f0-9-]+|Version ID: [a-f0-9-]+' "$DEPLOY_LOG" | head -n 1 | awk '{print $NF}' || true)
             DEPLOYMENT_ID=${DEPLOYMENT_ID:-${{ github.run_id }}}
             MODE="live"
           fi
