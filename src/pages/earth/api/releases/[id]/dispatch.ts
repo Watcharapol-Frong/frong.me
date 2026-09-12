@@ -2,12 +2,12 @@ import type { APIRoute } from 'astro';
 
 import { parseCmsIdentifier, parseDispatchReleaseInput } from '../../../../../lib/cms/validation.ts';
 import {
-  databaseFromLocals,
+  resolveCmsDatabase,
+  resolveCmsEnvironment,
   privateJson,
   readJsonRequest,
   releaseAttemptDto,
   releaseRowToSummary,
-  type CmsApiLocals,
 } from '../../../../../server/cms/api.ts';
 import { dispatchRelease } from '../../../../../server/cms/dispatch.ts';
 import { cmsErrorResponse } from '../../../../../server/cms/errors.ts';
@@ -19,8 +19,8 @@ export const POST: APIRoute = async ({ request, locals, params }) => {
   try {
     const releaseId = parseCmsIdentifier(params.id, 'params.id');
     const input = parseDispatchReleaseInput(await readJsonRequest(request));
-    const db = databaseFromLocals(locals);
-    const env = (locals as CmsApiLocals).runtime?.env ?? (locals as CmsApiLocals).env ?? {};
+    const db = await resolveCmsDatabase(locals);
+    const env = await resolveCmsEnvironment(locals);
     const dispatched = await dispatchRelease(db, releaseId, input, env);
     const counts = await countVisibleReleaseItems(db, [releaseId]);
     return privateJson({

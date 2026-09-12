@@ -29,7 +29,7 @@ function context(binding: unknown, request: Request, params: Record<string, stri
   return {
     request,
     params,
-    locals: { runtime: { env: { DB: binding, RELEASE_CALLBACK_SECRET: CALLBACK_SECRET } } },
+    locals: { env: { DB: binding, RELEASE_CALLBACK_SECRET: CALLBACK_SECRET } },
   } as never;
 }
 
@@ -42,13 +42,11 @@ function dispatchContext(
     request,
     params,
     locals: {
-      runtime: {
-        env: {
-          DB: binding,
-          GITHUB_DISPATCH_TOKEN: 'test-dispatch-token',
-          GITHUB_REPO: 'Watcharapol-Frong/frong.me',
-          RELEASE_CALLBACK_SECRET: CALLBACK_SECRET,
-        },
+      env: {
+        DB: binding,
+        GITHUB_DISPATCH_TOKEN: 'test-dispatch-token',
+        GITHUB_REPO: 'Watcharapol-Frong/frong.me',
+        RELEASE_CALLBACK_SECRET: CALLBACK_SECRET,
       },
     },
   } as never;
@@ -590,7 +588,7 @@ test('release callbacks fail closed when no callback secret is configured', asyn
       providerDeploymentId: 'deployment-x',
     }),
     params: { id: 'release_x' },
-    locals: { runtime: { env: { DB: binding } } },
+    locals: { env: { DB: binding } },
   } as never;
 
   const confirmed = await confirmRelease(unconfigured);

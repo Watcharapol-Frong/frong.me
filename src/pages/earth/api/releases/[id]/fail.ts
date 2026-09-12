@@ -2,11 +2,11 @@ import type { APIRoute } from 'astro';
 
 import { parseCmsIdentifier, parseFailReleaseAttemptInput } from '../../../../../lib/cms/validation.ts';
 import {
-  databaseFromLocals,
+  resolveCmsDatabase,
+  resolveCmsEnvironment,
   privateJson,
   readJsonRequest,
   releaseRowToSummary,
-  type CmsApiLocals,
 } from '../../../../../server/cms/api.ts';
 import { verifyReleaseCallbackSecret } from '../../../../../server/cms/callback-auth.ts';
 import { cmsErrorResponse } from '../../../../../server/cms/errors.ts';
@@ -24,11 +24,11 @@ export const prerender = false;
  */
 export const POST: APIRoute = async ({ request, locals, params }) => {
   try {
-    const env = (locals as CmsApiLocals).runtime?.env ?? (locals as CmsApiLocals).env ?? {};
+    const env = await resolveCmsEnvironment(locals);
     await verifyReleaseCallbackSecret(request, env);
     const releaseId = parseCmsIdentifier(params.id, 'params.id');
     const input = parseFailReleaseAttemptInput(await readJsonRequest(request));
-    const db = databaseFromLocals(locals);
+    const db = await resolveCmsDatabase(locals);
     const release = await failReleaseAttempt(db, { releaseId, ...input });
     const counts = await countVisibleReleaseItems(db, [release.id]);
     return privateJson({

@@ -29,7 +29,7 @@ function context(pathname: string, env: AccessEnvironment, token?: string) {
   return {
     url: new URL(`https://example.test${pathname}`),
     request: new Request(`https://example.test${pathname}`, { headers }),
-    locals: { runtime: { env } },
+    locals: { env },
   } as never;
 }
 

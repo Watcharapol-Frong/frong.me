@@ -2,7 +2,8 @@ import type { APIRoute } from 'astro';
 
 import { parseAttachPostAssetInput, parseCmsIdentifier } from '../../../../../lib/cms/validation.ts';
 import {
-  databaseFromLocals,
+  resolveCmsDatabase,
+  type CmsDatabase,
   postDetailDto,
   privateJson,
   readJsonRequest,
@@ -21,10 +22,10 @@ import {
 export const prerender = false;
 
 export const POST: APIRoute = async ({ request, locals, params }) => {
-  let db: ReturnType<typeof databaseFromLocals> | undefined;
+  let db: CmsDatabase | undefined;
   let postId: string | undefined;
   try {
-    db = databaseFromLocals(locals);
+    db = await resolveCmsDatabase(locals);
     postId = parseCmsIdentifier(params.id, 'params.id');
     const input = parseAttachPostAssetInput(await readJsonRequest(request));
     await addPostAssetUsage(db, { ...input, postId });

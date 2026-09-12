@@ -9,9 +9,11 @@ import type {
 import type { PostSourceRow } from './repositories/taxonomy.ts';
 import { createCmsDatabase, type CmsDatabase, type D1DatabaseBinding } from './db.ts';
 import { CmsBadRequestError, CmsDatabaseError, CmsInvariantError } from './errors.ts';
+import { resolveRuntimeEnv } from './runtime-env.ts';
+
+export type { CmsDatabase } from './db.ts';
 
 export interface CmsApiLocals {
-  runtime?: { env?: CmsApiEnvironment };
   env?: CmsApiEnvironment;
 }
 
@@ -22,11 +24,14 @@ export interface CmsApiEnvironment {
   RELEASE_CALLBACK_SECRET?: string;
 }
 
-export function databaseFromLocals(locals: unknown): CmsDatabase {
-  const candidate = (locals ?? {}) as CmsApiLocals;
-  const binding = candidate.runtime?.env?.DB ?? candidate.env?.DB;
-  if (!binding) throw new CmsDatabaseError('CMS database binding is unavailable');
-  return createCmsDatabase(binding);
+export async function resolveCmsEnvironment(locals: unknown): Promise<CmsApiEnvironment> {
+  return resolveRuntimeEnv<CmsApiEnvironment>(locals);
+}
+
+export async function resolveCmsDatabase(locals: unknown): Promise<CmsDatabase> {
+  const { DB } = await resolveCmsEnvironment(locals);
+  if (!DB) throw new CmsDatabaseError('CMS database binding is unavailable');
+  return createCmsDatabase(DB);
 }
 
 export async function readJsonRequest(request: Request): Promise<unknown> {

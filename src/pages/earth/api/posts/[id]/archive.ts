@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 
 import { parseArchivePostInput, parseCmsIdentifier } from '../../../../../lib/cms/validation.ts';
-import { databaseFromLocals, postDetailDto, privateJson, readJsonRequest } from '../../../../../server/cms/api.ts';
+import { resolveCmsDatabase, type CmsDatabase, postDetailDto, privateJson, readJsonRequest } from '../../../../../server/cms/api.ts';
 import { CmsConflictError, cmsErrorResponse } from '../../../../../server/cms/errors.ts';
 import { listPostAssetDetails } from '../../../../../server/cms/repositories/assets.ts';
 import { archivePost, getPostDraft } from '../../../../../server/cms/repositories/posts.ts';
@@ -10,10 +10,10 @@ import { getPostTaxonomy, listPostSources } from '../../../../../server/cms/repo
 export const prerender = false;
 
 export const POST: APIRoute = async ({ request, locals, params }) => {
-  let db: ReturnType<typeof databaseFromLocals> | undefined;
+  let db: CmsDatabase | undefined;
   let postId: string | undefined;
   try {
-    db = databaseFromLocals(locals);
+    db = await resolveCmsDatabase(locals);
     postId = parseCmsIdentifier(params.id, 'params.id');
     const { expectedDraftVersion } = parseArchivePostInput(await readJsonRequest(request));
     const post = await archivePost(db, postId, expectedDraftVersion);

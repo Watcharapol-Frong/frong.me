@@ -7,7 +7,8 @@ import {
   parseUpdatePostDraftInput,
 } from '../../../../lib/cms/validation.ts';
 import {
-  databaseFromLocals,
+  resolveCmsDatabase,
+  type CmsDatabase,
   postDetailDto,
   privateJson,
   readJsonRequest,
@@ -27,7 +28,7 @@ import {
 
 export const prerender = false;
 
-async function loadPostDetail(db: ReturnType<typeof databaseFromLocals>, postId: string) {
+async function loadPostDetail(db: CmsDatabase, postId: string) {
   const post = await getPostDraft(db, postId);
   const [taxonomy, sources, assets] = await Promise.all([
     getPostTaxonomy(db, postId),
@@ -43,7 +44,7 @@ function postId(params: Record<string, string | undefined>): string {
 
 export const GET: APIRoute = async ({ locals, params }) => {
   try {
-    const db = databaseFromLocals(locals);
+    const db = await resolveCmsDatabase(locals);
     return privateJson(await loadPostDetail(db, postId(params)));
   } catch (error) {
     return cmsErrorResponse(error);
@@ -56,10 +57,10 @@ async function updateResponse(
   params: Record<string, string | undefined>,
   bundled: boolean,
 ): Promise<Response> {
-  let db: ReturnType<typeof databaseFromLocals> | undefined;
+  let db: CmsDatabase | undefined;
   let id: string | undefined;
   try {
-    db = databaseFromLocals(locals);
+    db = await resolveCmsDatabase(locals);
     id = postId(params);
     const json = await readJsonRequest(request);
     if (bundled) {
@@ -91,10 +92,10 @@ export const PATCH: APIRoute = ({ request, locals, params }) =>
   updateResponse(request, locals, params, false);
 
 export const DELETE: APIRoute = async ({ request, locals, params }) => {
-  let db: ReturnType<typeof databaseFromLocals> | undefined;
+  let db: CmsDatabase | undefined;
   let id: string | undefined;
   try {
-    db = databaseFromLocals(locals);
+    db = await resolveCmsDatabase(locals);
     id = postId(params);
     const input = parseArchivePostInput(await readJsonRequest(request));
     await archivePost(db, id, input.expectedDraftVersion);

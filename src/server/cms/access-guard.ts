@@ -3,6 +3,7 @@ import {
   verifyAccessJwt,
   type AccessEnvironment,
 } from './access';
+import { resolveRuntimeEnv } from './runtime-env';
 
 type VerifyAccessJwt = typeof verifyAccessJwt;
 
@@ -50,9 +51,7 @@ export function createEarthMiddleware(options: EarthMiddlewareOptions): EarthMid
   return async (context, next) => {
     if (!isEarthRoute(context.url.pathname)) return next();
 
-    const environment = (
-      context.locals as { runtime?: { env?: AccessEnvironment } }
-    )?.runtime?.env ?? {};
+    const environment = await resolveRuntimeEnv<AccessEnvironment>(context.locals);
 
     if (isAccessDevBypassEnabled(options.isDev, environment.ENABLE_ACCESS_DEV_BYPASS)) {
       return next();

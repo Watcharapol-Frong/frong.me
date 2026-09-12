@@ -2,7 +2,7 @@ import type { APIRoute } from 'astro';
 
 import { parseBeginReleaseInput, parseReleaseManifest } from '../../../../lib/cms/validation.ts';
 import {
-  databaseFromLocals,
+  resolveCmsDatabase,
   privateJson,
   readJsonRequest,
   releaseRowToSummary,
@@ -22,7 +22,7 @@ export const prerender = false;
 
 export const GET: APIRoute = async ({ locals }) => {
   try {
-    const db = databaseFromLocals(locals);
+    const db = await resolveCmsDatabase(locals);
     const [state, activeRelease, releases, posts] = await Promise.all([
       getSiteState(db),
       getActiveRelease(db),
@@ -115,7 +115,7 @@ export const GET: APIRoute = async ({ locals }) => {
 export const POST: APIRoute = async ({ request, locals }) => {
   try {
     const input = parseBeginReleaseInput(await readJsonRequest(request));
-    const release = await beginRelease(databaseFromLocals(locals), input);
+    const release = await beginRelease(await resolveCmsDatabase(locals), input);
     return privateJson(
       releaseRowToSummary(release, input.manifest.articles.filter((item) => item.visible).length),
       201,
