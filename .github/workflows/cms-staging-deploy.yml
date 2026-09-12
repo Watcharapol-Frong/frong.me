@@ -51,17 +51,16 @@ jobs:
       CF_ACCESS_AUD: ${{ secrets.CF_ACCESS_AUD || vars.CF_ACCESS_AUD }}
       CF_D1_DATABASE_ID: ${{ vars.CF_D1_DATABASE_ID || secrets.CF_D1_DATABASE_ID || vars.STAGING_D1_DATABASE_ID || secrets.STAGING_D1_DATABASE_ID }}
       CF_R2_BUCKET_NAME: ${{ vars.CF_R2_BUCKET_NAME || secrets.CF_R2_BUCKET_NAME || vars.STAGING_R2_BUCKET_NAME || secrets.STAGING_R2_BUCKET_NAME || 'portfolio-media-staging' }}
-      # Legacy aliases kept so verify-bindings.mjs and other consumers reading the
-      # old names continue to work during the transition.
-      STAGING_D1_DATABASE_ID: ${{ env.CF_D1_DATABASE_ID }}
-      STAGING_R2_BUCKET_NAME: ${{ env.CF_R2_BUCKET_NAME }}
+      # No legacy STAGING_D1_DATABASE_ID/STAGING_R2_BUCKET_NAME aliases here: a
+      # job-level env: entry cannot reference a sibling entry via env.*, and
+      # verify-bindings.mjs already falls back to those legacy names itself.
       # Security guard: Dev bypass must never be enabled in staging
       ENABLE_ACCESS_DEV_BYPASS: "false"
       # Release tracking
       CMS_RELEASE_ID: ${{ github.event.client_payload.release_id || inputs.release_id }}
       CMS_ATTEMPT_ID: ${{ github.event.client_payload.attempt_id || inputs.attempt_id }}
-      CMS_MANIFEST_SHA256: ${{ github.event.client.payload.manifest_sha256 || inputs.manifest_sha256 }}
-      IS_DRY_RUN: ${{ (inputs.dry_run == true || github.event.client.payload.dry_run == true) && 'true' || 'false' }}
+      CMS_MANIFEST_SHA256: ${{ github.event.client_payload.manifest_sha256 || inputs.manifest_sha256 }}
+      IS_DRY_RUN: ${{ (inputs.dry_run == true || github.event.client_payload.dry_run == true) && 'true' || 'false' }}
       # Release confirmation/failure callback
       CMS_STAGING_HOST: https://cms-staging.frong.me
       CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
