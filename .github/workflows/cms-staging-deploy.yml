@@ -61,8 +61,12 @@ jobs:
       CMS_ATTEMPT_ID: ${{ github.event.client_payload.attempt_id || inputs.attempt_id }}
       CMS_MANIFEST_SHA256: ${{ github.event.client_payload.manifest_sha256 || inputs.manifest_sha256 }}
       IS_DRY_RUN: ${{ (inputs.dry_run == true || github.event.client_payload.dry_run == true) && 'true' || 'false' }}
-      # Release confirmation/failure callback
-      CMS_STAGING_HOST: https://cms-staging.frong.me
+      # Release confirmation/failure callback. Overridable because the hard-coded
+      # custom domain does not currently resolve (run 34667686189: curl exit 6,
+      # "Could not resolve host: cms-staging.frong.me"), while the Worker is live
+      # at its workers.dev hostname. Point this at whichever host actually serves
+      # the staging Worker *and* sits behind the Access application.
+      CMS_STAGING_HOST: ${{ vars.CMS_STAGING_HOST || secrets.CMS_STAGING_HOST || 'https://cms-staging.frong.me' }}
       CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
       CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
       RELEASE_CALLBACK_SECRET: ${{ secrets.RELEASE_CALLBACK_SECRET }}
