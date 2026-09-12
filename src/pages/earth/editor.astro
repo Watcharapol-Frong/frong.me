@@ -1,16 +1,18 @@
 ---
 /**
- * Demo page for the Earth admin editor UI.
+ * Live page for the Earth admin editor UI.
  *
- * Mounts `PostEditor.astro` with a seed post so the component can be exercised
- * in the browser. This page ships no data and performs no real persistence —
- * the editor's script uses a mock API surface that is ready to be pointed at
- * the real `/earth/api/posts` routes.
+ * `?id=<post-id>` loads an existing post through the same-origin API. Without
+ * an id the editor creates a new post using a stable client-generated id.
  *
  * Like `/earth` itself, this is on-demand so every request crosses the
  * Access-verifying middleware. Do not prerender.
  */
 export const prerender = false;
+
+import PostEditor from '../../components/earth/PostEditor.astro';
+
+const postId = Astro.url.searchParams.get('id')?.trim() || undefined;
 ---
 
 <!DOCTYPE html>
@@ -58,21 +60,11 @@ export const prerender = false;
     <header class="earth-page-header">
       <h1>Post Editor</h1>
       <p>
-        Client-side editor with localStorage autosave. Saving uses a mock API
-        surface ready to be wired to <code>/earth/api/posts</code>.
+        Client-side editor with local backup and live persistence through
+        <code>/earth/api/posts</code>. Add <code>?id=&lt;post-id&gt;</code> to edit an existing post.
       </p>
     </header>
 
-    <PostEditor
-      initial={{
-        id: 'demo-1',
-        title: 'A demo post',
-        slug: 'a-demo-post',
-        excerpt: 'Short description for listings and social cards.',
-        tags: ['astro', 'demo'],
-        status: 'draft',
-        body: '## Heading\n\nSome **markdown** body text with `code`.\n\n- item one\n- item two\n\n> A quote line',
-      }}
-    />
+    <PostEditor initial={postId ? { id: postId } : {}} />
   </body>
 </html>

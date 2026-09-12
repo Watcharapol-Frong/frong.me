@@ -1,3 +1,4 @@
+---
 /**
  * Action bar for the Earth admin editor.
  *
@@ -45,7 +46,7 @@ const { status = 'draft' } = Astro.props as Props;
     ✨ AI Assistant
   </button>
 
-  <span class="earth-actions__status" data-earth-save-status aria-live="polite"></span>
+  <span class="earth-actions__status" data-earth-save-status role="status" aria-live="polite"></span>
 </div>
 
 <!-- Hidden AI toolbar; revealed by the trigger button. -->
@@ -122,6 +123,11 @@ const { status = 'draft' } = Astro.props as Props;
     opacity: 0.65;
     margin-left: auto;
     font-variant-numeric: tabular-nums;
+  }
+
+  .earth-actions__status[data-tone='error'] {
+    color: #b42318;
+    opacity: 1;
   }
 
   .earth-ai {

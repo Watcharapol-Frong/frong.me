@@ -1,3 +1,4 @@
+---
 /**
  * Metadata form for the Earth admin editor.
  *
@@ -7,13 +8,13 @@
  * any script and can be re-composed freely.
  *
  * Field naming matches the wire contract used by `/earth/api/posts`
- * (`title`, `slug`, `excerpt`, `tags`, `status`) so the collected payload can
- * be posted without renaming.
+ * (`lang`, `title`, `slug`, `excerpt`) plus the bundle update's `tagIds`.
  */
 export interface MetadataFormProps {
   /** Seed values; every field is optional so the form works for new posts. */
   initial?: {
     title?: string;
+    lang?: 'th' | 'en';
     slug?: string;
     excerpt?: string;
     tags?: string[];
@@ -28,6 +29,7 @@ const {
 } = Astro.props as Props;
 
 const status = initial.status ?? 'draft';
+const lang = initial.lang ?? 'th';
 const tags = (initial.tags ?? []).join(', ');
 ---
 
@@ -47,6 +49,14 @@ const tags = (initial.tags ?? []).join(', ');
         autocomplete="off"
         required
       />
+    </label>
+
+    <label class="earth-field">
+      <span class="earth-field__label">Language</span>
+      <select class="earth-field__input" name="lang" data-earth-field="lang">
+        <option value="th" selected={lang === 'th'}>Thai</option>
+        <option value="en" selected={lang === 'en'}>English</option>
+      </select>
     </label>
 
     <label class="earth-field">
@@ -88,14 +98,14 @@ const tags = (initial.tags ?? []).join(', ');
     </label>
 
     <label class="earth-field earth-field--full">
-      <span class="earth-field__label">Tags <small class="earth-field__hint">(comma separated)</small></span>
+      <span class="earth-field__label">Tag IDs <small class="earth-field__hint">(comma separated)</small></span>
       <input
         class="earth-field__input"
         type="text"
-        name="tags"
+        name="tagIds"
         data-earth-field="tags"
         value={tags}
-        placeholder="astro, cms, notes"
+        placeholder="tag_astro_th, tag_cms_th"
         autocomplete="off"
       />
     </label>

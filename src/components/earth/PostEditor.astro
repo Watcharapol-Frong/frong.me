@@ -1,13 +1,12 @@
+---
 /**
  * Earth admin post editor — composition root for the client-side editor UI.
  *
  * Composes `MetadataForm`, `ContentEditor`, and `ActionBar`, then wires them
  * with one delegated client-side script that provides:
  *
- * - Field collection into an API-shaped payload (`buildPayload`).
- * - A mock persistence layer (`MockPostApi`) implementing the same surface the
- *   real `/earth/api/posts` endpoints will expose, so switching to `fetch` is
- *   a one-line change in `createPostApi`.
+ * - Field collection into the strict posts/release wire contracts.
+ * - Same-origin create, fetch, versioned update, and release-backed publish.
  * - Local draft backup: debounced autosave to `localStorage` on every change,
  *   restore on load, and "last saved" status in the action bar.
  *
@@ -22,6 +21,7 @@ export interface PostEditorProps {
   /** Seed values for a new or existing post. */
   initial?: {
     id?: string;
+    lang?: 'th' | 'en';
     title?: string;
     slug?: string;
     excerpt?: string;
@@ -43,6 +43,7 @@ const {
 const resolvedKey = storageKey ?? `earth:draft:${initial.id ?? 'new'}`;
 const seed = {
   id: initial.id ?? '',
+  lang: initial.lang ?? ('th' as const),
   title: initial.title ?? '',
   slug: initial.slug ?? '',
   excerpt: initial.excerpt ?? '',
@@ -52,7 +53,7 @@ const seed = {
 };
 ---
 
-<form class="earth-editor" data-earth-editor data-earth-storage-key={resolvedKey} data-earth-post-id={seed.id || 'new'}>
+<form class="earth-editor" data-earth-editor data-earth-storage-key={resolvedKey} data-earth-storage-custom={storageKey ? 'true' : 'false'} data-earth-post-id={seed.id || 'new'}>
   <ActionBar status={seed.status} />
   <MetadataForm initial={seed} />
   <ContentEditor initial={seed.body} />
@@ -62,56 +63,29 @@ const seed = {
 </form>
 
 <script>
-  /* ------------------------------------------------------------------ */
-  /* Types                                                               */
-  /* ------------------------------------------------------------------ */
-
-  /** Payload shape prepared for `POST /earth/api/posts` (create) and
-   *  `PUT /earth/api/posts/[id]` (update). Mirrors the DAL contract. */
-  interface PostPayload {
-    id?: string;
-    title: string;
-    slug: string;
-    excerpt: string;
-    tags: string[];
-    status: 'draft' | 'published';
-    bodyMarkdown: string;
-  }
-
-  interface PostApi {
-    save(payload: PostPayload): Promise<{ id: string; status: string }>;
-  }
-
-  /* ------------------------------------------------------------------ */
-  /* Mock API — swap for the real fetch transport when routes are wired. */
-  /* ------------------------------------------------------------------ */
-
-  function createMockPostApi(): PostApi {
-    return {
-      async save(payload) {
-        // Simulated latency + echo. Replace with:
-        //   const res = await fetch(payload.id ? `/earth/api/posts/${payload.id}` : '/earth/api/posts', {
-        //     method: payload.id ? 'PUT' : 'POST',
-        //     headers: { 'Content-Type': 'application/json' },
-        //     body: JSON.stringify(payload),
-        //   });
-        await new Promise((r) => setTimeout(r, 250));
-        return { id: payload.id || `mock-${Date.now().toString(36)}`, status: payload.status };
-      },
-    };
-  }
+  import { newCmsId, type PostDetail } from '../../lib/cms/client/api.ts';
+  import {
+    createPostEditorApi,
+    PostEditorPublishError,
+    type PostEditorDraft,
+  } from '../../lib/cms/client/post-editor-api.ts';
 
   /* ------------------------------------------------------------------ */
   /* Editor controller                                                   */
   /* ------------------------------------------------------------------ */
 
   function initEditor(form: HTMLFormElement) {
-    const api = createMockPostApi();
-    const storageKey = form.dataset.earthStorageKey || 'earth:draft:new';
-    const postId = form.dataset.earthPostId || 'new';
+    const api = createPostEditorApi();
+    let storageKey = form.dataset.earthStorageKey || 'earth:draft:new';
+    const customStorageKey = form.dataset.earthStorageCustom === 'true';
+    const initialPostId = form.dataset.earthPostId || 'new';
+    let postId = initialPostId === 'new' ? newCmsId('post') : initialPostId;
+    let currentPost: PostDetail | null = null;
 
     const fields = {
+      id: form.querySelector<HTMLInputElement>('input[name="id"]'),
       title: form.querySelector<HTMLInputElement>('[data-earth-field="title"]'),
+      lang: form.querySelector<HTMLSelectElement>('[data-earth-field="lang"]'),
       slug: form.querySelector<HTMLInputElement>('[data-earth-field="slug"]'),
       excerpt: form.querySelector<HTMLTextAreaElement>('[data-earth-field="excerpt"]'),
       tags: form.querySelector<HTMLInputElement>('[data-earth-field="tags"]'),
@@ -128,15 +102,16 @@ const seed = {
 
     /* ---------------- Payload ---------------- */
 
-    function buildPayload(statusOverride?: 'draft' | 'published'): PostPayload {
+    function buildPayload(statusOverride?: 'draft' | 'published'): PostEditorDraft {
       const tagsRaw = fields.tags?.value ?? '';
       return {
-        ...(postId !== 'new' ? { id: postId } : {}),
+        id: postId,
+        lang: fields.lang?.value === 'en' ? 'en' : 'th',
         title: fields.title?.value.trim() ?? '',
         slug: fields.slug?.value.trim() ?? '',
         excerpt: fields.excerpt?.value.trim() ?? '',
-        tags: tagsRaw.split(',').map((t) => t.trim()).filter(Boolean),
-        status: statusOverride ?? ((fields.status?.value as PostPayload['status']) || 'draft'),
+        tagIds: [...new Set(tagsRaw.split(',').map((t) => t.trim()).filter(Boolean))],
+        status: statusOverride ?? ((fields.status?.value as PostEditorDraft['status']) || 'draft'),
         bodyMarkdown: fields.body?.value ?? '',
       };
     }
@@ -145,17 +120,18 @@ const seed = {
 
     let saveTimer: ReturnType<typeof setTimeout> | undefined;
     let saving = false;
+    let dirty = false;
 
-    function readBackup(): PostPayload | null {
+    function readBackup(): PostEditorDraft | null {
       try {
         const raw = localStorage.getItem(storageKey);
-        return raw ? (JSON.parse(raw) as PostPayload) : null;
+        return raw ? (JSON.parse(raw) as PostEditorDraft) : null;
       } catch {
         return null;
       }
     }
 
-    function writeBackup(payload: PostPayload) {
+    function writeBackup(payload: PostEditorDraft) {
       try {
         localStorage.setItem(storageKey, JSON.stringify({ ...payload, savedAt: Date.now() }));
       } catch {
@@ -163,8 +139,30 @@ const seed = {
       }
     }
 
-    function setStatus(text: string) {
-      if (saveStatus) saveStatus.textContent = text;
+    function setStatus(text: string, tone: 'info' | 'error' = 'info') {
+      if (!saveStatus) return;
+      saveStatus.textContent = text;
+      saveStatus.dataset.tone = tone;
+      saveStatus.setAttribute('role', tone === 'error' ? 'alert' : 'status');
+    }
+
+    function setBusy(busy: boolean) {
+      form.setAttribute('aria-busy', String(busy));
+      form.querySelectorAll<HTMLButtonElement>('[data-earth-action="save-draft"], [data-earth-action="publish"]')
+        .forEach((button) => { button.disabled = busy || (button === publishBtn && fields.status?.value === 'published'); });
+    }
+
+    function applyPost(post: PostDetail) {
+      postId = post.id;
+      form.dataset.earthPostId = post.id;
+      if (fields.id) fields.id.value = post.id;
+      if (fields.lang) fields.lang.value = post.lang;
+      if (fields.title) fields.title.value = post.title;
+      if (fields.slug) fields.slug.value = post.slug;
+      if (fields.excerpt) fields.excerpt.value = post.excerpt ?? '';
+      if (fields.tags) fields.tags.value = post.tagIds.join(', ');
+      if (fields.body) fields.body.value = post.bodyMarkdown;
+      currentPost = post;
     }
 
     function scheduleAutosave() {
@@ -179,11 +177,21 @@ const seed = {
     function restoreBackup() {
       const backup = readBackup();
       if (!backup) return;
-      if (fields.title && backup.title) fields.title.value = backup.title;
-      if (fields.slug && backup.slug) fields.slug.value = backup.slug;
-      if (fields.excerpt && backup.excerpt) fields.excerpt.value = backup.excerpt;
-      if (fields.tags && Array.isArray(backup.tags)) fields.tags.value = backup.tags.join(', ');
-      if (fields.body && backup.bodyMarkdown) fields.body.value = backup.bodyMarkdown;
+      if (initialPostId === 'new' && backup.id) {
+        postId = backup.id;
+        form.dataset.earthPostId = postId;
+      } else if (backup.id && backup.id !== postId) {
+        return;
+      }
+      if (fields.lang) fields.lang.value = backup.lang;
+      if (fields.id) fields.id.value = postId;
+      if (fields.title) fields.title.value = backup.title;
+      if (fields.slug) fields.slug.value = backup.slug;
+      if (fields.excerpt) fields.excerpt.value = backup.excerpt;
+      if (fields.tags && Array.isArray(backup.tagIds)) fields.tags.value = backup.tagIds.join(', ');
+      if (fields.body) fields.body.value = backup.bodyMarkdown;
+      if (fields.status) fields.status.value = backup.status;
+      dirty = true;
       setStatus('Restored local draft');
     }
 
@@ -233,27 +241,45 @@ const seed = {
     async function persist(statusOverride: 'draft' | 'published') {
       const payload = buildPayload(statusOverride);
       if (!payload.title) {
-        setStatus('Title is required');
+        setStatus('Title is required', 'error');
         fields.title?.focus();
         return;
       }
       if (saving) return;
+      clearTimeout(saveTimer);
       saving = true;
+      setBusy(true);
       setStatus(statusOverride === 'published' ? 'Publishing…' : 'Saving…');
       try {
-        const result = await api.save(payload);
+        const previousStorageKey = storageKey;
+        const result = statusOverride === 'published'
+          ? await api.publish(payload, currentPost)
+          : { post: await api.save(payload, currentPost), release: null };
+        currentPost = result.post;
+        postId = result.post.id;
+        form.dataset.earthPostId = postId;
+        if (fields.id) fields.id.value = postId;
+        if (!customStorageKey) storageKey = `earth:draft:${postId}`;
         // Clear the local backup once the server has accepted the post.
+        localStorage.removeItem(previousStorageKey);
         localStorage.removeItem(storageKey);
-        if (statusOverride === 'published') {
-          if (fields.status) fields.status.value = 'published';
-          if (publishBtn) publishBtn.disabled = true;
-        }
-        setStatus(`${statusOverride === 'published' ? 'Published' : 'Saved'} · ${result.id}`);
+        dirty = false;
+        if (fields.status) fields.status.value = statusOverride;
+        const timestamp = new Date().toLocaleTimeString();
+        setStatus(statusOverride === 'published'
+          ? `Publish queued · ${result.release?.id} · ${timestamp}`
+          : `Saved · ${timestamp}`);
       } catch (err) {
-        writeBackup(payload); // keep the local copy on failure
-        setStatus(`Save failed — draft kept locally (${(err as Error).message})`);
+        if (err instanceof PostEditorPublishError) currentPost = err.post;
+        // A failed publish remains a draft and must stay retryable after reload.
+        const backup = statusOverride === 'published' ? { ...payload, status: 'draft' as const } : payload;
+        if (fields.status) fields.status.value = backup.status;
+        writeBackup(backup); // keep the local copy on failure
+        dirty = true;
+        setStatus(`Save failed — draft kept locally (${(err as Error).message})`, 'error');
       } finally {
         saving = false;
+        setBusy(false);
       }
     }
 
@@ -311,6 +337,9 @@ const seed = {
     /* ---------------- Events (delegated) ---------------- */
 
     form.addEventListener('input', (ev) => {
+      dirty = true;
+      if (fields.status?.value === 'published') fields.status.value = 'draft';
+      if (publishBtn) publishBtn.disabled = false;
       const target = ev.target as HTMLElement;
       if (target === fields.body) {
         updatePreview();
@@ -348,21 +377,31 @@ const seed = {
 
     window.addEventListener('beforeunload', () => {
       // Final safety write so nothing typed in the last debounce window is lost.
-      writeBackup(buildPayload());
+      if (dirty || saving) writeBackup(buildPayload());
     });
 
     /* ---------------- Boot ---------------- */
 
-    restoreBackup();
-    updatePreview();
-    updateCount();
-    if (seedPublished()) {
-      if (publishBtn) publishBtn.disabled = true;
+    async function boot() {
+      if (initialPostId !== 'new') {
+        setBusy(true);
+        setStatus('Loading…');
+        try {
+          applyPost(await api.fetch(initialPostId));
+          setStatus('Loaded');
+        } catch (err) {
+          setStatus(`Load failed — local draft retained (${(err as Error).message})`, 'error');
+        } finally {
+          setBusy(false);
+        }
+      }
+      restoreBackup();
+      updatePreview();
+      updateCount();
+      if (fields.status?.value === 'published' && publishBtn) publishBtn.disabled = true;
     }
 
-    function seedPublished() {
-      return (fields.status?.value as string) === 'published';
-    }
+    void boot();
   }
 
   document.querySelectorAll<HTMLFormElement>('[data-earth-editor]').forEach(initEditor);
