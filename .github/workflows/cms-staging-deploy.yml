@@ -90,6 +90,13 @@ jobs:
 
       - name: Deploy targeting env.staging
         id: deploy
+        env:
+          # Disables wrangler's post-deploy telemetry POST. Confirmed by run 34665791591:
+          # the Worker deployed successfully (visible "Current Version ID:" and a live
+          # workers.dev URL) but `wrangler` still exited non-zero right after that call,
+          # which — now that pipefail correctly propagates real failures — flipped the
+          # step to a false failure. Telemetry adds no value to a CI deploy anyway.
+          WRANGLER_SEND_METRICS: "false"
         run: |
           set -uo pipefail
           mkdir -p .wrangler/deploy-result
