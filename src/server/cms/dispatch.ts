@@ -32,6 +32,7 @@ export async function dispatchRelease(
   });
   const payload: ReleaseDispatchPayload = {
     releaseId: release.id,
+    attemptId: releaseAttempt.id,
     manifestSha256: release.manifest_sha256,
   };
 
@@ -50,6 +51,7 @@ export async function dispatchRelease(
         event_type: 'cms-staging-release',
         client_payload: {
           release_id: payload.releaseId,
+          attempt_id: payload.attemptId,
           manifest_sha256: payload.manifestSha256,
         },
       }),

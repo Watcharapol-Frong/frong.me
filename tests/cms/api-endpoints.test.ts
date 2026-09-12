@@ -14,6 +14,7 @@ import {
   POST as createRelease,
 } from '../../src/pages/earth/api/releases/index.ts';
 import { POST as confirmRelease } from '../../src/pages/earth/api/releases/[id]/confirm.ts';
+import { POST as failRelease } from '../../src/pages/earth/api/releases/[id]/fail.ts';
 import { POST as dispatchRelease } from '../../src/pages/earth/api/releases/[id]/dispatch.ts';
 import { canonicalReleaseManifest, startReleaseAttempt, transitionRelease, transitionReleaseAttempt } from '../../src/server/cms/repositories/releases.ts';
 import { createAsset, addPostAssetUsage } from '../../src/server/cms/repositories/assets.ts';
@@ -22,12 +23,13 @@ import { createCmsDbFixture } from './fixture.ts';
 
 const NOW = 1_789_000_000_000;
 const POST_ID = 'post_api_000001';
+const CALLBACK_SECRET = 'test-release-callback-secret';
 
 function context(binding: unknown, request: Request, params: Record<string, string> = {}) {
   return {
     request,
     params,
-    locals: { runtime: { env: { DB: binding } } },
+    locals: { runtime: { env: { DB: binding, RELEASE_CALLBACK_SECRET: CALLBACK_SECRET } } },
   } as never;
 }
 
@@ -45,18 +47,28 @@ function dispatchContext(
           DB: binding,
           GITHUB_DISPATCH_TOKEN: 'test-dispatch-token',
           GITHUB_REPO: 'Watcharapol-Frong/frong.me',
+          RELEASE_CALLBACK_SECRET: CALLBACK_SECRET,
         },
       },
     },
   } as never;
 }
 
-function jsonRequest(url: string, method: string, body: unknown): Request {
+function jsonRequest(
+  url: string,
+  method: string,
+  body: unknown,
+  headers: Record<string, string> = {},
+): Request {
   return new Request(url, {
     method,
-    headers: { 'content-type': 'application/json; charset=utf-8' },
+    headers: { 'content-type': 'application/json; charset=utf-8', ...headers },
     body: JSON.stringify(body),
   });
+}
+
+function callbackRequest(url: string, method: string, body: unknown): Request {
+  return jsonRequest(url, method, body, { 'X-Release-Callback-Secret': CALLBACK_SECRET });
 }
 
 async function body(response: Response): Promise<any> {
@@ -345,9 +357,20 @@ test('release endpoints snapshot a draft, list state, and confirm live atomicall
   await transitionRelease(db, releaseId, 'building', 'deploying', { now: Date.now() });
   await transitionReleaseAttempt(db, attemptId, 'building', 'deploying', { now: Date.now() });
 
-  const confirmed = await confirmRelease(context(
+  const unauthorizedConfirm = await confirmRelease(context(
     binding,
     jsonRequest(`https://cms.test/earth/api/releases/${releaseId}/confirm`, 'POST', {
+      attemptId,
+      providerDeploymentId: 'deployment-api-001',
+    }),
+    { id: releaseId },
+  ));
+  assert.equal(unauthorizedConfirm.status, 401);
+  assert.equal((await body(unauthorizedConfirm)).error.code, 'UNAUTHORIZED');
+
+  const confirmed = await confirmRelease(context(
+    binding,
+    callbackRequest(`https://cms.test/earth/api/releases/${releaseId}/confirm`, 'POST', {
       attemptId,
       providerDeploymentId: 'deployment-api-001',
     }),
@@ -357,6 +380,18 @@ test('release endpoints snapshot a draft, list state, and confirm live atomicall
   assert.equal(confirmed.status, 200);
   assert.equal(confirmedBody.liveReleaseId, releaseId);
   assert.equal(confirmedBody.release.status, 'live');
+
+  const confirmedAgain = await confirmRelease(context(
+    binding,
+    callbackRequest(`https://cms.test/earth/api/releases/${releaseId}/confirm`, 'POST', {
+      attemptId,
+      providerDeploymentId: 'deployment-api-001',
+    }),
+    { id: releaseId },
+  ));
+  const confirmedAgainBody = await body(confirmedAgain);
+  assert.equal(confirmedAgain.status, 200, 'a retried callback with the same outcome is idempotent');
+  assert.equal(confirmedAgainBody.release.status, 'live');
 
   const repeated = await createRelease(context(
     binding,
@@ -436,15 +471,17 @@ test('release dispatch endpoint creates an attempt, calls GitHub, and enables HT
     event_type: 'cms-staging-release',
     client_payload: {
       release_id: releaseId,
+      attempt_id: attemptId,
       manifest_sha256: canonical.sha256,
     },
   });
 
   const confirmed = await confirmRelease(context(
     binding,
-    jsonRequest(`https://cms.test/earth/api/releases/${releaseId}/confirm`, 'POST', {
+    callbackRequest(`https://cms.test/earth/api/releases/${releaseId}/confirm`, 'POST', {
       attemptId,
       providerDeploymentId: 'deployment-dispatch-001',
+      workflowRunId: '123456789',
     }),
     { id: releaseId },
   ));
@@ -452,4 +489,114 @@ test('release dispatch endpoint creates an attempt, calls GitHub, and enables HT
   assert.equal(confirmed.status, 200);
   assert.equal(confirmedBody.liveReleaseId, releaseId);
   assert.equal(confirmedBody.release.status, 'live');
+});
+
+test('release fail endpoint reports a workflow failure and unblocks a new attempt', async (t) => {
+  const { binding } = createCmsDbFixture();
+  t.after(() => binding.close());
+
+  await createPost(context(binding, jsonRequest('https://cms.test/earth/api/posts', 'POST', {
+    id: POST_ID,
+    lang: 'en',
+    slug: 'fail-route-proof',
+    title: 'Fail route proof',
+    bodyMarkdown: '# Fail',
+  })));
+  const releaseId = 'release_fail_0001';
+  const revisionId = 'revision_fail_0001';
+  const manifest = {
+    schemaVersion: 1 as const,
+    releaseId,
+    generatedAt: new Date(NOW).toISOString(),
+    articles: [{
+      postId: POST_ID,
+      revisionId,
+      lang: 'en' as const,
+      slug: 'fail-route-proof',
+      visible: true,
+    }],
+  };
+  const canonical = await canonicalReleaseManifest(manifest);
+  await createRelease(context(binding, jsonRequest('https://cms.test/earth/api/releases', 'POST', {
+    id: releaseId,
+    triggerKind: 'publish',
+    triggerPostId: POST_ID,
+    idempotencyKey: 'fail_route_key_01',
+    manifest,
+    manifestSha256: canonical.sha256,
+    revisionSnapshot: {
+      revisionId,
+      postId: POST_ID,
+      expectedDraftVersion: 1,
+      publishedAt: NOW,
+    },
+  })));
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response(null, { status: 204 });
+  t.after(() => { globalThis.fetch = originalFetch; });
+
+  const attemptId = 'attempt_fail_0001';
+  await dispatchRelease(dispatchContext(
+    binding,
+    jsonRequest(`https://cms.test/earth/api/releases/${releaseId}/dispatch`, 'POST', {
+      attemptId,
+      attemptNumber: 1,
+    }),
+    { id: releaseId },
+  ));
+
+  const unauthorizedFail = await failRelease(context(
+    binding,
+    jsonRequest(`https://cms.test/earth/api/releases/${releaseId}/fail`, 'POST', {
+      attemptId,
+      errorMessage: 'wrangler deploy exited 1',
+    }),
+    { id: releaseId },
+  ));
+  assert.equal(unauthorizedFail.status, 401);
+
+  const failed = await failRelease(context(
+    binding,
+    callbackRequest(`https://cms.test/earth/api/releases/${releaseId}/fail`, 'POST', {
+      attemptId,
+      errorMessage: 'wrangler deploy exited 1',
+      workflowRunId: '987654321',
+    }),
+    { id: releaseId },
+  ));
+  const failedBody = await body(failed);
+  assert.equal(failed.status, 200);
+  assert.equal(failedBody.release.status, 'failed');
+
+  const failedAgain = await failRelease(context(
+    binding,
+    callbackRequest(`https://cms.test/earth/api/releases/${releaseId}/fail`, 'POST', {
+      attemptId,
+      errorMessage: 'wrangler deploy exited 1',
+    }),
+    { id: releaseId },
+  ));
+  assert.equal(failedAgain.status, 200, 'a retried failure callback is idempotent');
+});
+
+test('release callbacks fail closed when no callback secret is configured', async (t) => {
+  const { binding } = createCmsDbFixture();
+  t.after(() => binding.close());
+
+  const unconfigured = {
+    request: callbackRequest('https://cms.test/earth/api/releases/release_x/confirm', 'POST', {
+      attemptId: 'attempt_x',
+      providerDeploymentId: 'deployment-x',
+    }),
+    params: { id: 'release_x' },
+    locals: { runtime: { env: { DB: binding } } },
+  } as never;
+
+  const confirmed = await confirmRelease(unconfigured);
+  assert.equal(confirmed.status, 503);
+  assert.equal((await body(confirmed)).error.code, 'SERVICE_UNAVAILABLE');
+
+  const failed = await failRelease(unconfigured);
+  assert.equal(failed.status, 503);
 });

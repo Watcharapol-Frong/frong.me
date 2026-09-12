@@ -64,6 +64,15 @@ export interface ConfirmLiveReleaseInput {
   releaseId: string;
   attemptId: string;
   providerDeploymentId: string;
+  workflowRunId?: string;
+  now?: number;
+}
+
+export interface FailReleaseAttemptRepositoryInput {
+  releaseId: string;
+  attemptId: string;
+  errorMessage: string;
+  workflowRunId?: string;
   now?: number;
 }
 
@@ -505,6 +514,7 @@ export async function confirmReleaseLive(
       sql: `UPDATE release_attempts
             SET status = 'confirmed',
                 provider_deployment_id = ?1,
+                workflow_run_id = COALESCE(?5, workflow_run_id),
                 finished_at = ?2
             WHERE id = ?3
               AND release_id = ?4
@@ -515,6 +525,7 @@ export async function confirmReleaseLive(
         now,
         input.attemptId,
         input.releaseId,
+        input.workflowRunId ?? null,
       ],
     },
     {
@@ -558,6 +569,46 @@ export async function confirmReleaseLive(
     throw new CmsStateTransitionError('Release deployment confirmation did not advance the live pointer');
   }
   return release;
+}
+
+/**
+ * Reports a deployment attempt's terminal failure from the workflow itself (build
+ * failed, deploy rejected, etc.) — the counterpart to confirmReleaseLive for the
+ * unhappy path. Idempotent: a retry against an attempt already marked failed is a
+ * no-op success rather than an error, since the workflow may retry its own callback
+ * after a network failure.
+ */
+export async function failReleaseAttempt(
+  db: CmsDatabase,
+  input: FailReleaseAttemptRepositoryInput,
+): Promise<ReleaseRow> {
+  const attempt = await getReleaseAttempt(db, input.attemptId);
+  if (attempt.release_id !== input.releaseId) {
+    throw new CmsStateTransitionError('Release attempt does not belong to this release');
+  }
+  const now = input.now ?? Date.now();
+
+  if (attempt.status !== 'failed') {
+    if (attempt.status === 'confirmed') {
+      throw new CmsStateTransitionError('Cannot fail a release attempt that already confirmed');
+    }
+    await transitionReleaseAttempt(db, input.attemptId, attempt.status, 'failed', {
+      errorMessage: input.errorMessage,
+      workflowRunId: input.workflowRunId,
+      now,
+    });
+  }
+
+  const release = await getRelease(db, input.releaseId);
+  if (release.status === 'live') {
+    throw new CmsStateTransitionError('Cannot fail a release attempt for an already-live release');
+  }
+  if (release.status === 'failed') return release;
+  return transitionRelease(db, input.releaseId, release.status, 'failed', {
+    errorCode: 'RELEASE_DEPLOYMENT_FAILED',
+    errorMessage: input.errorMessage,
+    now,
+  });
 }
 
 export async function getReleaseSnapshot(

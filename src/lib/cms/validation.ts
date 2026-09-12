@@ -6,6 +6,7 @@ import {
   type ConfirmReleaseInput,
   type CreateReleaseInput,
   type DispatchReleaseInput,
+  type FailReleaseAttemptInput,
   type Language,
   type PublicArticle,
   type PublicAsset,
@@ -458,7 +459,7 @@ export function parseBeginReleaseInput(value: unknown): BeginReleaseInput {
 }
 
 export function parseConfirmReleaseInput(value: unknown): ConfirmReleaseInput {
-  const row = object(value, 'confirmation', ['attemptId', 'providerDeploymentId']);
+  const row = object(value, 'confirmation', ['attemptId', 'providerDeploymentId', 'workflowRunId']);
   return {
     attemptId: identifier(row.attemptId, 'confirmation.attemptId'),
     providerDeploymentId: string(
@@ -466,6 +467,20 @@ export function parseConfirmReleaseInput(value: unknown): ConfirmReleaseInput {
       'confirmation.providerDeploymentId',
       200,
     ),
+    ...(row.workflowRunId === undefined
+      ? {}
+      : { workflowRunId: string(row.workflowRunId, 'confirmation.workflowRunId', 100) }),
+  };
+}
+
+export function parseFailReleaseAttemptInput(value: unknown): FailReleaseAttemptInput {
+  const row = object(value, 'failure', ['attemptId', 'errorMessage', 'workflowRunId']);
+  return {
+    attemptId: identifier(row.attemptId, 'failure.attemptId'),
+    errorMessage: string(row.errorMessage, 'failure.errorMessage', 2000),
+    ...(row.workflowRunId === undefined
+      ? {}
+      : { workflowRunId: string(row.workflowRunId, 'failure.workflowRunId', 100) }),
   };
 }
 

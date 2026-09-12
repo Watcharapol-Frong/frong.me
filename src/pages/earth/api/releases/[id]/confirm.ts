@@ -6,7 +6,9 @@ import {
   privateJson,
   readJsonRequest,
   releaseRowToSummary,
+  type CmsApiLocals,
 } from '../../../../../server/cms/api.ts';
+import { verifyReleaseCallbackSecret } from '../../../../../server/cms/callback-auth.ts';
 import { CmsStateTransitionError, cmsErrorResponse } from '../../../../../server/cms/errors.ts';
 import {
   confirmReleaseLive,
@@ -21,6 +23,8 @@ export const prerender = false;
 
 export const POST: APIRoute = async ({ request, locals, params }) => {
   try {
+    const env = (locals as CmsApiLocals).runtime?.env ?? (locals as CmsApiLocals).env ?? {};
+    await verifyReleaseCallbackSecret(request, env);
     const releaseId = parseCmsIdentifier(params.id, 'params.id');
     const input = parseConfirmReleaseInput(await readJsonRequest(request));
     const db = databaseFromLocals(locals);
@@ -32,7 +36,9 @@ export const POST: APIRoute = async ({ request, locals, params }) => {
       throw new CmsStateTransitionError('Release attempt does not belong to this release');
     }
     if (currentRelease.status === 'building' && currentAttempt.status === 'building') {
-      await transitionReleaseAttempt(db, input.attemptId, 'building', 'deploying');
+      await transitionReleaseAttempt(db, input.attemptId, 'building', 'deploying', {
+        workflowRunId: input.workflowRunId,
+      });
       await transitionRelease(db, releaseId, 'building', 'deploying');
     }
     const release = await confirmReleaseLive(db, { releaseId, ...input });

@@ -41,6 +41,8 @@ Do not reuse staging databases, buckets, Access audience values, or deployment s
 | `CF_ACCESS_AUD` | Main-site Worker | GitHub environment secret / Worker secret | Validate the `aud` claim | Name and validation proven; staging value unset |
 | `CF_ACCESS_ALLOWED_EMAIL` | Main-site Worker | GitHub environment secret / Worker secret | Enforce owner authorization | Name and validation proven; staging value unset |
 | `CMS_SITE_ORIGIN` | Main-site Worker | GitHub environment variable / Worker variable | Exact mutation Origin allowlist | Name and validation proven; staging value unset |
+| `CF_ACCESS_CLIENT_ID`, `CF_ACCESS_CLIENT_SECRET` | `scripts/build/verify-access-staging.mjs` (1C-03) and the staging deploy workflow's release confirm/fail callback (P1-04) | GitHub `cms-staging` environment secret; a Cloudflare Access Service Token scoped to the staging Access application | Reach `/earth/*` as a machine caller so Cloudflare Access mints the request's JWT assertion, without a human login | Names proven by 1C-03's verification script; real Service Token and its Access Service Auth policy are unset. Reusing the same token for confirm/fail callbacks is intentional — it is the deploy workflow's only machine identity |
+| `RELEASE_CALLBACK_SECRET` | `/earth/api/releases/[id]/confirm` and `/earth/api/releases/[id]/fail`; the staging deploy workflow | GitHub `cms-staging` environment secret; Cloudflare Worker secret | A second, independent secret the release callback checks in the route itself (defense in depth alongside the Access Service Token, so a leaked/misscoped Access token alone cannot forge a deployment outcome) | Implemented and unit-tested locally (fail-closed 503 when unset, 401 on mismatch, constant-time compare); real secret value unset |
 | `ENCRYPTION_KEY` | Future BYOK service | Cloudflare secret | Encrypt provider API keys | Phase 4; do not provision now |
 | `TURNSTILE_SECRET_KEY`, `PUBLIC_TURNSTILE_SITE_KEY`, email-provider key | Newsletter | Cloudflare secret/public configuration as appropriate | Newsletter protection/delivery | Phase 3; do not provision now |
 
@@ -53,6 +55,7 @@ Use `.dev.vars` for local Worker secrets and never commit it. `ai-worker/.dev.va
 3. Isolated staging Worker, D1, and Access resources with owners and dashboard locators. Do not reuse production resource IDs.
 4. Separate D1 Read and Worker deploy credentials with only the permissions their workflow steps require.
 5. Named owners and dashboard locators for future production D1, R2, Access, and backup storage before those phases use them.
+6. A Cloudflare Access Service Auth policy on the staging `/earth` application that accepts the `CF_ACCESS_CLIENT_ID`/`CF_ACCESS_CLIENT_SECRET` Service Token used by 1C-03's verification script and the P1-04 deploy-workflow release callback, plus a generated `RELEASE_CALLBACK_SECRET` stored as both a GitHub `cms-staging` secret and a Cloudflare Worker secret. Neither of these is code work; both are dashboard/CLI configuration against the real staging resources and cannot be completed from this repository.
 
 ## CMS database commands
 

@@ -19,6 +19,7 @@ export interface CmsApiEnvironment {
   DB?: D1DatabaseBinding;
   GITHUB_DISPATCH_TOKEN?: string;
   GITHUB_REPO?: string;
+  RELEASE_CALLBACK_SECRET?: string;
 }
 
 export function databaseFromLocals(locals: unknown): CmsDatabase {

@@ -291,6 +291,13 @@ export interface BeginReleaseInput extends CreateReleaseInput {
 export interface ConfirmReleaseInput {
   attemptId: string;
   providerDeploymentId: string;
+  workflowRunId?: string;
+}
+
+export interface FailReleaseAttemptInput {
+  attemptId: string;
+  errorMessage: string;
+  workflowRunId?: string;
 }
 
 export interface AttachPostAssetInput {
@@ -311,5 +318,6 @@ export interface DispatchReleaseInput {
 
 export interface ReleaseDispatchPayload {
   releaseId: string;
+  attemptId: string;
   manifestSha256: string;
 }

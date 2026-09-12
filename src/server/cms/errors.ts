@@ -2,13 +2,15 @@ import { CmsValidationError } from '../../lib/cms/validation.ts';
 
 export type CmsErrorCode =
   | 'BAD_REQUEST'
+  | 'UNAUTHORIZED'
   | 'NOT_FOUND'
   | 'DRAFT_VERSION_CONFLICT'
   | 'CONFLICT'
   | 'RELEASE_BUSY'
   | 'INVALID_STATE_TRANSITION'
   | 'INVARIANT_VIOLATION'
-  | 'DATABASE_ERROR';
+  | 'DATABASE_ERROR'
+  | 'SERVICE_UNAVAILABLE';
 
 export interface CmsErrorOptions {
   cause?: unknown;
@@ -40,6 +42,18 @@ export class CmsError extends Error {
 export class CmsBadRequestError extends CmsError {
   constructor(message: string, options?: CmsErrorOptions) {
     super(message, 'BAD_REQUEST', 400, options);
+  }
+}
+
+export class CmsUnauthorizedError extends CmsError {
+  constructor(message = 'Unauthorized', options?: CmsErrorOptions) {
+    super(message, 'UNAUTHORIZED', 401, options);
+  }
+}
+
+export class CmsServiceUnavailableError extends CmsError {
+  constructor(message = 'Service unavailable', options?: CmsErrorOptions) {
+    super(message, 'SERVICE_UNAVAILABLE', 503, options);
   }
 }
 
