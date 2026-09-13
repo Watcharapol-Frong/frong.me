@@ -1,0 +1,425 @@
+---
+/**
+ * AI Assistant panel — collapsible right sidebar with three modes:
+ *
+ * 1. Research: topic/angle ideation (falls back to the current draft when no
+ *    topic is typed).
+ * 2. Inline Draft: context-aware continuation of the selected text (or the
+ *    end of the body when nothing is selected), shown as a pending
+ *    highlight the author must Accept or Reject before it lands in the body.
+ * 3. Review: proofreading + SEO + reference-audit checklist.
+ *
+ * Talks directly to `POST /earth/api/ai/generate` — it does not go through
+ * `PostEditor.astro`'s delegated handler, since none of its state is part of
+ * the post payload until an Accept action edits the shared textarea.
+ */
+export const AI_PANEL_ID = 'earth-ai-panel';
+---
+
+<aside class="earth-ai" id={AI_PANEL_ID} data-earth-ai-panel hidden>
+  <header class="earth-ai__header">
+    <h2>AI Assistant</h2>
+    <div class="earth-ai__provider">
+      <select data-earth-ai-provider>
+        <option value="gemini">Gemini</option>
+        <option value="cloudflare">Workers AI</option>
+        <option value="openrouter">OpenRouter</option>
+      </select>
+    </div>
+  </header>
+
+  <section class="earth-ai__section">
+    <h3>1 · Research</h3>
+    <input type="text" class="earth-ai__input" placeholder="Topic (optional — uses the draft otherwise)" data-earth-ai-topic />
+    <button type="button" class="earth-ai__run" data-earth-ai-run="research">Generate angles</button>
+    <div class="earth-ai__output" data-earth-ai-output="research"></div>
+  </section>
+
+  <section class="earth-ai__section">
+    <h3>2 · Inline Draft</h3>
+    <p class="earth-ai__hint">Select text in the body first to rework just that selection, or run with nothing selected to continue from the end.</p>
+    <button type="button" class="earth-ai__run" data-earth-ai-run="inline_draft">Generate continuation</button>
+    <div class="earth-ai__output" data-earth-ai-output="inline_draft"></div>
+  </section>
+
+  <section class="earth-ai__section">
+    <h3>3 · Review</h3>
+    <button type="button" class="earth-ai__run" data-earth-ai-run="review">Run review</button>
+    <div class="earth-ai__output" data-earth-ai-output="review"></div>
+  </section>
+</aside>
+
+<template data-earth-ai-idea-template>
+  <article class="earth-ai__idea">
+    <p class="earth-ai__idea-angle"></p>
+    <p class="earth-ai__idea-meta"><strong>Audience:</strong> <span data-slot="audience"></span></p>
+    <p class="earth-ai__idea-meta"><strong>Hook:</strong> <span data-slot="hook"></span></p>
+  </article>
+</template>
+
+<script>
+  import type { AiGenerateSuccessResponse, AiProvider } from '../../types/ai.ts';
+
+  interface DraftContext {
+    title: string;
+    excerpt: string;
+    body: string;
+    tags: string[];
+  }
+
+  function initAiPanel(panel: HTMLElement) {
+    const form = panel.closest('form') ?? document.querySelector<HTMLFormElement>('[data-earth-editor]');
+    const bodyField = form?.querySelector<HTMLTextAreaElement>('[data-earth-field="body"]');
+    const titleField = form?.querySelector<HTMLInputElement>('[data-earth-field="title"]');
+    const excerptField = form?.querySelector<HTMLTextAreaElement>('[data-earth-field="excerpt"]');
+    const tagsField = form?.querySelector<HTMLInputElement>('[data-earth-field="tags"]');
+    const providerSelect = panel.querySelector<HTMLSelectElement>('[data-earth-ai-provider]');
+    const topicInput = panel.querySelector<HTMLInputElement>('[data-earth-ai-topic]');
+
+    function draftContext(): DraftContext {
+      return {
+        title: titleField?.value ?? '',
+        excerpt: excerptField?.value ?? '',
+        body: bodyField?.value ?? '',
+        tags: (tagsField?.value ?? '').split(',').map((t) => t.trim()).filter(Boolean),
+      };
+    }
+
+    async function callAi(task: string, extra: Record<string, unknown> = {}): Promise<unknown> {
+      const provider = (providerSelect?.value ?? 'gemini') as AiProvider;
+      const context = draftContext();
+      const response = await fetch('/earth/api/ai/generate', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          task,
+          provider,
+          title: context.title,
+          description: context.excerpt,
+          bodyText: context.body,
+          ...extra,
+        }),
+      });
+      const payload = (await response.json()) as AiGenerateSuccessResponse | { error: string };
+      if (!response.ok || 'error' in payload) {
+        throw new Error('error' in payload ? payload.error : `AI request failed (${response.status})`);
+      }
+      return payload.result;
+    }
+
+    function setOutput(task: string, node: Node | string) {
+      const target = panel.querySelector(`[data-earth-ai-output="${task}"]`);
+      if (!target) return;
+      target.textContent = '';
+      target.append(node);
+    }
+
+    function setLoading(task: string) {
+      setOutput(task, 'Thinking…');
+    }
+
+    function setError(task: string, message: string) {
+      const el = document.createElement('p');
+      el.className = 'earth-ai__error';
+      el.textContent = message;
+      setOutput(task, el);
+    }
+
+    /* ---------------- 1. Research ---------------- */
+
+    async function runResearch() {
+      setLoading('research');
+      try {
+        const ideas = await callAi('research', { topic: topicInput?.value.trim() || undefined }) as Array<{
+          angle: string; audience: string; hook: string;
+        }>;
+        const list = document.createElement('div');
+        const template = document.querySelector<HTMLTemplateElement>('[data-earth-ai-idea-template]');
+        for (const idea of ideas) {
+          if (!template) continue;
+          const node = template.content.cloneNode(true) as DocumentFragment;
+          node.querySelector('.earth-ai__idea-angle')!.textContent = idea.angle;
+          node.querySelector('[data-slot="audience"]')!.textContent = idea.audience;
+          node.querySelector('[data-slot="hook"]')!.textContent = idea.hook;
+          list.append(node);
+        }
+        setOutput('research', list);
+      } catch (err) {
+        setError('research', (err as Error).message);
+      }
+    }
+
+    /* ---------------- 2. Inline draft (accept/reject) ---------------- */
+
+    async function runInlineDraft() {
+      if (!bodyField) return;
+      const selectionStart = bodyField.selectionStart;
+      const selectionEnd = bodyField.selectionEnd;
+      const selectedText = bodyField.value.slice(selectionStart, selectionEnd);
+      setLoading('inline_draft');
+      try {
+        const text = await callAi('inline_draft', { selectedText: selectedText || undefined }) as string;
+        const box = document.createElement('div');
+        box.className = 'earth-ai__diff';
+        const pre = document.createElement('pre');
+        pre.textContent = text;
+        const actions = document.createElement('div');
+        actions.className = 'earth-ai__diff-actions';
+        const accept = document.createElement('button');
+        accept.type = 'button';
+        accept.className = 'earth-ai__run earth-ai__run--accept';
+        accept.textContent = 'Accept';
+        const reject = document.createElement('button');
+        reject.type = 'button';
+        reject.className = 'earth-ai__run earth-ai__run--reject';
+        reject.textContent = 'Reject';
+        accept.addEventListener('click', () => {
+          const before = bodyField.value.slice(0, selectionStart);
+          const after = bodyField.value.slice(selectedText ? selectionEnd : bodyField.value.length);
+          const glue = selectedText ? '' : (before.endsWith('\n\n') || before === '' ? '' : '\n\n');
+          bodyField.value = `${before}${glue}${text}${after}`;
+          bodyField.dispatchEvent(new Event('input', { bubbles: true }));
+          setOutput('inline_draft', 'Applied.');
+        });
+        reject.addEventListener('click', () => setOutput('inline_draft', ''));
+        actions.append(accept, reject);
+        box.append(pre, actions);
+        setOutput('inline_draft', box);
+      } catch (err) {
+        setError('inline_draft', (err as Error).message);
+      }
+    }
+
+    /* ---------------- 3. Review ---------------- */
+
+    async function runReview() {
+      setLoading('review');
+      try {
+        const report = await callAi('review', { tags: draftContext().tags }) as {
+          grammar: string[];
+          missingReferences: string[];
+          seo: { score: number; titleLengthOk: boolean; excerptLengthOk: boolean; hasHeadings: boolean; keywordSuggestions: string[] };
+        };
+        const box = document.createElement('div');
+        box.className = 'earth-ai__review';
+
+        const score = document.createElement('p');
+        score.className = 'earth-ai__review-score';
+        score.textContent = `SEO score: ${report.seo.score}/100`;
+        box.append(score);
+
+        const checklist = document.createElement('ul');
+        const checks: [string, boolean][] = [
+          ['Title length OK (≤60 chars)', report.seo.titleLengthOk],
+          ['Excerpt length OK (≤160 chars)', report.seo.excerptLengthOk],
+          ['Has at least one heading', report.seo.hasHeadings],
+        ];
+        for (const [label, ok] of checks) {
+          const li = document.createElement('li');
+          li.textContent = `${ok ? '✓' : '✗'} ${label}`;
+          checklist.append(li);
+        }
+        box.append(checklist);
+
+        if (report.seo.keywordSuggestions.length > 0) {
+          const kw = document.createElement('p');
+          kw.innerHTML = `<strong>Keyword suggestions:</strong> ${report.seo.keywordSuggestions.join(', ')}`;
+          box.append(kw);
+        }
+        if (report.grammar.length > 0) {
+          const heading = document.createElement('p');
+          heading.innerHTML = '<strong>Grammar/spelling</strong>';
+          const list = document.createElement('ul');
+          for (const item of report.grammar) {
+            const li = document.createElement('li');
+            li.textContent = item;
+            list.append(li);
+          }
+          box.append(heading, list);
+        }
+        if (report.missingReferences.length > 0) {
+          const heading = document.createElement('p');
+          heading.innerHTML = '<strong>Needs a citation</strong>';
+          const list = document.createElement('ul');
+          for (const item of report.missingReferences) {
+            const li = document.createElement('li');
+            li.textContent = item;
+            list.append(li);
+          }
+          box.append(heading, list);
+        }
+        setOutput('review', box);
+      } catch (err) {
+        setError('review', (err as Error).message);
+      }
+    }
+
+    panel.addEventListener('click', (ev) => {
+      const trigger = (ev.target as HTMLElement).closest<HTMLElement>('[data-earth-ai-run]');
+      if (!trigger) return;
+      const task = trigger.dataset.earthAiRun;
+      if (task === 'research') void runResearch();
+      else if (task === 'inline_draft') void runInlineDraft();
+      else if (task === 'review') void runReview();
+    });
+  }
+
+  document.querySelectorAll<HTMLElement>('[data-earth-ai-panel]').forEach(initAiPanel);
+</script>
+
+<style>
+  .earth-ai {
+    border: 1px solid var(--earth-border, color-mix(in oklab, currentColor 15%, transparent));
+    border-radius: 0.75rem;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    max-width: 20rem;
+  }
+
+  .earth-ai[hidden] {
+    display: none;
+  }
+
+  .earth-ai__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .earth-ai__header h2 {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .earth-ai__provider select {
+    font-size: 0.75rem;
+    border: 1px solid var(--earth-border, color-mix(in oklab, currentColor 15%, transparent));
+    border-radius: 0.375rem;
+    background: transparent;
+    color: inherit;
+    padding: 0.25rem 0.375rem;
+  }
+
+  .earth-ai__section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid var(--earth-border, color-mix(in oklab, currentColor 10%, transparent));
+  }
+
+  .earth-ai__section:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+
+  .earth-ai__section h3 {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    opacity: 0.7;
+    margin: 0;
+  }
+
+  .earth-ai__hint {
+    font-size: 0.75rem;
+    opacity: 0.6;
+    margin: 0;
+  }
+
+  .earth-ai__input {
+    border: 1px solid var(--earth-border, color-mix(in oklab, currentColor 15%, transparent));
+    border-radius: 0.5rem;
+    background: transparent;
+    color: inherit;
+    padding: 0.4rem 0.625rem;
+    font: inherit;
+    font-size: 0.8125rem;
+  }
+
+  .earth-ai__run {
+    align-self: flex-start;
+    border: 1px solid var(--earth-border, color-mix(in oklab, currentColor 15%, transparent));
+    border-radius: 0.5rem;
+    background: transparent;
+    color: inherit;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .earth-ai__run:hover {
+    background: color-mix(in oklab, currentColor 8%, transparent);
+  }
+
+  .earth-ai__run--accept {
+    background: var(--earth-accent, currentColor);
+    color: var(--earth-accent-contrast, #fff);
+    border-color: transparent;
+  }
+
+  .earth-ai__output {
+    font-size: 0.8125rem;
+    line-height: 1.5;
+  }
+
+  .earth-ai__output:empty {
+    display: none;
+  }
+
+  .earth-ai__error {
+    color: #b42318;
+  }
+
+  .earth-ai__idea {
+    padding: 0.625rem;
+    border: 1px solid var(--earth-border, color-mix(in oklab, currentColor 12%, transparent));
+    border-radius: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .earth-ai__idea-angle {
+    font-weight: 600;
+    margin: 0 0 0.25rem;
+  }
+
+  .earth-ai__idea-meta {
+    margin: 0;
+    opacity: 0.75;
+    font-size: 0.75rem;
+  }
+
+  .earth-ai__diff {
+    border: 1px dashed var(--earth-accent, currentColor);
+    border-radius: 0.5rem;
+    padding: 0.625rem;
+    background: color-mix(in oklab, var(--earth-accent, currentColor) 6%, transparent);
+  }
+
+  .earth-ai__diff pre {
+    white-space: pre-wrap;
+    font-family: inherit;
+    margin: 0 0 0.5rem;
+  }
+
+  .earth-ai__diff-actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .earth-ai__review-score {
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .earth-ai__review ul {
+    margin: 0;
+    padding-left: 1.25rem;
+  }
+</style>

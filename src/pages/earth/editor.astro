@@ -1,6 +1,6 @@
 ---
 /**
- * Live page for the Earth admin editor UI.
+ * Live page for the Earth admin Zen Editor.
  *
  * `?id=<post-id>` loads an existing post through the same-origin API. Without
  * an id the editor creates a new post using a stable client-generated id.
@@ -41,7 +41,7 @@ const postId = Astro.url.searchParams.get('id')?.trim() || undefined;
         body { background: #141414; color: #ededed; }
       }
       .earth-page-header {
-        max-width: 60rem;
+        max-width: 90rem;
         margin: 0 auto 1.5rem;
       }
       .earth-page-header h1 {
@@ -54,17 +54,17 @@ const postId = Astro.url.searchParams.get('id')?.trim() || undefined;
         font-size: 0.8125rem;
         opacity: 0.6;
       }
+      .earth-page-header a {
+        color: var(--earth-accent);
+        text-decoration: none;
+      }
     </style>
   </head>
   <body>
     <header class="earth-page-header">
-      <h1>Post Editor</h1>
-      <p>
-        Client-side editor with local backup and live persistence through
-        <code>/earth/api/posts</code>. Add <code>?id=&lt;post-id&gt;</code> to edit an existing post.
-      </p>
+      <h1>Zen Editor</h1>
+      <p><a href="/earth">← Back to Portal</a></p>
     </header>
-
-    <PostEditor initial={postId ? { id: postId } : {}} />
+    <PostEditor initial={{ id: postId }} />
   </body>
 </html>

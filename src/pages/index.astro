@@ -1,29 +1,41 @@
 ---
+/**
+ * Homepage: direct-SSR reader route. Reads published posts straight from D1
+ * at request time — no release/manifest snapshot, no Sanity. Edge-cached so
+ * repeat requests within the cache window don't re-hit D1.
+ */
 import Layout from "@/layouts/Layout.astro";
 import HomeIsland from "@/components/HomeIsland";
-import { sanityClient } from "sanity:client";
-import { urlFor } from "@/lib/sanityImage";
+import { resolveCmsDatabase } from "@/server/cms/api.ts";
+import { listPublishedPosts, listPublicPostAssets } from "@/server/cms/repositories/public.ts";
+import { publicAssetUrl } from "@/lib/cms/markdown/asset-resolver.ts";
+import { getPostTaxonomy } from "@/server/cms/repositories/taxonomy.ts";
 
-interface Article {
-  slug: string;
-  title: string;
-  tags: string[];
-  date: string;
-  cover: unknown;
-}
+export const prerender = false;
 
-const sanityArticles: Article[] = await sanityClient.fetch(
-  `*[_type == "article" && !draft && defined(slug.current)] | order(date desc){
-    "slug": slug.current, title, tags, date, cover
-  }`
+Astro.response.headers.set(
+  "Cache-Control",
+  "public, max-age=60, s-maxage=3600, stale-while-revalidate=86400",
 );
 
-const articles = sanityArticles.map((article) => ({
-  slug: article.slug,
-  title: article.title,
-  tags: article.tags ?? [],
-  cover: urlFor(article.cover).width(800).auto("format").url(),
-}));
+const db = await resolveCmsDatabase(Astro.locals);
+const posts = await listPublishedPosts(db, { limit: 60 });
+
+const articles = await Promise.all(
+  posts.map(async (post) => {
+    const [assets, taxonomy] = await Promise.all([
+      listPublicPostAssets(db, post.id),
+      getPostTaxonomy(db, post.id),
+    ]);
+    const cover = assets.find((asset) => asset.role === "cover");
+    return {
+      slug: post.slug,
+      title: post.title,
+      tags: taxonomy.tags.map((tag) => tag.slug),
+      cover: cover ? publicAssetUrl(cover, "https://images.frong.me") : "",
+    };
+  }),
+);
 
 const categories = [...new Set(articles.flatMap((article) => article.tags))];
 ---

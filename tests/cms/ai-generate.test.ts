@@ -3,7 +3,10 @@ import test from 'node:test';
 
 import { ALL as allAi, POST as generateAi } from '../../src/pages/earth/api/ai/generate.ts';
 import {
+  buildInlineDraftPrompt,
   buildPromptContext,
+  buildResearchPrompt,
+  buildReviewPrompt,
   buildTaskPrompt,
   generateAiResult,
   parseAiGenerateRequest,
@@ -49,8 +52,11 @@ test('buildPromptContext truncates body and fills missing fields', () => {
   assert.equal(emptyContext, 'Title: (untitled)\nExcerpt: (none)\nBody:\n');
 });
 
-test('buildTaskPrompt embeds the exact spec template for each task', () => {
-  const tasksExpected: Record<(typeof AI_TASKS)[number], RegExp> = {
+test('buildTaskPrompt embeds the exact spec template for each of the four generic text tasks', () => {
+  const tasksExpected: Record<
+    'title-suggestions' | 'auto-excerpt' | 'generate-outline' | 'seo-optimizer',
+    RegExp
+  > = {
     'title-suggestions':
       /^You are an editor helping title a blog article\. Based on the article below, suggest 5 alternative titles\. Return ONLY a numbered list, one title per line, no extra commentary\./,
     'auto-excerpt':
@@ -66,6 +72,139 @@ test('buildTaskPrompt embeds the exact spec template for each task', () => {
     assert.match(prompt, pattern, `Failed for task ${task}`);
     assert.match(prompt, /Title: T\nExcerpt: \(none\)/);
   }
+});
+
+test('buildTaskPrompt refuses the three dedicated-builder tasks — they must not silently fall back', () => {
+  for (const task of ['research', 'inline_draft', 'review'] as const) {
+    assert.throws(() => buildTaskPrompt(task, { title: 'T' }), /No generic prompt template/);
+  }
+});
+
+test('buildResearchPrompt uses the explicit topic when given, else falls back to draft context', () => {
+  const fromTopic = buildResearchPrompt({ task: 'research', provider: 'gemini', topic: 'Thai fintech' });
+  assert.match(fromTopic, /Topic: Thai fintech/);
+  assert.match(fromTopic, /JSON array/);
+
+  const fromDraft = buildResearchPrompt({ task: 'research', provider: 'gemini', title: 'Existing draft' });
+  assert.match(fromDraft, /Title: Existing draft/);
+});
+
+test('buildInlineDraftPrompt targets the selection when present, else continues from the body', () => {
+  const withSelection = buildInlineDraftPrompt({
+    task: 'inline_draft',
+    provider: 'gemini',
+    bodyText: 'Some context.',
+    selectedText: 'rework me',
+  });
+  assert.match(withSelection, /Selected text:\nrework me/);
+  assert.match(withSelection, /ONLY the replacement Markdown text/);
+
+  const withoutSelection = buildInlineDraftPrompt({
+    task: 'inline_draft',
+    provider: 'gemini',
+    bodyText: 'Some context.',
+  });
+  assert.doesNotMatch(withoutSelection, /Selected text:/);
+  assert.match(withoutSelection, /Continue the article/);
+});
+
+test('buildReviewPrompt embeds title/excerpt lengths, tags, and the strict JSON schema', () => {
+  const prompt = buildReviewPrompt({
+    task: 'review',
+    provider: 'gemini',
+    title: 'A title',
+    description: 'An excerpt',
+    tags: ['cms', 'cloudflare'],
+    bodyText: '# Heading\nBody.',
+  });
+  assert.match(prompt, /Title \(7 chars\): A title/);
+  assert.match(prompt, /Tags: cms, cloudflare/);
+  assert.match(prompt, /"titleLengthOk": boolean/);
+});
+
+test('generateAiResult parses a well-formed research response into structured ideas', async () => {
+  const env = {
+    GEMINI_API_KEY: 'gemini-key',
+    fetcher: async () => new Response(JSON.stringify({
+      candidates: [{ content: { parts: [{ text: JSON.stringify([
+        { angle: 'A', audience: 'B', hook: 'C' },
+      ]) }] } }],
+    }), { status: 200 }),
+  };
+  const result = await generateAiResult(
+    { task: 'research', provider: 'gemini', topic: 'Edge databases' },
+    env,
+  );
+  assert.deepEqual(result, [{ angle: 'A', audience: 'B', hook: 'C' }]);
+});
+
+test('generateAiResult rejects a research response that is not a JSON array', async () => {
+  const env = {
+    GEMINI_API_KEY: 'gemini-key',
+    fetcher: async () => new Response(JSON.stringify({
+      candidates: [{ content: { parts: [{ text: '{"not":"an array"}' }] } }],
+    }), { status: 200 }),
+  };
+  await assert.rejects(
+    generateAiResult({ task: 'research', provider: 'gemini', topic: 'x' }, env),
+    /must be a JSON array/,
+  );
+});
+
+test('generateAiResult strips a ```json fence before parsing a review report', async () => {
+  const reportJson = JSON.stringify({
+    grammar: ['fix comma'],
+    missingReferences: ['claim needs a source'],
+    seo: { score: 80, titleLengthOk: true, excerptLengthOk: false, hasHeadings: true, keywordSuggestions: ['d1'] },
+  });
+  const env = {
+    GEMINI_API_KEY: 'gemini-key',
+    fetcher: async () => new Response(JSON.stringify({
+      candidates: [{ content: { parts: [{ text: `\`\`\`json\n${reportJson}\n\`\`\`` }] } }],
+    }), { status: 200 }),
+  };
+  const result = await generateAiResult(
+    { task: 'review', provider: 'gemini', title: 'T', bodyText: 'B' },
+    env,
+  );
+  assert.deepEqual(result, {
+    grammar: ['fix comma'],
+    missingReferences: ['claim needs a source'],
+    seo: { score: 80, titleLengthOk: true, excerptLengthOk: false, hasHeadings: true, keywordSuggestions: ['d1'] },
+  });
+});
+
+test('generateAiResult clamps an out-of-range SEO score and drops non-string array entries', async () => {
+  const env = {
+    GEMINI_API_KEY: 'gemini-key',
+    fetcher: async () => new Response(JSON.stringify({
+      candidates: [{ content: { parts: [{ text: JSON.stringify({
+        grammar: ['ok', 42],
+        missingReferences: [],
+        seo: { score: 999, titleLengthOk: true, excerptLengthOk: true, hasHeadings: false, keywordSuggestions: [] },
+      }) }] } }],
+    }), { status: 200 }),
+  };
+  const result = await generateAiResult(
+    { task: 'review', provider: 'gemini', title: 'T', bodyText: 'B' },
+    env,
+  ) as { grammar: string[]; seo: { score: number } };
+  assert.deepEqual(result.grammar, ['ok']);
+  assert.equal(result.seo.score, 100);
+});
+
+test('generateAiResult returns plain text for inline_draft, same as the other text tasks', async () => {
+  const env = {
+    GEMINI_API_KEY: 'gemini-key',
+    fetcher: async () => new Response(JSON.stringify({
+      candidates: [{ content: { parts: [{ text: 'continuation text' }] } }],
+    }), { status: 200 }),
+  };
+  const result = await generateAiResult(
+    { task: 'inline_draft', provider: 'gemini', bodyText: 'existing body' },
+    env,
+  );
+  assert.equal(result, 'continuation text');
 });
 
 test('parseAiGenerateRequest rejects non-object, unknown task, provider, model, and oversized fields', () => {

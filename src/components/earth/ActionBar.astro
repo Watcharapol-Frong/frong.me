@@ -1,13 +1,11 @@
 ---
 /**
- * Action bar for the Earth admin editor.
- *
- * Renders Save Draft / Publish buttons and the AI Assistant trigger. Pure
- * markup: `PostEditor.astro`'s script handles the clicks via delegation and
- * toggles the AI toolbar's visibility.
+ * Top bar for the Zen Editor: Save Draft, Preview (opens a new tab), and a
+ * Publish/Unpublish toggle with an inline "Sure? Yes / No" confirmation.
+ * Pure markup — `PostEditor.astro`'s script handles every click.
  */
 export interface ActionBarProps {
-  status?: 'draft' | 'published';
+  status?: 'draft' | 'active';
 }
 
 interface Props extends ActionBarProps {}
@@ -19,51 +17,60 @@ const { status = 'draft' } = Astro.props as Props;
   <button
     type="button"
     class="earth-actions__btn earth-actions__btn--ghost"
-    data-earth-action="save-draft"
+    data-earth-action="toggle-zen"
+    title="Toggle Zen mode (Ctrl+/)"
   >
-    Save Draft
-  </button>
-
-  <button
-    type="button"
-    class="earth-actions__btn earth-actions__btn--primary"
-    data-earth-action="publish"
-    disabled={status === 'published'}
-    title={status === 'published' ? 'Already published' : 'Publish this post'}
-  >
-    Publish
+    ⤢ Zen
   </button>
 
   <span class="earth-actions__divider" aria-hidden="true"></span>
 
   <button
     type="button"
+    class="earth-actions__btn earth-actions__btn--ghost"
+    data-earth-action="save-draft"
+    title="Save draft (Ctrl+S)"
+  >
+    Save Draft
+  </button>
+
+  <button
+    type="button"
+    class="earth-actions__btn earth-actions__btn--ghost"
+    data-earth-action="preview"
+    title="Preview in a new tab (Ctrl+P)"
+  >
+    Preview
+  </button>
+
+  <span class="earth-actions__divider" aria-hidden="true"></span>
+
+  <div class="earth-publish" data-earth-publish data-earth-publish-status={status}>
+    <button
+      type="button"
+      class="earth-actions__btn earth-actions__btn--primary"
+      data-earth-action="publish-toggle"
+    >
+      {status === 'active' ? 'Unpublish' : 'Publish'}
+    </button>
+    <div class="earth-publish__confirm" data-earth-publish-confirm hidden>
+      <span>Sure?</span>
+      <button type="button" class="earth-publish__confirm-btn" data-earth-action="publish-confirm">Yes</button>
+      <button type="button" class="earth-publish__confirm-btn earth-publish__confirm-btn--no" data-earth-action="publish-cancel">No</button>
+    </div>
+  </div>
+
+  <button
+    type="button"
     class="earth-actions__btn earth-actions__btn--ai"
     data-earth-action="toggle-ai"
     aria-expanded="false"
-    aria-controls="earth-ai-toolbar"
+    aria-controls="earth-ai-panel"
   >
-    ✨ AI Assistant
+    ✨ AI
   </button>
 
   <span class="earth-actions__status" data-earth-save-status role="status" aria-live="polite"></span>
-</div>
-
-<!-- Hidden AI toolbar; revealed by the trigger button. -->
-<div class="earth-ai" id="earth-ai-toolbar" data-earth-ai-toolbar hidden>
-  <span class="earth-ai__label">AI Assistant</span>
-  {
-    [
-      { id: 'improve', label: 'Improve writing' },
-      { id: 'summarize', label: 'Generate excerpt' },
-      { id: 'tags', label: 'Suggest tags' },
-      { id: 'translate', label: 'Translate' },
-    ].map((a) => (
-      <button type="button" class="earth-ai__btn" data-earth-ai={a.id}>
-        {a.label}
-      </button>
-    ))
-  }
 </div>
 
 <style>
@@ -86,6 +93,7 @@ const { status = 'draft' } = Astro.props as Props;
     font-weight: 500;
     cursor: pointer;
     transition: background 120ms ease, opacity 120ms ease, transform 60ms ease;
+    white-space: nowrap;
   }
 
   .earth-actions__btn:active:not(:disabled) {
@@ -130,42 +138,47 @@ const { status = 'draft' } = Astro.props as Props;
     opacity: 1;
   }
 
-  .earth-ai {
+  .earth-publish {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .earth-publish__confirm {
+    position: absolute;
+    top: calc(100% + 0.375rem);
+    left: 0;
     display: flex;
     align-items: center;
     gap: 0.375rem;
-    flex-wrap: wrap;
-    margin-top: 0.5rem;
     padding: 0.5rem 0.625rem;
-    border: 1px dashed var(--earth-accent, currentColor);
+    border: 1px solid var(--earth-border, color-mix(in oklab, currentColor 15%, transparent));
     border-radius: 0.5rem;
+    background: Canvas;
+    box-shadow: 0 4px 16px color-mix(in oklab, currentColor 12%, transparent);
+    font-size: 0.8125rem;
+    z-index: 5;
+    white-space: nowrap;
   }
 
-  .earth-ai[hidden] {
+  .earth-publish__confirm[hidden] {
     display: none;
   }
 
-  .earth-ai__label {
+  .earth-publish__confirm-btn {
+    border: none;
+    border-radius: 0.375rem;
+    padding: 0.25rem 0.5rem;
+    background: var(--earth-accent, currentColor);
+    color: var(--earth-accent-contrast, #fff);
     font-size: 0.75rem;
     font-weight: 600;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    opacity: 0.7;
-    margin-right: 0.25rem;
-  }
-
-  .earth-ai__btn {
-    height: 1.75rem;
-    padding-inline: 0.6rem;
-    border-radius: 999px;
-    border: 1px solid var(--earth-border, color-mix(in oklab, currentColor 15%, transparent));
-    background: transparent;
-    color: inherit;
-    font-size: 0.75rem;
     cursor: pointer;
   }
 
-  .earth-ai__btn:hover {
-    background: color-mix(in oklab, currentColor 8%, transparent);
+  .earth-publish__confirm-btn--no {
+    background: transparent;
+    color: inherit;
+    border: 1px solid var(--earth-border, color-mix(in oklab, currentColor 15%, transparent));
   }
 </style>

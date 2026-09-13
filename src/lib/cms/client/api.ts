@@ -560,7 +560,7 @@ function randomToken(): string {
  * than server-side so a retried create reuses the same id instead of inserting
  * a duplicate row.
  */
-export function newCmsId(prefix: 'post' | 'grp' | 'src' | 'asset'): string {
+export function newCmsId(prefix: 'post' | 'grp' | 'src' | 'asset' | 'usage'): string {
   const id = `${prefix}_${randomToken()}`;
   if (!ID_PATTERN.test(id)) {
     throw new CmsApiError(`Generated id ${id} is not a valid CMS identifier.`, 'INVALID_RESPONSE', 0);
@@ -667,4 +667,78 @@ export async function unpublishPost(
     parsePostDetail,
     options,
   );
+}
+
+export interface AttachPostAssetRequest {
+  id: string;
+  assetId: string;
+  role: 'cover' | 'body';
+  altText: string;
+  caption?: string | null;
+  crop?: { x: number; y: number; zoom: number } | null;
+  position?: number;
+  expectedDraftVersion: number;
+}
+
+/** `POST /earth/api/posts/:id/assets`. Links an already-uploaded asset to a post. */
+export async function attachPostAsset(
+  postId: string,
+  request: AttachPostAssetRequest,
+  options?: CmsClientOptions,
+): Promise<CmsResult<PostDetail>> {
+  return sendAllowingConflict(
+    `/posts/${encodeURIComponent(postId)}/assets`,
+    { method: 'POST', body: JSON.stringify(request) },
+    parsePostDetail,
+    options,
+  );
+}
+
+export interface UploadedAsset {
+  id: string;
+  mediaKind: string;
+  url: string;
+  mimeType: string;
+  width: number;
+  height: number;
+  byteSize: number;
+  sha256: string;
+}
+
+/**
+ * `POST /earth/api/assets/upload`. Direct-to-R2 multipart upload; immediately
+ * public under direct SSR (no private/promote step).
+ */
+export async function uploadAsset(
+  file: File,
+  mediaKind: 'photo' | 'chart' | 'illustration' = 'photo',
+  options?: CmsClientOptions,
+): Promise<UploadedAsset> {
+  const form = new FormData();
+  form.append('file', file);
+  form.append('mediaKind', mediaKind);
+  const response = await fetch(endpoint('/assets/upload', options), {
+    method: 'POST',
+    credentials: 'same-origin',
+    body: form,
+  });
+  const payload: unknown = await response.json().catch(() => null);
+  if (!response.ok) {
+    const envelope = payload && typeof payload === 'object' ? (payload as { error?: unknown }).error : undefined;
+    const message = envelope && typeof envelope === 'object' && typeof (envelope as { message?: unknown }).message === 'string'
+      ? (envelope as { message: string }).message
+      : `Upload failed (${response.status})`;
+    throw new CmsApiError(message, 'INVALID_RESPONSE', response.status);
+  }
+  const root = obj(payload, 'response');
+  return {
+    id: str(root.id, 'response.id'),
+    mediaKind: str(root.mediaKind, 'response.mediaKind'),
+    url: str(root.url, 'response.url'),
+    mimeType: str(root.mimeType, 'response.mimeType'),
+    width: num(root.width, 'response.width'),
+    height: num(root.height, 'response.height'),
+    byteSize: num(root.byteSize, 'response.byteSize'),
+    sha256: str(root.sha256, 'response.sha256'),
+  };
 }
