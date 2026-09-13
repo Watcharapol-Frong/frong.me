@@ -6,11 +6,12 @@ export type CmsErrorCode =
   | 'NOT_FOUND'
   | 'DRAFT_VERSION_CONFLICT'
   | 'CONFLICT'
-  | 'RELEASE_BUSY'
+  | 'DATABASE_BUSY'
   | 'INVALID_STATE_TRANSITION'
   | 'INVARIANT_VIOLATION'
   | 'DATABASE_ERROR'
-  | 'SERVICE_UNAVAILABLE';
+  | 'SERVICE_UNAVAILABLE'
+  | 'BAD_GATEWAY';
 
 export interface CmsErrorOptions {
   cause?: unknown;
@@ -76,9 +77,9 @@ export class CmsConflictError extends CmsError {
   }
 }
 
-export class CmsReleaseBusyError extends CmsError {
+export class CmsDatabaseBusyError extends CmsError {
   constructor(options?: CmsErrorOptions) {
-    super('Another release is already active', 'RELEASE_BUSY', 409, options);
+    super('The database is busy, please retry', 'DATABASE_BUSY', 409, options);
   }
 }
 
@@ -114,20 +115,7 @@ export function mapCmsError(error: unknown, operation: string): CmsError {
   }
 
   const message = errorMessage(error);
-  if (message.includes('idx_one_active_release')) {
-    return new CmsReleaseBusyError({ cause: error });
-  }
-  if (message.includes('invalid release status transition')) {
-    return new CmsStateTransitionError('Invalid release status transition', { cause: error });
-  }
-  if (message.includes('live release compare-and-set failed')) {
-    return new CmsConflictError('The live release changed before deployment confirmation', 'CONFLICT', {
-      cause: error,
-    });
-  }
-  if (
-    message.includes('must be public')
-  ) {
+  if (message.includes('must be public')) {
     return new CmsInvariantError('All referenced assets must be promoted before publishing', {
       cause: error,
     });
@@ -136,9 +124,6 @@ export function mapCmsError(error: unknown, operation: string): CmsError {
     return new CmsConflictError('Immutable CMS snapshots cannot be changed', 'CONFLICT', {
       cause: error,
     });
-  }
-  if (message.includes('requires a confirmed deployment')) {
-    return new CmsStateTransitionError('Release requires a confirmed deployment', { cause: error });
   }
   if (message.includes('FOREIGN KEY constraint failed')) {
     return new CmsInvariantError('CMS references are invalid or incomplete', { cause: error });
@@ -149,7 +134,7 @@ export function mapCmsError(error: unknown, operation: string): CmsError {
     });
   }
   if (message.includes('database is locked') || message.includes('SQLITE_BUSY')) {
-    return new CmsReleaseBusyError({ cause: error });
+    return new CmsDatabaseBusyError({ cause: error });
   }
   return new CmsDatabaseError(`CMS database operation failed during ${operation}`, { cause: error });
 }

@@ -126,7 +126,14 @@ export function parseAiGenerateRequest(raw: unknown): AiGenerateRequest {
     bodyText = raw.bodyText;
   }
 
-  return { task, provider, model, title, description, bodyText };
+  return {
+    task: task as AiTask,
+    provider: provider as AiProvider,
+    model,
+    title,
+    description,
+    bodyText,
+  };
 }
 
 const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models';
@@ -235,7 +242,7 @@ async function runOpenRouter(
 
 export async function generateAiResult(
   request: AiGenerateRequest,
-  env: AiWorkerEnvironment,
+  env: AiGenerateEnvironment,
 ): Promise<string> {
   const model = request.model || DEFAULT_AI_MODELS[request.provider];
   const prompt = buildTaskPrompt(request.task, {

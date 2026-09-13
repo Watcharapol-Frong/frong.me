@@ -7,6 +7,8 @@ import {
   createPost,
   getPostDraft,
   listPostDrafts,
+  publishPost,
+  unpublishPost,
   updatePostBundle,
   updatePostDraft,
 } from '../../src/server/cms/repositories/posts.ts';
@@ -21,21 +23,6 @@ import {
   CmsDatabaseError,
   CmsNotFoundError,
 } from '../../src/server/cms/errors.ts';
-import {
-  canonicalReleaseManifest,
-  confirmReleaseLive,
-  createRelease,
-  createRevisionSnapshot,
-  getLiveReleaseSnapshot,
-  startReleaseAttempt,
-  transitionRelease,
-  transitionReleaseAttempt,
-} from '../../src/server/cms/repositories/releases.ts';
-import {
-  addPostAssetUsage,
-  createAsset,
-  promoteAsset,
-} from '../../src/server/cms/repositories/assets.ts';
 import {
   replacePostSources,
   replacePostTaxonomy,
@@ -416,13 +403,11 @@ test('updating post language that causes slug collision in target language is re
 // 4. Post Status Transitions: Draft -> Published -> Archived
 // -----------------------------------------------------------------------------
 
-test('full post status transition lifecycle: Draft -> Published -> Active -> Archived', async (t) => {
+test('full post status transition lifecycle (direct SSR): Draft -> Active -> Archived', async (t) => {
   const { binding, db } = createCmsDbFixture();
   t.after(() => binding.close());
 
   const postId = 'post_lifecycle_001';
-  const revisionId = 'rev_lifecycle_0001';
-  const releaseId = 'rel_lifecycle_0001';
 
   // ---------------------------------------------------------------------------
   // Step 1: Post creation defaults to 'draft' status
@@ -432,13 +417,14 @@ test('full post status transition lifecycle: Draft -> Published -> Active -> Arc
     lang: 'th',
     slug: 'complete-lifecycle-journey',
     title: 'วงจรชีวิตของบทความ (Lifecycle)',
-    excerpt: 'ทดสอบสถานะ Draft -> Published -> Archived',
+    excerpt: 'ทดสอบสถานะ Draft -> Active -> Archived',
     bodyMarkdown: '# ร่างเริ่มต้น (Draft)',
   }, NOW);
 
   assert.equal(post.lifecycle, 'draft');
   assert.equal(post.draft_version, 1);
   assert.equal(post.archived_at, null);
+  assert.equal(post.published_at, null);
 
   // Query filter by lifecycle
   const draftList = await listPostDrafts(db, { lifecycle: 'draft' });
@@ -450,9 +436,6 @@ test('full post status transition lifecycle: Draft -> Published -> Active -> Arc
   const archivedListEmpty = await listPostDrafts(db, { lifecycle: 'archived' });
   assert.ok(!archivedListEmpty.some((p) => p.id === postId));
 
-  // ---------------------------------------------------------------------------
-  // Step 2: Prepare attachments and publish via Release Snapshot
-  // ---------------------------------------------------------------------------
   await upsertCategory(db, {
     id: 'cat_life_001', lang: 'th', slug: 'lifecycle', name: 'Lifecycle',
   }, NOW);
@@ -461,88 +444,12 @@ test('full post status transition lifecycle: Draft -> Published -> Active -> Arc
   }, NOW);
   await replacePostTaxonomy(db, postId, ['cat_life_001'], ['tag_life_001'], 1, NOW + 1);
 
-  await createAsset(db, {
-    id: 'asset_life_0001',
-    mediaKind: 'chart',
-    privateR2Key: 'draft/lifecycle.png',
-    mimeType: 'image/png',
-    width: 1200,
-    height: 675,
-    byteSize: 1024,
-    sha256: 'b'.repeat(64),
-  }, NOW + 2);
-  await promoteAsset(db, 'asset_life_0001', 'articles/lifecycle.png', NOW + 3);
-
-  await addPostAssetUsage(db, {
-    id: 'usage_life_0001',
-    postId,
-    assetId: 'asset_life_0001',
-    role: 'cover',
-    altText: 'Lifecycle diagram',
-    expectedDraftVersion: 2,
-  }, NOW + 4);
-
-  // Snapshot post into immutable revision (post draft is at version 3)
-  const revision = await createRevisionSnapshot(db, {
-    revisionId,
-    postId,
-    expectedDraftVersion: 3,
-    publishedAt: NOW + 5,
-  });
-  assert.equal(revision.id, revisionId);
-  assert.equal(revision.title, 'วงจรชีวิตของบทความ (Lifecycle)');
-
-  // Build and confirm release
-  const manifest = {
-    schemaVersion: 1 as const,
-    releaseId,
-    generatedAt: new Date(NOW + 6).toISOString(),
-    articles: [{
-      postId,
-      revisionId,
-      lang: 'th' as const,
-      slug: 'complete-lifecycle-journey',
-      visible: true,
-    }],
-  };
-  const canonical = await canonicalReleaseManifest(manifest);
-  await createRelease(db, {
-    id: releaseId,
-    triggerKind: 'publish',
-    triggerPostId: postId,
-    idempotencyKey: 'idem_life_0001',
-    manifest,
-    manifestSha256: canonical.sha256,
-  }, NOW + 7);
-
-  await startReleaseAttempt(db, { id: 'att_life_0001', releaseId, attemptNumber: 1, now: NOW + 8 });
-  await transitionRelease(db, releaseId, 'queued', 'building', { now: NOW + 9 });
-  await transitionReleaseAttempt(db, 'att_life_0001', 'dispatching', 'building', { now: NOW + 9 });
-  await transitionRelease(db, releaseId, 'building', 'deploying', { now: NOW + 10 });
-  await transitionReleaseAttempt(db, 'att_life_0001', 'building', 'deploying', { now: NOW + 10 });
-  await confirmReleaseLive(db, {
-    releaseId,
-    attemptId: 'att_life_0001',
-    providerDeploymentId: 'dep_life_0001',
-    now: NOW + 11,
-  });
-
-  // Verify published snapshot contains the article
-  const liveSnapshot = await getLiveReleaseSnapshot(db, 'https://images.frong.me/');
-  assert.equal(liveSnapshot?.articles.length, 1);
-  assert.equal(liveSnapshot?.articles[0]?.id, postId);
-  assert.equal(liveSnapshot?.articles[0]?.title, 'วงจรชีวิตของบทความ (Lifecycle)');
-
   // ---------------------------------------------------------------------------
-  // Step 3: Transition lifecycle to 'active'
+  // Step 2: Publish flips the post live directly — no release/revision step
   // ---------------------------------------------------------------------------
-  await db.run(
-    `UPDATE posts SET lifecycle = 'active', updated_at = ?1 WHERE id = ?2`,
-    [NOW + 12, postId],
-  );
-
-  const activePost = await getPostDraft(db, postId);
+  const activePost = await publishPost(db, postId, 2, NOW + 2);
   assert.equal(activePost.lifecycle, 'active');
+  assert.equal(activePost.published_at, NOW + 2);
 
   const activeFiltered = await listPostDrafts(db, { lifecycle: 'active' });
   assert.ok(activeFiltered.some((p) => p.id === postId));
@@ -550,32 +457,50 @@ test('full post status transition lifecycle: Draft -> Published -> Active -> Arc
   const draftFiltered = await listPostDrafts(db, { lifecycle: 'draft' });
   assert.ok(!draftFiltered.some((p) => p.id === postId));
 
-  // Active post can still receive draft updates (draft version bumped to 4)
+  // Publishing again while already active is a conflict, not a no-op.
+  await assert.rejects(
+    publishPost(db, postId, 2, NOW + 3),
+    (err: unknown) => err instanceof CmsConflictError && err.code === 'DRAFT_VERSION_CONFLICT',
+  );
+
+  // Content edits to an already-active post go live immediately (direct SSR:
+  // there is no separate published snapshot to stay isolated from an edit).
   const editedActive = await updatePostDraft(db, postId, {
-    expectedDraftVersion: 3,
+    expectedDraftVersion: 2,
     lang: 'th',
     slug: 'complete-lifecycle-journey',
     title: 'วงจรชีวิตของบทความ (แก้ไขระหว่าง Active)',
     bodyMarkdown: '# เนื้อหาใหม่',
-  }, NOW + 13);
-  assert.equal(editedActive.draft_version, 4);
+  }, NOW + 4);
+  assert.equal(editedActive.draft_version, 3);
   assert.equal(editedActive.lifecycle, 'active');
 
-  // The live published snapshot remains completely isolated from the new draft edits
-  const liveSnapshotAfterEdit = await getLiveReleaseSnapshot(db, 'https://images.frong.me/');
-  assert.equal(liveSnapshotAfterEdit?.articles[0]?.title, 'วงจรชีวิตของบทความ (Lifecycle)');
+  // ---------------------------------------------------------------------------
+  // Step 3: Unpublish returns the post to 'draft', retaining first-published_at
+  // ---------------------------------------------------------------------------
+  const unpublished = await unpublishPost(db, postId, 3, NOW + 5);
+  assert.equal(unpublished.lifecycle, 'draft');
+  assert.equal(unpublished.published_at, NOW + 2, 'first-publish timestamp survives unpublish');
+
+  const draftAfterUnpublish = await listPostDrafts(db, { lifecycle: 'draft' });
+  assert.ok(draftAfterUnpublish.some((p) => p.id === postId));
+
+  // Republishing after unpublish is allowed and does not reset published_at.
+  const republished = await publishPost(db, postId, 3, NOW + 6);
+  assert.equal(republished.lifecycle, 'active');
+  assert.equal(republished.published_at, NOW + 2);
 
   // ---------------------------------------------------------------------------
   // Step 4: Archive post (Transition Active -> Archived)
   // ---------------------------------------------------------------------------
-  const archived = await archivePost(db, postId, 4, NOW + 14);
+  const archived = await archivePost(db, postId, 3, NOW + 7);
   assert.equal(archived.lifecycle, 'archived');
-  assert.equal(archived.archived_at, NOW + 14);
-  assert.equal(archived.draft_version, 5);
+  assert.equal(archived.archived_at, NOW + 7);
+  assert.equal(archived.draft_version, 4);
 
   const archivedPost = await getPostDraft(db, postId);
   assert.equal(archivedPost.lifecycle, 'archived');
-  assert.equal(archivedPost.archived_at, NOW + 14);
+  assert.equal(archivedPost.archived_at, NOW + 7);
 
   const archivedFiltered = await listPostDrafts(db, { lifecycle: 'archived' });
   assert.ok(archivedFiltered.some((p) => p.id === postId));
@@ -589,19 +514,19 @@ test('full post status transition lifecycle: Draft -> Published -> Active -> Arc
 
   // 1. Re-archiving an already archived post must fail with conflict
   await assert.rejects(
-    archivePost(db, postId, 5, NOW + 15),
+    archivePost(db, postId, 4, NOW + 8),
     (err: unknown) => err instanceof CmsConflictError && err.code === 'DRAFT_VERSION_CONFLICT',
   );
 
   // 2. Updating an archived post must fail with conflict
   await assert.rejects(
     updatePostDraft(db, postId, {
-      expectedDraftVersion: 5,
+      expectedDraftVersion: 4,
       lang: 'th',
       slug: 'complete-lifecycle-journey',
       title: 'Cannot edit archived post',
       bodyMarkdown: '# Failed edit',
-    }, NOW + 16),
+    }, NOW + 9),
     (err: unknown) => err instanceof CmsConflictError && err.code === 'DRAFT_VERSION_CONFLICT',
   );
 
@@ -609,7 +534,7 @@ test('full post status transition lifecycle: Draft -> Published -> Active -> Arc
   await assert.rejects(
     updatePostBundle(db, postId, {
       draft: {
-        expectedDraftVersion: 5,
+        expectedDraftVersion: 4,
         lang: 'th',
         slug: 'complete-lifecycle-journey',
         title: 'Cannot bundle edit archived',
@@ -618,30 +543,25 @@ test('full post status transition lifecycle: Draft -> Published -> Active -> Arc
       categoryIds: [],
       tagIds: [],
       sources: [],
-    }, NOW + 17),
+    }, NOW + 10),
     (err: unknown) => err instanceof CmsConflictError && err.code === 'DRAFT_VERSION_CONFLICT',
   );
 
   // 4. Replacing taxonomy on archived post must fail with conflict
   await assert.rejects(
-    replacePostTaxonomy(db, postId, [], [], 5, NOW + 18),
+    replacePostTaxonomy(db, postId, [], [], 4, NOW + 11),
     (err: unknown) => err instanceof CmsConflictError && err.code === 'DRAFT_VERSION_CONFLICT',
   );
 
   // 5. Replacing sources on archived post must fail with conflict
   await assert.rejects(
-    replacePostSources(db, postId, [], 5, NOW + 19),
+    replacePostSources(db, postId, [], 4, NOW + 12),
     (err: unknown) => err instanceof CmsConflictError && err.code === 'DRAFT_VERSION_CONFLICT',
   );
 
-  // 6. Creating revision snapshot for archived post must fail
+  // 6. Publishing an archived post must fail
   await assert.rejects(
-    createRevisionSnapshot(db, {
-      revisionId: 'rev_forbidden_archived',
-      postId,
-      expectedDraftVersion: 5,
-      publishedAt: NOW + 20,
-    }),
+    publishPost(db, postId, 4, NOW + 13),
     (err: unknown) => err instanceof CmsConflictError && err.code === 'DRAFT_VERSION_CONFLICT',
   );
 });

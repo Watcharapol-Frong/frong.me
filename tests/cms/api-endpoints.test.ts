@@ -9,46 +9,20 @@ import {
   PUT as putPost,
 } from '../../src/pages/earth/api/posts/[id].ts';
 import { POST as attachPostAsset } from '../../src/pages/earth/api/posts/[id]/assets.ts';
-import {
-  GET as listReleases,
-  POST as createRelease,
-} from '../../src/pages/earth/api/releases/index.ts';
-import { POST as confirmRelease } from '../../src/pages/earth/api/releases/[id]/confirm.ts';
-import { POST as failRelease } from '../../src/pages/earth/api/releases/[id]/fail.ts';
-import { POST as dispatchRelease } from '../../src/pages/earth/api/releases/[id]/dispatch.ts';
-import { canonicalReleaseManifest, startReleaseAttempt, transitionRelease, transitionReleaseAttempt } from '../../src/server/cms/repositories/releases.ts';
+import { POST as publishPost } from '../../src/pages/earth/api/posts/[id]/publish.ts';
+import { POST as unpublishPost } from '../../src/pages/earth/api/posts/[id]/unpublish.ts';
 import { createAsset, addPostAssetUsage } from '../../src/server/cms/repositories/assets.ts';
 import { replacePostSources, replacePostTaxonomy, upsertCategory, upsertTag } from '../../src/server/cms/repositories/taxonomy.ts';
 import { createCmsDbFixture } from './fixture.ts';
 
 const NOW = 1_789_000_000_000;
 const POST_ID = 'post_api_000001';
-const CALLBACK_SECRET = 'test-release-callback-secret';
 
 function context(binding: unknown, request: Request, params: Record<string, string> = {}) {
   return {
     request,
     params,
-    locals: { env: { DB: binding, RELEASE_CALLBACK_SECRET: CALLBACK_SECRET } },
-  } as never;
-}
-
-function dispatchContext(
-  binding: unknown,
-  request: Request,
-  params: Record<string, string>,
-) {
-  return {
-    request,
-    params,
-    locals: {
-      env: {
-        DB: binding,
-        GITHUB_DISPATCH_TOKEN: 'test-dispatch-token',
-        GITHUB_REPO: 'Watcharapol-Frong/frong.me',
-        RELEASE_CALLBACK_SECRET: CALLBACK_SECRET,
-      },
-    },
+    locals: { env: { DB: binding } },
   } as never;
 }
 
@@ -63,10 +37,6 @@ function jsonRequest(
     headers: { 'content-type': 'application/json; charset=utf-8', ...headers },
     body: JSON.stringify(body),
   });
-}
-
-function callbackRequest(url: string, method: string, body: unknown): Request {
-  return jsonRequest(url, method, body, { 'X-Release-Callback-Secret': CALLBACK_SECRET });
 }
 
 async function body(response: Response): Promise<any> {
@@ -290,311 +260,59 @@ test('asset attach endpoint uses optimistic locking and returns the post DTO', a
   assert.equal(staleBody.error.details.currentDraftVersion, 2);
 });
 
-test('release endpoints snapshot a draft, list state, and confirm live atomically', async (t) => {
-  const { binding, db } = createCmsDbFixture();
-  t.after(() => binding.close());
-
-  await createPost(context(binding, jsonRequest('https://cms.test/earth/api/posts', 'POST', {
-    id: POST_ID,
-    lang: 'en',
-    slug: 'release-proof',
-    title: 'Release proof',
-    bodyMarkdown: '# Release',
-  })));
-
-  const releaseId = 'release_api_0001';
-  const revisionId = 'revision_api_001';
-  const manifest = {
-    schemaVersion: 1 as const,
-    releaseId,
-    generatedAt: new Date(NOW).toISOString(),
-    articles: [{
-      postId: POST_ID,
-      revisionId,
-      lang: 'en' as const,
-      slug: 'release-proof',
-      visible: true,
-    }],
-  };
-  const canonical = await canonicalReleaseManifest(manifest);
-  const releaseInput = {
-    id: releaseId,
-    triggerKind: 'publish',
-    triggerPostId: POST_ID,
-    idempotencyKey: 'api_release_key_01',
-    manifest,
-    manifestSha256: canonical.sha256,
-    revisionSnapshot: {
-      revisionId,
-      postId: POST_ID,
-      expectedDraftVersion: 1,
-      publishedAt: NOW,
-    },
-  };
-  const created = await createRelease(context(
-    binding,
-    jsonRequest('https://cms.test/earth/api/releases', 'POST', releaseInput),
-  ));
-  assert.equal(created.status, 201);
-  assert.equal((await body(created)).status, 'queued');
-
-  const dashboard = await listReleases(context(
-    binding,
-    new Request('https://cms.test/earth/api/releases'),
-  ));
-  const dashboardBody = await body(dashboard);
-  assert.equal(dashboardBody.liveReleaseId, null);
-  assert.equal(dashboardBody.activeRelease.id, releaseId);
-  assert.equal(dashboardBody.releases[0].itemCount, 1);
-  assert.equal(dashboardBody.releases[0].manifest_json, undefined);
-
-  const attemptId = 'attempt_api_001';
-  await startReleaseAttempt(db, { id: attemptId, releaseId, attemptNumber: 1, now: Date.now() });
-  await transitionRelease(db, releaseId, 'queued', 'building', { now: Date.now() });
-  await transitionReleaseAttempt(db, attemptId, 'dispatching', 'building', { now: Date.now() });
-  await transitionRelease(db, releaseId, 'building', 'deploying', { now: Date.now() });
-  await transitionReleaseAttempt(db, attemptId, 'building', 'deploying', { now: Date.now() });
-
-  const unauthorizedConfirm = await confirmRelease(context(
-    binding,
-    jsonRequest(`https://cms.test/earth/api/releases/${releaseId}/confirm`, 'POST', {
-      attemptId,
-      providerDeploymentId: 'deployment-api-001',
-    }),
-    { id: releaseId },
-  ));
-  assert.equal(unauthorizedConfirm.status, 401);
-  assert.equal((await body(unauthorizedConfirm)).error.code, 'UNAUTHORIZED');
-
-  const confirmed = await confirmRelease(context(
-    binding,
-    callbackRequest(`https://cms.test/earth/api/releases/${releaseId}/confirm`, 'POST', {
-      attemptId,
-      providerDeploymentId: 'deployment-api-001',
-    }),
-    { id: releaseId },
-  ));
-  const confirmedBody = await body(confirmed);
-  assert.equal(confirmed.status, 200);
-  assert.equal(confirmedBody.liveReleaseId, releaseId);
-  assert.equal(confirmedBody.release.status, 'live');
-
-  const confirmedAgain = await confirmRelease(context(
-    binding,
-    callbackRequest(`https://cms.test/earth/api/releases/${releaseId}/confirm`, 'POST', {
-      attemptId,
-      providerDeploymentId: 'deployment-api-001',
-    }),
-    { id: releaseId },
-  ));
-  const confirmedAgainBody = await body(confirmedAgain);
-  assert.equal(confirmedAgain.status, 200, 'a retried callback with the same outcome is idempotent');
-  assert.equal(confirmedAgainBody.release.status, 'live');
-
-  const repeated = await createRelease(context(
-    binding,
-    jsonRequest('https://cms.test/earth/api/releases', 'POST', releaseInput),
-  ));
-  assert.equal(repeated.status, 201);
-  assert.equal((await body(repeated)).id, releaseId);
-});
-
-test('release dispatch endpoint creates an attempt, calls GitHub, and enables HTTP confirmation', async (t) => {
+test('publish and unpublish endpoints flip a post live directly, no release step', async (t) => {
   const { binding } = createCmsDbFixture();
   t.after(() => binding.close());
 
   await createPost(context(binding, jsonRequest('https://cms.test/earth/api/posts', 'POST', {
     id: POST_ID,
     lang: 'en',
-    slug: 'dispatch-route-proof',
-    title: 'Dispatch route proof',
-    bodyMarkdown: '# Dispatch',
+    slug: 'direct-publish-proof',
+    title: 'Direct publish proof',
+    bodyMarkdown: '# Direct SSR',
   })));
-  const releaseId = 'release_dispatch1';
-  const revisionId = 'revision_dispatch1';
-  const manifest = {
-    schemaVersion: 1 as const,
-    releaseId,
-    generatedAt: new Date(NOW).toISOString(),
-    articles: [{
-      postId: POST_ID,
-      revisionId,
-      lang: 'en' as const,
-      slug: 'dispatch-route-proof',
-      visible: true,
-    }],
-  };
-  const canonical = await canonicalReleaseManifest(manifest);
-  await createRelease(context(binding, jsonRequest('https://cms.test/earth/api/releases', 'POST', {
-    id: releaseId,
-    triggerKind: 'publish',
-    triggerPostId: POST_ID,
-    idempotencyKey: 'dispatch_route_key_01',
-    manifest,
-    manifestSha256: canonical.sha256,
-    revisionSnapshot: {
-      revisionId,
-      postId: POST_ID,
+
+  const published = await publishPost(context(
+    binding,
+    jsonRequest(`https://cms.test/earth/api/posts/${POST_ID}/publish`, 'POST', {
       expectedDraftVersion: 1,
-      publishedAt: NOW,
-    },
-  })));
-
-  const originalFetch = globalThis.fetch;
-  let dispatchedRequest: Request | undefined;
-  globalThis.fetch = async (input, init) => {
-    dispatchedRequest = new Request(input, init);
-    return new Response(null, { status: 204 });
-  };
-  t.after(() => { globalThis.fetch = originalFetch; });
-
-  const attemptId = 'attempt_dispatch1';
-  const dispatched = await dispatchRelease(dispatchContext(
-    binding,
-    jsonRequest(`https://cms.test/earth/api/releases/${releaseId}/dispatch`, 'POST', {
-      attemptId,
-      attemptNumber: 1,
     }),
-    { id: releaseId },
+    { id: POST_ID },
   ));
-  const dispatchedBody = await body(dispatched);
-  assert.equal(dispatched.status, 202);
-  assert.equal(dispatchedBody.release.status, 'building');
-  assert.equal(dispatchedBody.attempt.id, attemptId);
-  assert.equal(dispatchedBody.attempt.status, 'building');
-  assert.equal(dispatchedBody.attempt.release_id, undefined);
-  assert.equal(dispatchedRequest?.url, 'https://api.github.com/repos/Watcharapol-Frong/frong.me/dispatches');
-  assert.equal(dispatchedRequest?.headers.get('authorization'), 'Bearer test-dispatch-token');
-  assert.deepEqual(await dispatchedRequest?.json(), {
-    event_type: 'cms-staging-release',
-    client_payload: {
-      release_id: releaseId,
-      attempt_id: attemptId,
-      manifest_sha256: canonical.sha256,
-    },
-  });
+  const publishedBody = await body(published);
+  assert.equal(published.status, 200);
+  assert.equal(publishedBody.lifecycle, 'active');
+  assert.ok(typeof publishedBody.publishedAt === 'number');
+  assert.equal(published.headers.get('cache-control'), 'no-store');
 
-  const confirmed = await confirmRelease(context(
+  const republish = await publishPost(context(
     binding,
-    callbackRequest(`https://cms.test/earth/api/releases/${releaseId}/confirm`, 'POST', {
-      attemptId,
-      providerDeploymentId: 'deployment-dispatch-001',
-      workflowRunId: '123456789',
-    }),
-    { id: releaseId },
-  ));
-  const confirmedBody = await body(confirmed);
-  assert.equal(confirmed.status, 200);
-  assert.equal(confirmedBody.liveReleaseId, releaseId);
-  assert.equal(confirmedBody.release.status, 'live');
-});
-
-test('release fail endpoint reports a workflow failure and unblocks a new attempt', async (t) => {
-  const { binding } = createCmsDbFixture();
-  t.after(() => binding.close());
-
-  await createPost(context(binding, jsonRequest('https://cms.test/earth/api/posts', 'POST', {
-    id: POST_ID,
-    lang: 'en',
-    slug: 'fail-route-proof',
-    title: 'Fail route proof',
-    bodyMarkdown: '# Fail',
-  })));
-  const releaseId = 'release_fail_0001';
-  const revisionId = 'revision_fail_0001';
-  const manifest = {
-    schemaVersion: 1 as const,
-    releaseId,
-    generatedAt: new Date(NOW).toISOString(),
-    articles: [{
-      postId: POST_ID,
-      revisionId,
-      lang: 'en' as const,
-      slug: 'fail-route-proof',
-      visible: true,
-    }],
-  };
-  const canonical = await canonicalReleaseManifest(manifest);
-  await createRelease(context(binding, jsonRequest('https://cms.test/earth/api/releases', 'POST', {
-    id: releaseId,
-    triggerKind: 'publish',
-    triggerPostId: POST_ID,
-    idempotencyKey: 'fail_route_key_01',
-    manifest,
-    manifestSha256: canonical.sha256,
-    revisionSnapshot: {
-      revisionId,
-      postId: POST_ID,
+    jsonRequest(`https://cms.test/earth/api/posts/${POST_ID}/publish`, 'POST', {
       expectedDraftVersion: 1,
-      publishedAt: NOW,
-    },
-  })));
-
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = async () => new Response(null, { status: 204 });
-  t.after(() => { globalThis.fetch = originalFetch; });
-
-  const attemptId = 'attempt_fail_0001';
-  await dispatchRelease(dispatchContext(
-    binding,
-    jsonRequest(`https://cms.test/earth/api/releases/${releaseId}/dispatch`, 'POST', {
-      attemptId,
-      attemptNumber: 1,
     }),
-    { id: releaseId },
+    { id: POST_ID },
   ));
+  assert.equal(republish.status, 409, 'publishing an already-active post is a conflict, not a no-op');
 
-  const unauthorizedFail = await failRelease(context(
+  const unpublished = await unpublishPost(context(
     binding,
-    jsonRequest(`https://cms.test/earth/api/releases/${releaseId}/fail`, 'POST', {
-      attemptId,
-      errorMessage: 'wrangler deploy exited 1',
+    jsonRequest(`https://cms.test/earth/api/posts/${POST_ID}/unpublish`, 'POST', {
+      expectedDraftVersion: 1,
     }),
-    { id: releaseId },
+    { id: POST_ID },
   ));
-  assert.equal(unauthorizedFail.status, 401);
+  const unpublishedBody = await body(unpublished);
+  assert.equal(unpublished.status, 200);
+  assert.equal(unpublishedBody.lifecycle, 'draft');
+  assert.ok(typeof unpublishedBody.publishedAt === 'number', 'first-publish timestamp is retained across unpublish');
 
-  const failed = await failRelease(context(
+  const republished = await publishPost(context(
     binding,
-    callbackRequest(`https://cms.test/earth/api/releases/${releaseId}/fail`, 'POST', {
-      attemptId,
-      errorMessage: 'wrangler deploy exited 1',
-      workflowRunId: '987654321',
+    jsonRequest(`https://cms.test/earth/api/posts/${POST_ID}/publish`, 'POST', {
+      expectedDraftVersion: 1,
     }),
-    { id: releaseId },
+    { id: POST_ID },
   ));
-  const failedBody = await body(failed);
-  assert.equal(failed.status, 200);
-  assert.equal(failedBody.release.status, 'failed');
-
-  const failedAgain = await failRelease(context(
-    binding,
-    callbackRequest(`https://cms.test/earth/api/releases/${releaseId}/fail`, 'POST', {
-      attemptId,
-      errorMessage: 'wrangler deploy exited 1',
-    }),
-    { id: releaseId },
-  ));
-  assert.equal(failedAgain.status, 200, 'a retried failure callback is idempotent');
+  assert.equal(republished.status, 200, 'a draft can be republished after being unpublished');
 });
 
-test('release callbacks fail closed when no callback secret is configured', async (t) => {
-  const { binding } = createCmsDbFixture();
-  t.after(() => binding.close());
-
-  const unconfigured = {
-    request: callbackRequest('https://cms.test/earth/api/releases/release_x/confirm', 'POST', {
-      attemptId: 'attempt_x',
-      providerDeploymentId: 'deployment-x',
-    }),
-    params: { id: 'release_x' },
-    locals: { env: { DB: binding } },
-  } as never;
-
-  const confirmed = await confirmRelease(unconfigured);
-  assert.equal(confirmed.status, 503);
-  assert.equal((await body(confirmed)).error.code, 'SERVICE_UNAVAILABLE');
-
-  const failed = await failRelease(unconfigured);
-  assert.equal(failed.status, 503);
-});

@@ -1,15 +1,13 @@
 import type { Language } from '../contracts.ts';
 import {
-  beginRelease,
-  buildBeginReleaseInput,
   createPost,
   describeConflict,
   getPost,
-  getReleaseOverview,
+  publishPost,
+  unpublishPost,
   updatePostDraft,
   type CmsClientOptions,
   type PostDetail,
-  type ReleaseSummary,
 } from './api.ts';
 
 /** UI payload. `status` is an editor intent, not a field accepted by the strict posts API. */
@@ -26,7 +24,6 @@ export interface PostEditorDraft {
 
 export interface PostEditorPublishResult {
   post: PostDetail;
-  release: ReleaseSummary;
 }
 
 /** Publish failed after the draft may already have been saved successfully. */
@@ -44,6 +41,7 @@ export interface PostEditorApi {
   fetch(postId: string): Promise<PostDetail>;
   save(draft: PostEditorDraft, current: PostDetail | null): Promise<PostDetail>;
   publish(draft: PostEditorDraft, current: PostDetail | null): Promise<PostEditorPublishResult>;
+  unpublish(current: PostDetail): Promise<PostDetail>;
 }
 
 function conflictError(result: { ok: false; conflict: Parameters<typeof describeConflict>[0] }): Error {
@@ -113,32 +111,21 @@ export function createPostEditorApi(options?: CmsClientOptions): PostEditorApi {
     async publish(draft, current) {
       const post = await save({ ...draft, status: 'draft' }, current);
       try {
-        const overview = await getReleaseOverview(options);
-        const alreadyLive = overview.liveManifest?.articles.some(
-          (article) => article.postId === post.id && article.visible,
-        ) ?? false;
-        const input = await buildBeginReleaseInput({
-          triggerKind: 'publish',
-          liveManifest: overview.liveManifest,
-          baseReleaseId: overview.liveReleaseId,
-          change: {
-            postId: post.id,
-            lang: post.lang,
-            slug: post.slug,
-            kind: alreadyLive ? 'updated' : 'added',
-            expectedDraftVersion: post.draftVersion,
-          },
-        });
-        const release = await beginRelease(input, options);
-        if (!release.ok) throw conflictError(release);
-        return { post, release: release.data };
+        const result = await publishPost(post.id, post.draftVersion, options);
+        if (!result.ok) throw conflictError(result);
+        return { post: result.data };
       } catch (cause) {
         throw new PostEditorPublishError(
-          cause instanceof Error ? cause.message : 'The release could not be queued.',
+          cause instanceof Error ? cause.message : 'The post could not be published.',
           post,
           { cause },
         );
       }
+    },
+    async unpublish(current) {
+      const result = await unpublishPost(current.id, current.draftVersion, options);
+      if (!result.ok) throw conflictError(result);
+      return result.data;
     },
   };
 }

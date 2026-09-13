@@ -1,19 +1,10 @@
 import {
-  CMS_SCHEMA_VERSION,
   type CreatePostInput,
-  type BeginReleaseInput,
   type AttachPostAssetInput,
-  type ConfirmReleaseInput,
-  type CreateReleaseInput,
-  type DispatchReleaseInput,
-  type FailReleaseAttemptInput,
   type Language,
   type PublicArticle,
   type PublicAsset,
   type PublicSource,
-  type ReleaseManifest,
-  type ReleaseManifestArticle,
-  type ReleaseSnapshot,
   type TaxonomySnapshot,
   type UpdatePostDraftInput,
   type UpdatePostBundleInput,
@@ -208,30 +199,16 @@ function publicAsset(value: unknown, field: string): PublicAsset {
   };
 }
 
-function manifestArticle(value: unknown, field: string): ReleaseManifestArticle {
-  const row = object(value, field, ['postId', 'revisionId', 'lang', 'slug', 'visible']);
-  if (typeof row.visible !== 'boolean') {
-    throw new CmsValidationError(`${field}.visible`, 'must be a boolean');
-  }
-  return {
-    postId: identifier(row.postId, `${field}.postId`),
-    revisionId: identifier(row.revisionId, `${field}.revisionId`),
-    lang: language(row.lang, `${field}.lang`),
-    slug: slug(row.slug, `${field}.slug`),
-    visible: row.visible,
-  };
-}
-
-function publicArticle(value: unknown, field: string): PublicArticle {
+/** Validates a direct-SSR public article DTO before it reaches a reader route. */
+export function parsePublicArticle(value: unknown, field = 'article'): PublicArticle {
   const row = object(value, field, [
-    'id', 'revisionId', 'lang', 'translationGroupId', 'slug', 'title',
+    'id', 'lang', 'translationGroupId', 'slug', 'title',
     'excerpt', 'bodyMarkdown', 'categories', 'tags', 'sources', 'assets', 'publishedAt',
   ]);
   const translationGroupId = optionalString(row.translationGroupId, `${field}.translationGroupId`, 96);
   const excerpt = optionalString(row.excerpt, `${field}.excerpt`, 1_000);
   return {
     id: identifier(row.id, `${field}.id`),
-    revisionId: identifier(row.revisionId, `${field}.revisionId`),
     lang: language(row.lang, `${field}.lang`),
     ...(translationGroupId === undefined ? {} : { translationGroupId }),
     slug: slug(row.slug, `${field}.slug`),
@@ -244,61 +221,6 @@ function publicArticle(value: unknown, field: string): PublicArticle {
     assets: array(row.assets, `${field}.assets`, publicAsset, 500),
     publishedAt: isoDateTime(row.publishedAt, `${field}.publishedAt`),
   };
-}
-
-export function parseReleaseManifest(value: unknown): ReleaseManifest {
-  const row = object(value, 'manifest', ['schemaVersion', 'releaseId', 'generatedAt', 'articles']);
-  if (row.schemaVersion !== CMS_SCHEMA_VERSION) {
-    throw new CmsValidationError('manifest.schemaVersion', `must be ${CMS_SCHEMA_VERSION}`);
-  }
-  const articles = array(row.articles, 'manifest.articles', manifestArticle, 10_000);
-  const postIds = new Set<string>();
-  const routes = new Set<string>();
-  for (const article of articles) {
-    if (postIds.has(article.postId)) {
-      throw new CmsValidationError('manifest.articles', `contains duplicate post ${article.postId}`);
-    }
-    postIds.add(article.postId);
-    if (article.visible) {
-      const route = `${article.lang}:${article.slug}`;
-      if (routes.has(route)) {
-        throw new CmsValidationError('manifest.articles', `contains duplicate route ${route}`);
-      }
-      routes.add(route);
-    }
-  }
-  return {
-    schemaVersion: CMS_SCHEMA_VERSION,
-    releaseId: identifier(row.releaseId, 'manifest.releaseId'),
-    generatedAt: isoDateTime(row.generatedAt, 'manifest.generatedAt'),
-    articles,
-  };
-}
-
-export function parseReleaseSnapshot(value: unknown): ReleaseSnapshot {
-  const row = object(value, 'snapshot', ['manifest', 'articles']);
-  const manifest = parseReleaseManifest(row.manifest);
-  const articles = array(row.articles, 'snapshot.articles', publicArticle, 10_000);
-  const visibleByRevision = new Map(
-    manifest.articles
-      .filter((article) => article.visible)
-      .map((article) => [article.revisionId, article]),
-  );
-  if (articles.length !== visibleByRevision.size) {
-    throw new CmsValidationError('snapshot.articles', 'does not contain exactly one article per visible revision');
-  }
-  for (const article of articles) {
-    const manifestArticle = visibleByRevision.get(article.revisionId);
-    if (
-      !manifestArticle
-      || manifestArticle.postId !== article.id
-      || manifestArticle.lang !== article.lang
-      || manifestArticle.slug !== article.slug
-    ) {
-      throw new CmsValidationError('snapshot.articles', `does not match manifest revision ${article.revisionId}`);
-    }
-  }
-  return { manifest, articles };
 }
 
 export function parseCreatePostInput(value: unknown): CreatePostInput {
@@ -373,117 +295,6 @@ export function parseUpdatePostBundleInput(value: unknown): UpdatePostBundleInpu
   };
 }
 
-export function parseCreateReleaseInput(value: unknown): CreateReleaseInput {
-  const row = object(value, 'release', [
-    'id', 'triggerKind', 'triggerPostId', 'baseReleaseId', 'idempotencyKey',
-    'codeCommit', 'manifest', 'manifestSha256',
-  ]);
-  if (row.triggerKind !== 'publish' && row.triggerKind !== 'withdraw' && row.triggerKind !== 'rollback') {
-    throw new CmsValidationError('release.triggerKind', 'must be publish, withdraw, or rollback');
-  }
-  const id = identifier(row.id, 'release.id');
-  const manifest = parseReleaseManifest(row.manifest);
-  if (manifest.releaseId !== id) {
-    throw new CmsValidationError('release.manifest.releaseId', 'must equal release.id');
-  }
-  const triggerPostId = row.triggerPostId === undefined
-    ? undefined
-    : identifier(row.triggerPostId, 'release.triggerPostId');
-  const baseReleaseId = row.baseReleaseId === undefined
-    ? undefined
-    : identifier(row.baseReleaseId, 'release.baseReleaseId');
-  const codeCommit = optionalString(row.codeCommit, 'release.codeCommit', 64);
-  const checksum = string(row.manifestSha256, 'release.manifestSha256', 64);
-  if (!SHA256_PATTERN.test(checksum)) {
-    throw new CmsValidationError('release.manifestSha256', 'must be a lowercase SHA-256 digest');
-  }
-  return {
-    id,
-    triggerKind: row.triggerKind,
-    ...(triggerPostId === undefined ? {} : { triggerPostId }),
-    ...(baseReleaseId === undefined ? {} : { baseReleaseId }),
-    idempotencyKey: string(row.idempotencyKey, 'release.idempotencyKey', 128),
-    ...(codeCommit === undefined ? {} : { codeCommit }),
-    manifest,
-    manifestSha256: checksum,
-  };
-}
-
-export function parseBeginReleaseInput(value: unknown): BeginReleaseInput {
-  const row = object(value, 'release', [
-    'id', 'triggerKind', 'triggerPostId', 'baseReleaseId', 'idempotencyKey',
-    'codeCommit', 'manifest', 'manifestSha256', 'revisionSnapshot',
-  ]);
-  const release = parseCreateReleaseInput({
-    id: row.id,
-    triggerKind: row.triggerKind,
-    ...(row.triggerPostId === undefined ? {} : { triggerPostId: row.triggerPostId }),
-    ...(row.baseReleaseId === undefined ? {} : { baseReleaseId: row.baseReleaseId }),
-    idempotencyKey: row.idempotencyKey,
-    ...(row.codeCommit === undefined ? {} : { codeCommit: row.codeCommit }),
-    manifest: row.manifest,
-    manifestSha256: row.manifestSha256,
-  });
-  if (row.revisionSnapshot === undefined) return release;
-  const snapshot = object(row.revisionSnapshot, 'release.revisionSnapshot', [
-    'revisionId', 'postId', 'expectedDraftVersion', 'publishedAt',
-  ]);
-  const revisionSnapshot = {
-    revisionId: identifier(snapshot.revisionId, 'release.revisionSnapshot.revisionId'),
-    postId: identifier(snapshot.postId, 'release.revisionSnapshot.postId'),
-    expectedDraftVersion: integer(
-      snapshot.expectedDraftVersion,
-      'release.revisionSnapshot.expectedDraftVersion',
-      1,
-    ),
-    publishedAt: integer(snapshot.publishedAt, 'release.revisionSnapshot.publishedAt'),
-  };
-  const manifestArticle = release.manifest.articles.find(
-    (article) => article.postId === revisionSnapshot.postId,
-  );
-  if (
-    release.triggerKind !== 'publish'
-    || release.triggerPostId !== revisionSnapshot.postId
-    || manifestArticle?.revisionId !== revisionSnapshot.revisionId
-    || !manifestArticle.visible
-  ) {
-    throw new CmsValidationError(
-      'release.revisionSnapshot',
-      'must describe the visible trigger post revision of a publish release',
-    );
-  }
-  return {
-    ...release,
-    revisionSnapshot,
-  };
-}
-
-export function parseConfirmReleaseInput(value: unknown): ConfirmReleaseInput {
-  const row = object(value, 'confirmation', ['attemptId', 'providerDeploymentId', 'workflowRunId']);
-  return {
-    attemptId: identifier(row.attemptId, 'confirmation.attemptId'),
-    providerDeploymentId: string(
-      row.providerDeploymentId,
-      'confirmation.providerDeploymentId',
-      200,
-    ),
-    ...(row.workflowRunId === undefined
-      ? {}
-      : { workflowRunId: string(row.workflowRunId, 'confirmation.workflowRunId', 100) }),
-  };
-}
-
-export function parseFailReleaseAttemptInput(value: unknown): FailReleaseAttemptInput {
-  const row = object(value, 'failure', ['attemptId', 'errorMessage', 'workflowRunId']);
-  return {
-    attemptId: identifier(row.attemptId, 'failure.attemptId'),
-    errorMessage: string(row.errorMessage, 'failure.errorMessage', 2000),
-    ...(row.workflowRunId === undefined
-      ? {}
-      : { workflowRunId: string(row.workflowRunId, 'failure.workflowRunId', 100) }),
-  };
-}
-
 export function parseAttachPostAssetInput(value: unknown): AttachPostAssetInput {
   const row = object(value, 'assetUsage', [
     'id', 'assetId', 'role', 'altText', 'caption', 'crop', 'position',
@@ -522,14 +333,6 @@ export function parseAttachPostAssetInput(value: unknown): AttachPostAssetInput 
       'assetUsage.expectedDraftVersion',
       1,
     ),
-  };
-}
-
-export function parseDispatchReleaseInput(value: unknown): DispatchReleaseInput {
-  const row = object(value, 'dispatch', ['attemptId', 'attemptNumber']);
-  return {
-    attemptId: identifier(row.attemptId, 'dispatch.attemptId'),
-    attemptNumber: integer(row.attemptNumber, 'dispatch.attemptNumber', 1),
   };
 }
 

@@ -15,20 +15,6 @@ export type PostLifecycle = 'draft' | 'active' | 'archived';
 export type AssetMediaKind = 'photo' | 'chart' | 'illustration';
 export type AssetLifecycle = 'private' | 'public' | 'orphaned';
 export type AssetRole = 'cover' | 'body';
-export type ReleaseStatus =
-  | 'queued'
-  | 'building'
-  | 'deploying'
-  | 'reconciling'
-  | 'live'
-  | 'failed';
-export type ReleaseTriggerKind = 'publish' | 'withdraw' | 'rollback';
-export type ReleaseAttemptStatus =
-  | 'dispatching'
-  | 'building'
-  | 'deploying'
-  | 'confirmed'
-  | 'failed';
 
 export interface PostRow {
   id: string;
@@ -43,23 +29,7 @@ export interface PostRow {
   created_at: EpochMilliseconds;
   updated_at: EpochMilliseconds;
   archived_at: EpochMilliseconds | null;
-}
-
-export interface PostRevision {
-  id: string;
-  post_id: string;
-  source_draft_version: number;
-  lang: Language;
-  translation_group_id: string | null;
-  slug: string;
-  title: string;
-  excerpt: string | null;
-  body_markdown: string;
-  categories_json: string;
-  tags_json: string;
-  sources_json: string;
-  published_at: EpochMilliseconds;
-  created_at: EpochMilliseconds;
+  published_at: EpochMilliseconds | null;
 }
 
 export interface CategoryRow {
@@ -117,51 +87,6 @@ export interface PostRevisionAssetRow {
   position: number;
 }
 
-export interface ReleaseRow {
-  id: string;
-  schema_version: typeof CMS_SCHEMA_VERSION;
-  status: ReleaseStatus;
-  trigger_kind: ReleaseTriggerKind;
-  trigger_post_id: string | null;
-  base_release_id: string | null;
-  idempotency_key: string;
-  manifest_json: string;
-  manifest_sha256: string;
-  code_commit: string | null;
-  error_code: string | null;
-  error_message: string | null;
-  created_at: EpochMilliseconds;
-  updated_at: EpochMilliseconds;
-  finished_at: EpochMilliseconds | null;
-}
-
-export interface ReleaseItemRow {
-  release_id: string;
-  post_id: string;
-  revision_id: string;
-  lang: Language;
-  slug: string;
-  visible: 0 | 1;
-}
-
-export interface ReleaseAttemptRow {
-  id: string;
-  release_id: string;
-  attempt_number: number;
-  workflow_run_id: string | null;
-  provider_deployment_id: string | null;
-  status: ReleaseAttemptStatus;
-  error_message: string | null;
-  started_at: EpochMilliseconds;
-  finished_at: EpochMilliseconds | null;
-}
-
-export interface SiteStateRow {
-  id: 1;
-  live_release_id: string | null;
-  updated_at: EpochMilliseconds;
-}
-
 export interface TaxonomySnapshot {
   id: string;
   slug: string;
@@ -195,9 +120,13 @@ export interface PublicAsset {
   position: number;
 }
 
+/**
+ * Public-facing article DTO for direct-SSR reader routes: read straight from
+ * `posts` (WHERE lifecycle = 'active') at request time, no release/revision
+ * snapshot involved.
+ */
 export interface PublicArticle {
   id: string;
-  revisionId: string;
   lang: Language;
   translationGroupId?: string;
   slug: string;
@@ -209,26 +138,6 @@ export interface PublicArticle {
   sources: PublicSource[];
   assets: PublicAsset[];
   publishedAt: IsoDateTime;
-}
-
-export interface ReleaseManifestArticle {
-  postId: string;
-  revisionId: string;
-  lang: Language;
-  slug: string;
-  visible: boolean;
-}
-
-export interface ReleaseManifest {
-  schemaVersion: typeof CMS_SCHEMA_VERSION;
-  releaseId: string;
-  generatedAt: IsoDateTime;
-  articles: ReleaseManifestArticle[];
-}
-
-export interface ReleaseSnapshot {
-  manifest: ReleaseManifest;
-  articles: PublicArticle[];
 }
 
 export interface CreatePostInput {
@@ -266,40 +175,6 @@ export interface UpdatePostBundleInput {
   sources: DraftSourceInput[];
 }
 
-export interface CreateReleaseInput {
-  id: string;
-  triggerKind: ReleaseTriggerKind;
-  triggerPostId?: string;
-  baseReleaseId?: string;
-  idempotencyKey: string;
-  codeCommit?: string;
-  manifest: ReleaseManifest;
-  manifestSha256: string;
-}
-
-export interface CreateRevisionSnapshotRequest {
-  revisionId: string;
-  postId: string;
-  expectedDraftVersion: number;
-  publishedAt: EpochMilliseconds;
-}
-
-export interface BeginReleaseInput extends CreateReleaseInput {
-  revisionSnapshot?: CreateRevisionSnapshotRequest;
-}
-
-export interface ConfirmReleaseInput {
-  attemptId: string;
-  providerDeploymentId: string;
-  workflowRunId?: string;
-}
-
-export interface FailReleaseAttemptInput {
-  attemptId: string;
-  errorMessage: string;
-  workflowRunId?: string;
-}
-
 export interface AttachPostAssetInput {
   id: string;
   assetId: string;
@@ -309,15 +184,4 @@ export interface AttachPostAssetInput {
   crop?: { x: number; y: number; zoom: number } | null;
   position?: number;
   expectedDraftVersion: number;
-}
-
-export interface DispatchReleaseInput {
-  attemptId: string;
-  attemptNumber: number;
-}
-
-export interface ReleaseDispatchPayload {
-  releaseId: string;
-  attemptId: string;
-  manifestSha256: string;
 }

@@ -15,7 +15,6 @@
     "verify:bindings": "node scripts/build/verify-bindings.mjs",
     "verify:access": "node scripts/build/verify-access-staging.mjs",
     "verify:access:dry": "node scripts/build/verify-access-staging.mjs --dry-run",
-    "test:smoke:dry": "node scripts/build/smoke-test-staging.mjs --dry-run",
     "deploy:staging": "node scripts/build/deploy-staging.mjs",
     "deploy:staging:dry": "node scripts/build/deploy-staging.mjs --dry-run"
   },

@@ -28,24 +28,18 @@
  * | GET | `/earth/api/posts/:id` | — | {@link PostDetail} |
  * | PUT | `/earth/api/posts/:id` | {@link UpdatePostDraftRequest} | {@link PostDetail} |
  * | POST | `/earth/api/posts/:id/archive` | `{ expectedDraftVersion }` | {@link PostDetail} |
- * | GET | `/earth/api/releases` | — | {@link ReleaseOverview} |
- * | GET | `/earth/api/releases/:id` | — | {@link ReleaseDetail} |
- * | POST | `/earth/api/releases` | `BeginReleaseInput` | {@link ReleaseSummary} |
+ * | POST | `/earth/api/posts/:id/publish` | `{ expectedDraftVersion }` | {@link PostDetail} |
+ * | POST | `/earth/api/posts/:id/unpublish` | `{ expectedDraftVersion }` | {@link PostDetail} |
  *
  * The query parameter is `lifecycle_state`, not `lifecycle`, and unknown
  * parameters are rejected: see `parsePostListQuery` in `validation.ts`.
  */
 
 import type {
-  BeginReleaseInput,
   CreatePostInput,
   EpochMilliseconds,
   Language,
   PostLifecycle,
-  ReleaseManifest,
-  ReleaseManifestArticle,
-  ReleaseStatus,
-  ReleaseTriggerKind,
   TaxonomySnapshot,
   UpdatePostDraftInput,
 } from '../contracts.ts';
@@ -100,7 +94,7 @@ export class CmsApiError extends Error {
 export type CmsConflictCode =
   | 'DRAFT_VERSION_CONFLICT'
   | 'CONFLICT'
-  | 'RELEASE_BUSY'
+  | 'DATABASE_BUSY'
   | 'INVALID_STATE_TRANSITION';
 
 /**
@@ -118,8 +112,6 @@ export interface CmsConflict {
   currentDraftVersion?: number;
   /** Version the rejected request claimed. */
   expectedDraftVersion?: number;
-  /** Release that is already in flight, for `RELEASE_BUSY`. */
-  activeReleaseId?: string;
 }
 
 export type CmsResult<T> =
@@ -129,7 +121,7 @@ export type CmsResult<T> =
 const CONFLICT_CODES: readonly string[] = [
   'DRAFT_VERSION_CONFLICT',
   'CONFLICT',
-  'RELEASE_BUSY',
+  'DATABASE_BUSY',
   'INVALID_STATE_TRANSITION',
 ];
 
@@ -159,10 +151,8 @@ export function describeConflict(conflict: CmsConflict): string {
       return conflict.currentDraftVersion === undefined
         ? `${conflict.message}. Reload the post before saving again.`
         : `${conflict.message}. The server is at draft version ${conflict.currentDraftVersion}; reload before saving again.`;
-    case 'RELEASE_BUSY':
-      return conflict.activeReleaseId === undefined
-        ? `${conflict.message}. Wait for the in-flight release to finish.`
-        : `${conflict.message}. Release ${conflict.activeReleaseId} is still in flight.`;
+    case 'DATABASE_BUSY':
+      return `${conflict.message}. Retry the request.`;
     default:
       return conflict.message;
   }
@@ -182,6 +172,7 @@ export interface PostSummary {
   lifecycle: PostLifecycle;
   draftVersion: number;
   updatedAt: EpochMilliseconds;
+  publishedAt: EpochMilliseconds | null;
   /** Draft edits exist that no release has picked up yet. Derived by the server. */
   hasUnpublishedChanges?: boolean;
 }
@@ -210,53 +201,6 @@ export interface TaxonomyCatalog {
 export interface PostListResponse {
   posts: PostSummary[];
   taxonomy: TaxonomyCatalog;
-}
-
-export interface ReleaseSummary {
-  id: string;
-  status: ReleaseStatus;
-  triggerKind: ReleaseTriggerKind;
-  itemCount: number;
-  manifestSha256: string;
-  codeCommit: string | null;
-  errorCode: string | null;
-  errorMessage: string | null;
-  createdAt: EpochMilliseconds;
-  updatedAt: EpochMilliseconds;
-  finishedAt: EpochMilliseconds | null;
-}
-
-export type ReleaseChangeKind = 'added' | 'updated' | 'removed';
-
-export interface ReleaseDiffEntry {
-  postId: string;
-  lang: Language;
-  slug: string;
-  title: string;
-  change: ReleaseChangeKind;
-}
-
-export interface ReleaseDiff {
-  baseReleaseId: string | null;
-  entries: ReleaseDiffEntry[];
-  unchangedCount: number;
-}
-
-/** One release plus the manifest it deployed; needed to replay it on rollback. */
-export interface ReleaseDetail {
-  release: ReleaseSummary;
-  manifest: ReleaseManifest;
-}
-
-export interface ReleaseOverview {
-  liveReleaseId: string | null;
-  /**
-   * Manifest of the live release. The next manifest is built from it, so a
-   * release cannot be assembled while this is unknown.
-   */
-  liveManifest: ReleaseManifest | null;
-  releases: ReleaseSummary[];
-  pendingDiff: ReleaseDiff;
 }
 
 /**
@@ -344,23 +288,16 @@ function optionalCount(details: Record<string, unknown> | undefined, key: string
   return typeof value === 'number' && Number.isInteger(value) ? value : undefined;
 }
 
-function optionalId(details: Record<string, unknown> | undefined, key: string): string | undefined {
-  const value = details?.[key];
-  return typeof value === 'string' && value.length > 0 ? value : undefined;
-}
-
 function toConflict(envelope: ErrorEnvelope): CmsConflict {
   const code: CmsConflictCode = isConflictCode(envelope.code) ? envelope.code : 'CONFLICT';
   const currentDraftVersion = optionalCount(envelope.details, 'currentDraftVersion');
   const expectedDraftVersion = optionalCount(envelope.details, 'expectedDraftVersion');
-  const activeReleaseId = optionalId(envelope.details, 'activeReleaseId');
   return {
     code,
     message: envelope.message,
     ...(envelope.details ? { details: envelope.details } : {}),
     ...(currentDraftVersion === undefined ? {} : { currentDraftVersion }),
     ...(expectedDraftVersion === undefined ? {} : { expectedDraftVersion }),
-    ...(activeReleaseId === undefined ? {} : { activeReleaseId }),
   };
 }
 
@@ -529,11 +466,6 @@ function oneOf<T extends string>(value: unknown, field: string, allowed: readonl
 
 const LANGUAGES: readonly Language[] = ['th', 'en'];
 const LIFECYCLES: readonly PostLifecycle[] = ['draft', 'active', 'archived'];
-const RELEASE_STATUSES: readonly ReleaseStatus[] = [
-  'queued', 'building', 'deploying', 'reconciling', 'live', 'failed',
-];
-const TRIGGER_KINDS: readonly ReleaseTriggerKind[] = ['publish', 'withdraw', 'rollback'];
-const CHANGE_KINDS: readonly ReleaseChangeKind[] = ['added', 'updated', 'removed'];
 
 function parsePostSummary(value: unknown, field: string): PostSummary {
   const row = obj(value, field);
@@ -547,6 +479,7 @@ function parsePostSummary(value: unknown, field: string): PostSummary {
     lifecycle: oneOf(row.lifecycle, `${field}.lifecycle`, LIFECYCLES),
     draftVersion: num(row.draftVersion, `${field}.draftVersion`),
     updatedAt: num(row.updatedAt, `${field}.updatedAt`),
+    publishedAt: nullableNum(row.publishedAt ?? null, `${field}.publishedAt`),
     ...(typeof row.hasUnpublishedChanges === 'boolean'
       ? { hasUnpublishedChanges: row.hasUnpublishedChanges }
       : {}),
@@ -607,72 +540,6 @@ function parsePostListResponse(value: unknown): PostListResponse {
   };
 }
 
-function parseReleaseSummary(value: unknown, field = 'release'): ReleaseSummary {
-  const row = obj(value, field);
-  return {
-    id: str(row.id, `${field}.id`),
-    status: oneOf(row.status, `${field}.status`, RELEASE_STATUSES),
-    triggerKind: oneOf(row.triggerKind, `${field}.triggerKind`, TRIGGER_KINDS),
-    itemCount: num(row.itemCount, `${field}.itemCount`),
-    manifestSha256: str(row.manifestSha256, `${field}.manifestSha256`),
-    codeCommit: nullableStr(row.codeCommit ?? null, `${field}.codeCommit`),
-    errorCode: nullableStr(row.errorCode ?? null, `${field}.errorCode`),
-    errorMessage: nullableStr(row.errorMessage ?? null, `${field}.errorMessage`),
-    createdAt: num(row.createdAt, `${field}.createdAt`),
-    updatedAt: num(row.updatedAt, `${field}.updatedAt`),
-    finishedAt: nullableNum(row.finishedAt ?? null, `${field}.finishedAt`),
-  };
-}
-
-function parseManifestArticle(value: unknown, field: string): ReleaseManifestArticle {
-  const row = obj(value, field);
-  return {
-    postId: str(row.postId, `${field}.postId`),
-    revisionId: str(row.revisionId, `${field}.revisionId`),
-    lang: oneOf(row.lang, `${field}.lang`, LANGUAGES),
-    slug: str(row.slug, `${field}.slug`),
-    visible: row.visible === true,
-  };
-}
-
-function parseManifest(value: unknown, field: string): ReleaseManifest {
-  const row = obj(value, field);
-  return {
-    schemaVersion: 1,
-    releaseId: str(row.releaseId, `${field}.releaseId`),
-    generatedAt: str(row.generatedAt, `${field}.generatedAt`),
-    articles: list(row.articles, `${field}.articles`, parseManifestArticle),
-  };
-}
-
-function parseDiffEntry(value: unknown, field: string): ReleaseDiffEntry {
-  const row = obj(value, field);
-  return {
-    postId: str(row.postId, `${field}.postId`),
-    lang: oneOf(row.lang, `${field}.lang`, LANGUAGES),
-    slug: str(row.slug, `${field}.slug`),
-    title: str(row.title, `${field}.title`),
-    change: oneOf(row.change, `${field}.change`, CHANGE_KINDS),
-  };
-}
-
-function parseReleaseOverview(value: unknown): ReleaseOverview {
-  const root = obj(value, 'response');
-  const diff = obj(root.pendingDiff ?? {}, 'response.pendingDiff');
-  return {
-    liveReleaseId: nullableStr(root.liveReleaseId ?? null, 'response.liveReleaseId'),
-    liveManifest: root.liveManifest == null
-      ? null
-      : parseManifest(root.liveManifest, 'response.liveManifest'),
-    releases: list(root.releases, 'response.releases', parseReleaseSummary),
-    pendingDiff: {
-      baseReleaseId: nullableStr(diff.baseReleaseId ?? null, 'response.pendingDiff.baseReleaseId'),
-      entries: list(diff.entries ?? [], 'response.pendingDiff.entries', parseDiffEntry),
-      unchangedCount: num(diff.unchangedCount ?? 0, 'response.pendingDiff.unchangedCount'),
-    },
-  };
-}
-
 /* ------------------------------------------------------------------ */
 /* Identifiers                                                         */
 /* ------------------------------------------------------------------ */
@@ -693,160 +560,12 @@ function randomToken(): string {
  * than server-side so a retried create reuses the same id instead of inserting
  * a duplicate row.
  */
-export function newCmsId(prefix: 'post' | 'grp' | 'rel' | 'rev' | 'src'): string {
+export function newCmsId(prefix: 'post' | 'grp' | 'src' | 'asset'): string {
   const id = `${prefix}_${randomToken()}`;
   if (!ID_PATTERN.test(id)) {
     throw new CmsApiError(`Generated id ${id} is not a valid CMS identifier.`, 'INVALID_RESPONSE', 0);
   }
   return id;
-}
-
-/** Stable key so a retried publish resolves to the existing release row. */
-export function newIdempotencyKey(): string {
-  return randomToken();
-}
-
-/* ------------------------------------------------------------------ */
-/* Release manifests                                                   */
-/* ------------------------------------------------------------------ */
-
-/**
- * Canonicalize and hash a manifest exactly as the server does.
- *
- * This mirrors `canonicalReleaseManifest` in
- * `src/server/cms/repositories/releases.ts`, which cannot be imported here
- * because that module pulls in the D1 layer. `createRelease` rejects any
- * mismatch between the submitted hash and its own canonical hash, so
- * `tests/cms/client-api.test.ts` pins the two implementations together.
- */
-export async function canonicalManifest(
-  manifest: ReleaseManifest,
-): Promise<{ manifest: ReleaseManifest; json: string; sha256: string }> {
-  const canonical: ReleaseManifest = {
-    schemaVersion: 1,
-    releaseId: manifest.releaseId,
-    generatedAt: manifest.generatedAt,
-    articles: [...manifest.articles].sort((left, right) =>
-      left.postId < right.postId ? -1 : left.postId > right.postId ? 1 : 0,
-    ),
-  };
-  const json = JSON.stringify(canonical);
-  const digest = await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(json));
-  const sha256 = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
-  return { manifest: canonical, json, sha256 };
-}
-
-export interface BuildReleaseOptions {
-  triggerKind: ReleaseTriggerKind;
-  /** Manifest of the live release; `null` before anything has been published. */
-  liveManifest: ReleaseManifest | null;
-  baseReleaseId: string | null;
-  /** The single post this release adds, replaces, or removes. */
-  change: {
-    postId: string;
-    lang: Language;
-    slug: string;
-    kind: ReleaseChangeKind;
-    /** Draft version the revision is cut from; omitted for a removal. */
-    expectedDraftVersion?: number;
-  };
-  now?: () => number;
-}
-
-/**
- * Assemble the `BeginReleaseInput` for one post.
- *
- * A release row carries a single `trigger_post_id` and at most one
- * `revisionSnapshot`, so one release publishes, withdraws, or restores one
- * post; every other route in the live manifest is carried over untouched.
- * Rolling back to an earlier release uses that release's manifest directly and
- * does not go through this helper.
- */
-export async function buildBeginReleaseInput(
-  options: BuildReleaseOptions,
-): Promise<BeginReleaseInput> {
-  const now = options.now?.() ?? Date.now();
-  const releaseId = newCmsId('rel');
-  const carried = (options.liveManifest?.articles ?? []).filter(
-    (article) => article.postId !== options.change.postId,
-  );
-
-  let articles: ReleaseManifestArticle[] = carried;
-  let revisionSnapshot: BeginReleaseInput['revisionSnapshot'];
-
-  if (options.change.kind === 'removed') {
-    // Withdrawal drops the route; the old revision row stays for rollback.
-    articles = carried;
-  } else {
-    if (options.change.expectedDraftVersion === undefined) {
-      throw new CmsApiError(
-        'A published post requires the draft version its revision is cut from.',
-        'BAD_REQUEST',
-        0,
-      );
-    }
-    const revisionId = newCmsId('rev');
-    articles = [
-      ...carried,
-      {
-        postId: options.change.postId,
-        revisionId,
-        lang: options.change.lang,
-        slug: options.change.slug,
-        visible: true,
-      },
-    ];
-    revisionSnapshot = {
-      revisionId,
-      postId: options.change.postId,
-      expectedDraftVersion: options.change.expectedDraftVersion,
-      publishedAt: now,
-    };
-  }
-
-  const canonical = await canonicalManifest({
-    schemaVersion: 1,
-    releaseId,
-    generatedAt: new Date(now).toISOString(),
-    articles,
-  });
-
-  return {
-    id: releaseId,
-    triggerKind: options.triggerKind,
-    triggerPostId: options.change.postId,
-    ...(options.baseReleaseId ? { baseReleaseId: options.baseReleaseId } : {}),
-    idempotencyKey: newIdempotencyKey(),
-    manifest: canonical.manifest,
-    manifestSha256: canonical.sha256,
-    ...(revisionSnapshot ? { revisionSnapshot } : {}),
-  };
-}
-
-/**
- * Manifest for restoring `sourceManifest` under a new release id. Rollback
- * replays a manifest that already passed a build; it cuts no new revision.
- */
-export async function buildRollbackReleaseInput(
-  sourceManifest: ReleaseManifest,
-  baseReleaseId: string | null,
-  now: number = Date.now(),
-): Promise<BeginReleaseInput> {
-  const releaseId = newCmsId('rel');
-  const canonical = await canonicalManifest({
-    schemaVersion: 1,
-    releaseId,
-    generatedAt: new Date(now).toISOString(),
-    articles: sourceManifest.articles,
-  });
-  return {
-    id: releaseId,
-    triggerKind: 'rollback',
-    ...(baseReleaseId ? { baseReleaseId } : {}),
-    idempotencyKey: newIdempotencyKey(),
-    manifest: canonical.manifest,
-    manifestSha256: canonical.sha256,
-  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -919,51 +638,33 @@ export async function archivePost(
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Releases                                                            */
-/* ------------------------------------------------------------------ */
-
-function parseReleaseDetail(value: unknown): ReleaseDetail {
-  const root = obj(value, 'response');
-  return {
-    release: parseReleaseSummary(root.release ?? root, 'response.release'),
-    manifest: parseManifest(root.manifest, 'response.manifest'),
-  };
-}
-
-/** `GET /earth/api/releases`. */
-export async function getReleaseOverview(options?: CmsClientOptions): Promise<ReleaseOverview> {
-  return send('/releases', { method: 'GET' }, parseReleaseOverview, options);
-}
-
 /**
- * `POST /earth/api/releases`.
- *
- * `RELEASE_BUSY` is the expected answer while another release is in flight —
- * `idx_one_active_release` permits exactly one. Retrying with the same
- * `idempotencyKey` returns the existing release instead of creating a second.
+ * `POST /earth/api/posts/:id/publish`. Direct SSR: flips the post live
+ * immediately, no release/manifest step.
  */
-export async function beginRelease(
-  input: BeginReleaseInput,
+export async function publishPost(
+  postId: string,
+  expectedDraftVersion: number,
   options?: CmsClientOptions,
-): Promise<CmsResult<ReleaseSummary>> {
+): Promise<CmsResult<PostDetail>> {
   return sendAllowingConflict(
-    '/releases',
-    { method: 'POST', body: JSON.stringify(input) },
-    (body) => parseReleaseSummary(obj(body, 'response').release ?? body, 'release'),
+    `/posts/${encodeURIComponent(postId)}/publish`,
+    { method: 'POST', body: JSON.stringify({ expectedDraftVersion }) },
+    parsePostDetail,
     options,
   );
 }
 
-/** `GET /earth/api/releases/:id`. Supplies the manifest a rollback replays. */
-export async function getRelease(
-  releaseId: string,
+/** `POST /earth/api/posts/:id/unpublish`. */
+export async function unpublishPost(
+  postId: string,
+  expectedDraftVersion: number,
   options?: CmsClientOptions,
-): Promise<ReleaseDetail> {
-  return send(
-    `/releases/${encodeURIComponent(releaseId)}`,
-    { method: 'GET' },
-    parseReleaseDetail,
+): Promise<CmsResult<PostDetail>> {
+  return sendAllowingConflict(
+    `/posts/${encodeURIComponent(postId)}/unpublish`,
+    { method: 'POST', body: JSON.stringify({ expectedDraftVersion }) },
+    parsePostDetail,
     options,
   );
 }

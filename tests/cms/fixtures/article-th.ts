@@ -26,6 +26,7 @@ export const mockPostRowTh: PostRow = {
   created_at: 1789030800000,
   updated_at: 1789030800000,
   archived_at: null,
+  published_at: 1789030800000,
 };
 
 /**
@@ -34,7 +35,6 @@ export const mockPostRowTh: PostRow = {
  */
 export const mockPublicArticleTh: PublicArticle = {
   id: 'post_th_00000001',
-  revisionId: 'rev_th_00000001',
   lang: 'th',
   translationGroupId: 'grp_architecture_2026',
   slug: 'cloudflare-cms-architecture',

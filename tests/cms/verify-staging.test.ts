@@ -17,6 +17,7 @@ function createMigratedAndSeededDb(): DatabaseSync {
   db.exec(readFileSync('db/migrations/0001_articles.sql', 'utf8'));
   db.exec(readFileSync('db/migrations/0002_taxonomy_assets.sql', 'utf8'));
   db.exec(readFileSync('db/migrations/0003_releases.sql', 'utf8'));
+  db.exec(readFileSync('db/migrations/0004_direct_publish.sql', 'utf8'));
   db.exec(readFileSync('db/seeds/staging.sql', 'utf8'));
   return db;
 }

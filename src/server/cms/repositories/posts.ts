@@ -26,7 +26,8 @@ const POST_COLUMNS = `
   lifecycle,
   created_at,
   updated_at,
-  archived_at
+  archived_at,
+  published_at
 `;
 
 export interface ListDraftsOptions {
@@ -264,6 +265,60 @@ export async function archivePost(
   requireChanged(
     result,
     'The post draft changed after it was loaded',
+    'DRAFT_VERSION_CONFLICT',
+  );
+  return requiredReturnedRow(result.results[0], 'post', postId);
+}
+
+/**
+ * Direct SSR publish: flips a draft live in place. No release/manifest step —
+ * the public reader routes query `posts` directly, so this is the only write
+ * that makes a post visible.
+ */
+export async function publishPost(
+  db: CmsDatabase,
+  postId: string,
+  expectedDraftVersion: number,
+  now = Date.now(),
+): Promise<PostRow> {
+  const result = await db.run<PostRow>(
+    `UPDATE posts
+     SET lifecycle = 'active',
+         published_at = COALESCE(published_at, ?1),
+         updated_at = ?1
+     WHERE id = ?2
+       AND draft_version = ?3
+       AND lifecycle = 'draft'
+     RETURNING ${POST_COLUMNS}`,
+    [now, postId, expectedDraftVersion],
+  );
+  requireChanged(
+    result,
+    'The post draft changed after it was loaded, or it is already published/archived',
+    'DRAFT_VERSION_CONFLICT',
+  );
+  return requiredReturnedRow(result.results[0], 'post', postId);
+}
+
+export async function unpublishPost(
+  db: CmsDatabase,
+  postId: string,
+  expectedDraftVersion: number,
+  now = Date.now(),
+): Promise<PostRow> {
+  const result = await db.run<PostRow>(
+    `UPDATE posts
+     SET lifecycle = 'draft',
+         updated_at = ?1
+     WHERE id = ?2
+       AND draft_version = ?3
+       AND lifecycle = 'active'
+     RETURNING ${POST_COLUMNS}`,
+    [now, postId, expectedDraftVersion],
+  );
+  requireChanged(
+    result,
+    'The post draft changed after it was loaded, or it is not currently published',
     'DRAFT_VERSION_CONFLICT',
   );
   return requiredReturnedRow(result.results[0], 'post', postId);

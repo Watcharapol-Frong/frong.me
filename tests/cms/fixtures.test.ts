@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { mockPostRowTh, mockPublicArticleTh, postRowTh, publicArticleTh } from './fixtures/article-th.ts';
 import { mockPostRowEn, mockPublicArticleEn, postRowEn, publicArticleEn } from './fixtures/article-en.ts';
-import { parseReleaseSnapshot, CmsValidationError } from '../../src/lib/cms/validation.ts';
+import { parsePublicArticle } from '../../src/lib/cms/validation.ts';
 import type { PostRow, PublicArticle } from '../../src/lib/cms/contracts.ts';
 
 test('PostRow fixtures conform strictly to database row contract', () => {
@@ -33,7 +33,6 @@ test('PublicArticle fixtures conform strictly to PublicArticle contract', () => 
 
   for (const article of articles) {
     assert.match(article.id, /^[A-Za-z0-9][A-Za-z0-9_-]{7,95}$/);
-    assert.match(article.revisionId, /^[A-Za-z0-9][A-Za-z0-9_-]{7,95}$/);
     assert.ok(article.lang === 'th' || article.lang === 'en');
     assert.match(article.slug, /^[a-z0-9]+(?:-[a-z0-9]+)*$/);
     assert.ok(article.title.trim().length > 0);
@@ -83,60 +82,19 @@ test('PublicArticle fixtures conform strictly to PublicArticle contract', () => 
   assert.equal(publicArticleEn, mockPublicArticleEn);
 });
 
-test('PublicArticle fixtures pass strict parseReleaseSnapshot runtime validation', () => {
-  const snapshot = {
-    manifest: {
-      schemaVersion: 1,
-      releaseId: 'rel_20260910_live001',
-      generatedAt: '2026-09-10T09:00:00.000Z',
-      articles: [
-        {
-          postId: mockPublicArticleTh.id,
-          revisionId: mockPublicArticleTh.revisionId,
-          lang: mockPublicArticleTh.lang,
-          slug: mockPublicArticleTh.slug,
-          visible: true,
-        },
-        {
-          postId: mockPublicArticleEn.id,
-          revisionId: mockPublicArticleEn.revisionId,
-          lang: mockPublicArticleEn.lang,
-          slug: mockPublicArticleEn.slug,
-          visible: true,
-        },
-      ],
-    },
-    articles: [mockPublicArticleTh, mockPublicArticleEn],
-  };
-
-  const parsed = parseReleaseSnapshot(snapshot);
-  assert.equal(parsed.articles.length, 2);
-  assert.equal(parsed.manifest.articles.length, 2);
-  assert.equal(parsed.articles[0].lang, 'th');
-  assert.equal(parsed.articles[1].lang, 'en');
+test('PublicArticle fixtures pass strict parsePublicArticle runtime validation', () => {
+  for (const fixture of [mockPublicArticleTh, mockPublicArticleEn]) {
+    const parsed = parsePublicArticle(fixture);
+    assert.equal(parsed.id, fixture.id);
+    assert.equal(parsed.lang, fixture.lang);
+    assert.equal(parsed.assets.length, fixture.assets.length);
+  }
 });
 
-test('Snapshot validation fails if article metadata mismatches manifest', () => {
-  const corruptSnapshot = {
-    manifest: {
-      schemaVersion: 1,
-      releaseId: 'rel_20260910_live001',
-      generatedAt: '2026-09-10T09:00:00.000Z',
-      articles: [
-        {
-          postId: mockPublicArticleTh.id,
-          revisionId: mockPublicArticleTh.revisionId,
-          lang: mockPublicArticleTh.lang,
-          slug: 'mismatched-slug',
-          visible: true,
-        },
-      ],
-    },
-    articles: [mockPublicArticleTh],
-  };
-
-  assert.throws(() => parseReleaseSnapshot(corruptSnapshot), (err: unknown) => {
-    return err instanceof CmsValidationError && err.field === 'snapshot.articles';
+test('parsePublicArticle rejects a malformed article', () => {
+  const corrupt = { ...mockPublicArticleTh, slug: 'Not A Valid Slug' };
+  assert.throws(() => parsePublicArticle(corrupt), (err: unknown) => {
+    return err instanceof Error && err.message.includes('article.slug');
   });
 });
 

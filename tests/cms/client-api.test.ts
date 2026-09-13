@@ -2,18 +2,12 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
   CmsApiError,
-  buildBeginReleaseInput,
-  canonicalManifest,
   createPost,
   describeConflict,
-  getReleaseOverview,
   listPosts,
   updatePostDraft,
   type CmsClientOptions,
 } from '../../src/lib/cms/client/api.ts';
-import { canonicalReleaseManifest } from '../../src/server/cms/repositories/releases.ts';
-import { parseBeginReleaseInput } from '../../src/lib/cms/validation.ts';
-import type { ReleaseManifest } from '../../src/lib/cms/contracts.ts';
 
 interface RecordedRequest {
   url: string;
@@ -154,7 +148,7 @@ test('a 409 returns a structured conflict instead of throwing', async () => {
 test('the flat error envelope is still understood', async () => {
   const { options } = stubFetch({
     status: 409,
-    body: { error: 'RELEASE_BUSY', message: 'Another release is already active' },
+    body: { error: 'DATABASE_BUSY', message: 'The database is busy, please retry' },
   });
 
   const result = await createPost(
@@ -164,8 +158,8 @@ test('the flat error envelope is still understood', async () => {
 
   assert.equal(result.ok, false);
   if (result.ok) return;
-  assert.equal(result.conflict.code, 'RELEASE_BUSY');
-  assert.match(describeConflict(result.conflict), /in-flight release/);
+  assert.equal(result.conflict.code, 'DATABASE_BUSY');
+  assert.match(describeConflict(result.conflict), /Retry the request/);
 });
 
 test('non-conflict failures throw CmsApiError carrying the server code', async () => {
@@ -175,7 +169,7 @@ test('non-conflict failures throw CmsApiError carrying the server code', async (
   });
 
   await assert.rejects(
-    () => getReleaseOverview(options),
+    () => listPosts({}, options),
     (error: unknown) => {
       assert.ok(error instanceof CmsApiError);
       assert.equal(error.code, 'INVARIANT_VIOLATION');
@@ -217,105 +211,3 @@ test('a response that breaks the contract fails loudly', async () => {
   );
 });
 
-test('client canonicalization matches the server hash byte for byte', async () => {
-  const manifest: ReleaseManifest = {
-    schemaVersion: 1,
-    releaseId: 'rel_cccccccc',
-    generatedAt: '2026-09-10T00:00:00.000Z',
-    articles: [
-      { postId: 'post_zzzzzzzz', revisionId: 'rev_zzzzzzzz', lang: 'en', slug: 'z', visible: true },
-      { postId: 'post_aaaaaaaa', revisionId: 'rev_aaaaaaaa', lang: 'th', slug: 'a', visible: true },
-    ],
-  };
-
-  const client = await canonicalManifest(manifest);
-  const server = await canonicalReleaseManifest(manifest);
-
-  assert.equal(client.json, server.json);
-  assert.equal(client.sha256, server.sha256);
-  // Canonical order is by postId, so the hash does not depend on input order.
-  assert.equal(client.manifest.articles[0]?.postId, 'post_aaaaaaaa');
-});
-
-test('a publish carries the live routes forward and snapshots one revision', async () => {
-  const liveManifest: ReleaseManifest = {
-    schemaVersion: 1,
-    releaseId: 'rel_dddddddd',
-    generatedAt: '2026-09-01T00:00:00.000Z',
-    articles: [
-      { postId: 'post_kept0001', revisionId: 'rev_kept0001', lang: 'th', slug: 'kept', visible: true },
-      { postId: 'post_aaaaaaaa', revisionId: 'rev_old00001', lang: 'th', slug: 'old', visible: true },
-    ],
-  };
-
-  const input = await buildBeginReleaseInput({
-    triggerKind: 'publish',
-    liveManifest,
-    baseReleaseId: 'rel_dddddddd',
-    change: {
-      postId: 'post_aaaaaaaa',
-      lang: 'th',
-      slug: 'thai-inflation',
-      kind: 'updated',
-      expectedDraftVersion: 4,
-    },
-    now: () => 1789030800000,
-  });
-
-  // The server re-derives the hash and rejects a mismatch, so it must be exact.
-  const server = await canonicalReleaseManifest(input.manifest);
-  assert.equal(input.manifestSha256, server.sha256);
-
-  // The route being republished points at the new revision, not the old one.
-  const republished = input.manifest.articles.find((article) => article.postId === 'post_aaaaaaaa');
-  assert.equal(republished?.slug, 'thai-inflation');
-  assert.notEqual(republished?.revisionId, 'rev_old00001');
-  assert.equal(republished?.revisionId, input.revisionSnapshot?.revisionId);
-  assert.equal(input.revisionSnapshot?.expectedDraftVersion, 4);
-
-  // Untouched routes survive the release unchanged.
-  const kept = input.manifest.articles.find((article) => article.postId === 'post_kept0001');
-  assert.equal(kept?.revisionId, 'rev_kept0001');
-
-  // And the whole payload satisfies the server-side parser.
-  assert.deepEqual(parseBeginReleaseInput(input), input);
-});
-
-test('a withdrawal drops the route and snapshots no revision', async () => {
-  const liveManifest: ReleaseManifest = {
-    schemaVersion: 1,
-    releaseId: 'rel_dddddddd',
-    generatedAt: '2026-09-01T00:00:00.000Z',
-    articles: [
-      { postId: 'post_kept0001', revisionId: 'rev_kept0001', lang: 'th', slug: 'kept', visible: true },
-      { postId: 'post_aaaaaaaa', revisionId: 'rev_old00001', lang: 'th', slug: 'old', visible: true },
-    ],
-  };
-
-  const input = await buildBeginReleaseInput({
-    triggerKind: 'withdraw',
-    liveManifest,
-    baseReleaseId: 'rel_dddddddd',
-    change: { postId: 'post_aaaaaaaa', lang: 'th', slug: 'old', kind: 'removed' },
-    now: () => 1789030800000,
-  });
-
-  assert.equal(input.revisionSnapshot, undefined);
-  assert.deepEqual(
-    input.manifest.articles.map((article) => article.postId),
-    ['post_kept0001'],
-  );
-});
-
-test('publishing without a draft version is refused before any request', async () => {
-  await assert.rejects(
-    () =>
-      buildBeginReleaseInput({
-        triggerKind: 'publish',
-        liveManifest: null,
-        baseReleaseId: null,
-        change: { postId: 'post_aaaaaaaa', lang: 'th', slug: 'a', kind: 'added' },
-      }),
-    (error: unknown) => error instanceof CmsApiError && error.code === 'BAD_REQUEST',
-  );
-});

@@ -10,10 +10,12 @@ function createMigratedDb(): DatabaseSync {
   const m1 = readFileSync('db/migrations/0001_articles.sql', 'utf8');
   const m2 = readFileSync('db/migrations/0002_taxonomy_assets.sql', 'utf8');
   const m3 = readFileSync('db/migrations/0003_releases.sql', 'utf8');
+  const m4 = readFileSync('db/migrations/0004_direct_publish.sql', 'utf8');
 
   db.exec(m1);
   db.exec(m2);
   db.exec(m3);
+  db.exec(m4);
   return db;
 }
 
@@ -54,7 +56,7 @@ test('staging seed script executes cleanly and is strictly idempotent', () => {
       releases: releases.c,
       releaseItems: releaseItems.c,
       releaseAttempts: releaseAttempts.c,
-      liveReleaseId: siteState.liveRelease_id ?? siteState.live_release_id,
+      liveReleaseId: siteState.live_release_id,
     };
   };
 

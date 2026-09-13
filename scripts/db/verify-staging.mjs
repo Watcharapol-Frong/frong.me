@@ -189,6 +189,7 @@ export function createD1HttpExecutor({
 export function createWranglerExecutor({
   databaseName = 'portfolio-db-staging',
   local = false,
+  env: wranglerEnv,
   cwd = process.cwd(),
 }) {
   return async function wranglerQuery(sql, params = []) {
@@ -204,6 +205,10 @@ export function createWranglerExecutor({
       '--json',
       `--command=${sql}`,
     ];
+
+    // Named-environment bindings (env.staging.d1_databases) are invisible to
+    // `wrangler d1 execute` unless --env is passed explicitly.
+    if (wranglerEnv) args.push('--env', wranglerEnv);
 
     // `wrangler d1 execute` defaults to the local database, so the remote case
     // must be requested explicitly or verification silently inspects local state.
@@ -278,6 +283,7 @@ export function parseArgs(argv) {
     mode: 'auto',
     databaseName: process.env.CF_D1_DATABASE_NAME || 'portfolio-db-staging',
     local: false,
+    env: process.env.CF_WRANGLER_ENV || 'staging',
     sqlitePath: null,
   };
 
@@ -288,6 +294,9 @@ export function parseArgs(argv) {
     else if (arg === '--local') args.local = true;
     else if (arg.startsWith('--database=')) args.databaseName = arg.split('=')[1];
     else if (arg === '--database') args.databaseName = argv[++i];
+    else if (arg.startsWith('--env=')) args.env = arg.split('=')[1];
+    else if (arg === '--env') args.env = argv[++i];
+    else if (arg === '--no-env') args.env = null;
     else if (arg.startsWith('--sqlite=')) {
       args.mode = 'sqlite';
       args.sqlitePath = arg.split('=')[1];
@@ -314,6 +323,8 @@ Options:
   --wrangler           Force Wrangler CLI mode
   --local              Use --local flag with Wrangler
   --database <name>    Database name for Wrangler (default: portfolio-db-staging)
+  --env <name>         Wrangler named environment to scope the D1 binding lookup (default: staging)
+  --no-env             Do not pass --env to Wrangler (use the top-level binding)
   --sqlite <path>      Verify local SQLite database file using node:sqlite
   --help, -h           Show this help message
 `);
@@ -338,10 +349,11 @@ Options:
       apiBaseUrl: process.env.CF_D1_API_BASE_URL,
     });
   } else {
-    console.log(`[verify-staging] Connecting via Wrangler CLI (database: ${args.databaseName}, local: ${args.local})...`);
+    console.log(`[verify-staging] Connecting via Wrangler CLI (database: ${args.databaseName}, env: ${args.env ?? '(none)'}, local: ${args.local})...`);
     queryFn = createWranglerExecutor({
       databaseName: args.databaseName,
       local: args.local,
+      env: args.env,
     });
   }
 

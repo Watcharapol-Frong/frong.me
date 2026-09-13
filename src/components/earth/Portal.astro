@@ -1,0 +1,405 @@
+---
+/**
+ * Earth admin portal — 3-column landing view.
+ *
+ * Left: identity, post counts, search, export, sign-out.
+ * Center: drafts. Right: published (direct-SSR live) posts.
+ *
+ * Ships no data server-side (see `src/pages/earth/index.astro`'s header
+ * comment for why): everything here is fetched client-side from
+ * `/earth/api/*` through `src/lib/cms/client/api.ts` after the page loads.
+ */
+export interface PortalProps {
+  ownerHandle?: string;
+}
+
+interface Props extends PortalProps {}
+
+const { ownerHandle = 'frong98' } = Astro.props as Props;
+---
+
+<div class="earth-portal" data-earth-portal>
+  <aside class="earth-portal__col earth-portal__identity">
+    <div class="earth-portal__greeting">
+      <p class="earth-portal__hello" data-earth-greeting>Hello</p>
+      <p class="earth-portal__handle">@{ownerHandle}</p>
+      <a class="earth-portal__domain" href="/" target="_blank" rel="noopener">frong.me ↗</a>
+    </div>
+
+    <div class="earth-portal__counts">
+      <div class="earth-portal__count">
+        <span class="earth-portal__count-value" data-earth-count="draft">–</span>
+        <span class="earth-portal__count-label">Drafts</span>
+      </div>
+      <div class="earth-portal__count">
+        <span class="earth-portal__count-value" data-earth-count="active">–</span>
+        <span class="earth-portal__count-label">Published</span>
+      </div>
+    </div>
+
+    <label class="earth-portal__search">
+      <span class="earth-portal__search-icon" aria-hidden="true">⌕</span>
+      <input
+        type="search"
+        placeholder="Search posts…"
+        data-earth-search
+        autocomplete="off"
+      />
+    </label>
+
+    <div class="earth-portal__identity-actions">
+      <button type="button" class="earth-portal__link-btn" data-earth-export="json">
+        Export JSON
+      </button>
+      <button type="button" class="earth-portal__link-btn" data-earth-export="markdown">
+        Export Markdown
+      </button>
+      <a class="earth-portal__link-btn earth-portal__link-btn--danger" href="/cdn-cgi/access/logout">
+        Sign out
+      </a>
+    </div>
+  </aside>
+
+  <section class="earth-portal__col earth-portal__drafts">
+    <header class="earth-portal__col-header">
+      <h2>Drafts</h2>
+      <a class="earth-portal__new-btn" href="/earth/editor">+ New Post</a>
+    </header>
+    <ul class="earth-portal__list" data-earth-list="draft">
+      <li class="earth-portal__empty" data-earth-loading>Loading…</li>
+    </ul>
+  </section>
+
+  <section class="earth-portal__col earth-portal__published">
+    <header class="earth-portal__col-header">
+      <h2>Published</h2>
+    </header>
+    <ul class="earth-portal__list" data-earth-list="active">
+      <li class="earth-portal__empty" data-earth-loading>Loading…</li>
+    </ul>
+  </section>
+</div>
+
+<template data-earth-post-row-template>
+  <li class="earth-portal__row">
+    <a class="earth-portal__row-link" href="#">
+      <span class="earth-portal__row-title"></span>
+      <span class="earth-portal__row-meta"></span>
+    </a>
+  </li>
+</template>
+
+<style>
+  .earth-portal {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.5rem;
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: 1.5rem 1.25rem 4rem;
+  }
+
+  @media (min-width: 860px) {
+    .earth-portal {
+      grid-template-columns: 16rem minmax(0, 1fr) minmax(0, 1fr);
+      align-items: start;
+    }
+  }
+
+  .earth-portal__col {
+    border: 1px solid var(--earth-border, color-mix(in oklab, currentColor 15%, transparent));
+    border-radius: 0.75rem;
+    padding: 1.25rem;
+    background: color-mix(in oklab, currentColor 2%, transparent);
+  }
+
+  .earth-portal__greeting {
+    margin-bottom: 1.25rem;
+  }
+
+  .earth-portal__hello {
+    margin: 0;
+    font-size: 0.8125rem;
+    opacity: 0.6;
+  }
+
+  .earth-portal__handle {
+    margin: 0.125rem 0 0.375rem;
+    font-size: 1.25rem;
+    font-weight: 600;
+  }
+
+  .earth-portal__domain {
+    font-size: 0.8125rem;
+    color: var(--earth-accent, currentColor);
+    text-decoration: none;
+  }
+
+  .earth-portal__domain:hover {
+    text-decoration: underline;
+  }
+
+  .earth-portal__counts {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .earth-portal__count {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .earth-portal__count-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .earth-portal__count-label {
+    font-size: 0.75rem;
+    opacity: 0.6;
+  }
+
+  .earth-portal__search {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border: 1px solid var(--earth-border, color-mix(in oklab, currentColor 15%, transparent));
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .earth-portal__search input {
+    border: none;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 0.875rem;
+    outline: none;
+    width: 100%;
+  }
+
+  .earth-portal__search-icon {
+    opacity: 0.5;
+  }
+
+  .earth-portal__identity-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+  }
+
+  .earth-portal__link-btn {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 0.5rem 0.625rem;
+    border-radius: 0.5rem;
+    border: none;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 0.8125rem;
+    cursor: pointer;
+    text-decoration: none;
+  }
+
+  .earth-portal__link-btn:hover {
+    background: color-mix(in oklab, currentColor 8%, transparent);
+  }
+
+  .earth-portal__link-btn--danger {
+    color: #b42318;
+  }
+
+  .earth-portal__col-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+  }
+
+  .earth-portal__col-header h2 {
+    margin: 0;
+    font-size: 0.9375rem;
+    font-weight: 600;
+  }
+
+  .earth-portal__new-btn {
+    padding: 0.375rem 0.75rem;
+    border-radius: 999px;
+    background: var(--earth-accent, currentColor);
+    color: var(--earth-accent-contrast, #fff);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .earth-portal__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    max-height: 32rem;
+    overflow-y: auto;
+  }
+
+  .earth-portal__empty {
+    padding: 0.75rem 0;
+    font-size: 0.8125rem;
+    opacity: 0.55;
+  }
+
+  .earth-portal__row-link {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    padding: 0.625rem 0.625rem;
+    border-radius: 0.5rem;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .earth-portal__row-link:hover {
+    background: color-mix(in oklab, currentColor 8%, transparent);
+  }
+
+  .earth-portal__row-title {
+    font-size: 0.875rem;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .earth-portal__row-meta {
+    font-size: 0.75rem;
+    opacity: 0.55;
+  }
+</style>
+
+<script>
+  import { listPosts, type PostSummary } from '../../lib/cms/client/api.ts';
+
+  function greeting(): string {
+    const hour = new Date().getHours();
+    if (hour < 5) return 'Working late';
+    if (hour < 12) return 'Good morning';
+    if (hour < 18) return 'Good afternoon';
+    return 'Good evening';
+  }
+
+  function formatDate(epochMs: number | null): string {
+    if (!epochMs) return '';
+    return new Date(epochMs).toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  }
+
+  function initPortal(root: HTMLElement) {
+    const greetingEl = root.querySelector<HTMLElement>('[data-earth-greeting]');
+    if (greetingEl) greetingEl.textContent = greeting();
+
+    const searchInput = root.querySelector<HTMLInputElement>('[data-earth-search]');
+    const lists = {
+      draft: root.querySelector<HTMLUListElement>('[data-earth-list="draft"]'),
+      active: root.querySelector<HTMLUListElement>('[data-earth-list="active"]'),
+    };
+    const counts = {
+      draft: root.querySelector<HTMLElement>('[data-earth-count="draft"]'),
+      active: root.querySelector<HTMLElement>('[data-earth-count="active"]'),
+    };
+    const rowTemplate = document.querySelector<HTMLTemplateElement>('[data-earth-post-row-template]');
+
+    let allPosts: PostSummary[] = [];
+
+    function renderList(target: HTMLUListElement | null, posts: PostSummary[]) {
+      if (!target || !rowTemplate) return;
+      target.innerHTML = '';
+      if (posts.length === 0) {
+        const empty = document.createElement('li');
+        empty.className = 'earth-portal__empty';
+        empty.textContent = 'Nothing here yet.';
+        target.append(empty);
+        return;
+      }
+      for (const post of posts) {
+        const node = rowTemplate.content.cloneNode(true) as DocumentFragment;
+        const link = node.querySelector<HTMLAnchorElement>('.earth-portal__row-link')!;
+        link.href = `/earth/editor?id=${encodeURIComponent(post.id)}`;
+        node.querySelector('.earth-portal__row-title')!.textContent = post.title || '(untitled)';
+        const metaParts = [post.lang.toUpperCase()];
+        const when = formatDate(post.publishedAt ?? post.updatedAt);
+        if (when) metaParts.push(when);
+        node.querySelector('.earth-portal__row-meta')!.textContent = metaParts.join(' · ');
+        target.append(node);
+      }
+    }
+
+    function applyFilter() {
+      const term = (searchInput?.value ?? '').trim().toLowerCase();
+      const filtered = term
+        ? allPosts.filter((post) =>
+            post.title.toLowerCase().includes(term) || post.slug.toLowerCase().includes(term))
+        : allPosts;
+      renderList(lists.draft, filtered.filter((post) => post.lifecycle === 'draft'));
+      renderList(lists.active, filtered.filter((post) => post.lifecycle === 'active'));
+    }
+
+    async function load() {
+      try {
+        const response = await listPosts();
+        allPosts = response.posts;
+        if (counts.draft) {
+          counts.draft.textContent = String(allPosts.filter((post) => post.lifecycle === 'draft').length);
+        }
+        if (counts.active) {
+          counts.active.textContent = String(allPosts.filter((post) => post.lifecycle === 'active').length);
+        }
+        applyFilter();
+      } catch (error) {
+        for (const list of Object.values(lists)) {
+          if (!list) continue;
+          list.innerHTML = '';
+          const failed = document.createElement('li');
+          failed.className = 'earth-portal__empty';
+          failed.textContent = 'Could not load posts.';
+          list.append(failed);
+        }
+        console.error('[earth-portal] failed to load posts', error);
+      }
+    }
+
+    searchInput?.addEventListener('input', applyFilter);
+
+    root.querySelectorAll<HTMLButtonElement>('[data-earth-export]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const format = button.dataset.earthExport;
+        const filename = `frong-me-posts.${format === 'markdown' ? 'md' : 'json'}`;
+        const content = format === 'markdown'
+          ? allPosts.map((post) => `# ${post.title}\n\n- slug: ${post.slug}\n- lang: ${post.lang}\n- status: ${post.lifecycle}\n`).join('\n---\n\n')
+          : JSON.stringify(allPosts, null, 2);
+        const blob = new Blob([content], { type: format === 'markdown' ? 'text/markdown' : 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.append(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+      });
+    });
+
+    load();
+  }
+
+  const portalRoot = document.querySelector<HTMLElement>('[data-earth-portal]');
+  if (portalRoot) initPortal(portalRoot);
+</script>

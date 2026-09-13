@@ -1,8 +1,10 @@
 name: CMS staging deploy pipeline
 
+# Direct-SSR model: content changes go live the moment a post is published in
+# D1 (no release/manifest/confirm step), so this workflow's only job is to
+# ship *code* changes to the staging Worker. Trigger manually or wire a
+# `push`/`pull_request` trigger once the deploy has been proven out.
 on:
-  repository_dispatch:
-    types: [cms-staging-deploy, cms-staging-release]
   workflow_dispatch:
     inputs:
       dry_run:
@@ -10,18 +12,6 @@ on:
         required: false
         default: false
         type: boolean
-      release_id:
-        description: 'Release ID for staging deploy'
-        required: false
-        type: string
-      attempt_id:
-        description: 'Release attempt ID to confirm/fail via callback'
-        required: false
-        type: string
-      manifest_sha256:
-        description: 'Expected public manifest SHA-256'
-        required: false
-        type: string
 
 permissions:
   contents: read
@@ -51,25 +41,9 @@ jobs:
       CF_ACCESS_AUD: ${{ secrets.CF_ACCESS_AUD || vars.CF_ACCESS_AUD }}
       CF_D1_DATABASE_ID: ${{ vars.CF_D1_DATABASE_ID || secrets.CF_D1_DATABASE_ID || vars.STAGING_D1_DATABASE_ID || secrets.STAGING_D1_DATABASE_ID }}
       CF_R2_BUCKET_NAME: ${{ vars.CF_R2_BUCKET_NAME || secrets.CF_R2_BUCKET_NAME || vars.STAGING_R2_BUCKET_NAME || secrets.STAGING_R2_BUCKET_NAME || 'portfolio-media-staging' }}
-      # No legacy STAGING_D1_DATABASE_ID/STAGING_R2_BUCKET_NAME aliases here: a
-      # job-level env: entry cannot reference a sibling entry via env.*, and
-      # verify-bindings.mjs already falls back to those legacy names itself.
       # Security guard: Dev bypass must never be enabled in staging
       ENABLE_ACCESS_DEV_BYPASS: "false"
-      # Release tracking
-      CMS_RELEASE_ID: ${{ github.event.client_payload.release_id || inputs.release_id }}
-      CMS_ATTEMPT_ID: ${{ github.event.client_payload.attempt_id || inputs.attempt_id }}
-      CMS_MANIFEST_SHA256: ${{ github.event.client_payload.manifest_sha256 || inputs.manifest_sha256 }}
-      IS_DRY_RUN: ${{ (inputs.dry_run == true || github.event.client_payload.dry_run == true) && 'true' || 'false' }}
-      # Release confirmation/failure callback. Overridable because the hard-coded
-      # custom domain does not currently resolve (run 34667686189: curl exit 6,
-      # "Could not resolve host: cms-staging.frong.me"), while the Worker is live
-      # at its workers.dev hostname. Point this at whichever host actually serves
-      # the staging Worker *and* sits behind the Access application.
-      CMS_STAGING_HOST: ${{ vars.CMS_STAGING_HOST || secrets.CMS_STAGING_HOST || 'https://cms-staging.frong.me' }}
-      CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
-      CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
-      RELEASE_CALLBACK_SECRET: ${{ secrets.RELEASE_CALLBACK_SECRET }}
+      IS_DRY_RUN: ${{ inputs.dry_run == true && 'true' || 'false' }}
 
     steps:
       - name: Checkout repository
@@ -109,15 +83,12 @@ jobs:
             echo "[deploy] Executing dry-run deploy targeting env.staging only..."
             npx wrangler deploy --env staging --dry-run --outdir .wrangler/dry-run 2>&1 \
               | tee "$DEPLOY_LOG" || DEPLOY_EXIT_CODE=$?
-            DEPLOY_URL="https://cms-staging.frong.me"
             DEPLOYMENT_ID="dry-run-${{ github.run_id }}"
             MODE="dry-run"
           else
             echo "[deploy] Executing real deploy targeting env.staging only..."
             npx wrangler deploy --env staging 2>&1 \
               | tee "$DEPLOY_LOG" || DEPLOY_EXIT_CODE=$?
-            DEPLOY_URL=$(grep -oE 'https://[a-zA-Z0-9.-]+\.workers\.dev|https://cms-staging\.frong\.me' "$DEPLOY_LOG" | head -n 1 || true)
-            DEPLOY_URL=${DEPLOY_URL:-https://cms-staging.frong.me}
             # wrangler 4.x prints "Current Version ID:"; the older "Deployment ID:"
             # spellings stay as fallbacks. A missing match must not abort the step.
             DEPLOYMENT_ID=$(grep -oE 'Current Deployment ID: [a-f0-9-]+|Current Version ID: [a-f0-9-]+|Deployment ID: [a-f0-9-]+|Version ID: [a-f0-9-]+' "$DEPLOY_LOG" | head -n 1 | awk '{print $NF}' || true)
@@ -133,17 +104,13 @@ jobs:
           echo "Environment: staging"
           echo "Mode: $MODE"
           echo "Deploy exit code: $DEPLOY_EXIT_CODE"
-          echo "Deploy URL: $DEPLOY_URL"
           echo "Deployment ID: $DEPLOYMENT_ID"
 
           cat <<EOF > .wrangler/deploy-result/deployment-result.json
           {
             "environment": "staging",
             "mode": "$MODE",
-            "url": "$DEPLOY_URL",
             "deploymentId": "$DEPLOYMENT_ID",
-            "releaseId": "${{ env.CMS_RELEASE_ID }}",
-            "manifestSha256": "${{ env.CMS_MANIFEST_SHA256 }}",
             "runId": "${{ github.run_id }}",
             "runNumber": "${{ github.run_number }}",
             "commitSha": "${{ github.sha }}",
@@ -165,27 +132,3 @@ jobs:
             .wrangler/deploy-result/
           if-no-files-found: warn
           retention-days: 7
-
-      - name: Confirm release live
-        if: success() && env.IS_DRY_RUN != 'true' && env.CMS_RELEASE_ID != '' && env.CMS_ATTEMPT_ID != ''
-        run: |
-          DEPLOYMENT_ID=$(node -e "console.log(require('./.wrangler/deploy-result/deployment-result.json').deploymentId)")
-          curl --fail-with-body --silent --show-error \
-            --request POST "$CMS_STAGING_HOST/earth/api/releases/$CMS_RELEASE_ID/confirm" \
-            --header "content-type: application/json" \
-            --header "CF-Access-Client-Id: $CF_ACCESS_CLIENT_ID" \
-            --header "CF-Access-Client-Secret: $CF_ACCESS_CLIENT_SECRET" \
-            --header "X-Release-Callback-Secret: $RELEASE_CALLBACK_SECRET" \
-            --data "{\"attemptId\":\"$CMS_ATTEMPT_ID\",\"providerDeploymentId\":\"$DEPLOYMENT_ID\",\"workflowRunId\":\"${{ github.run_id }}\"}"
-
-      - name: Report deploy failure
-        if: failure() && env.CMS_RELEASE_ID != '' && env.CMS_ATTEMPT_ID != ''
-        run: |
-          ERROR_MESSAGE="Staging deploy workflow run ${{ github.run_id }} failed"
-          curl --fail-with-body --silent --show-error \
-            --request POST "$CMS_STAGING_HOST/earth/api/releases/$CMS_RELEASE_ID/fail" \
-            --header "content-type: application/json" \
-            --header "CF-Access-Client-Id: $CF_ACCESS_CLIENT_ID" \
-            --header "CF-Access-Client-Secret: $CF_ACCESS_CLIENT_SECRET" \
-            --header "X-Release-Callback-Secret: $RELEASE_CALLBACK_SECRET" \
-            --data "{\"attemptId\":\"$CMS_ATTEMPT_ID\",\"errorMessage\":\"$ERROR_MESSAGE\",\"workflowRunId\":\"${{ github.run_id }}\"}"

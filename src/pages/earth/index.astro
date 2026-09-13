@@ -1,28 +1,19 @@
 ---
 /**
- * Earth admin shell.
+ * Earth admin portal.
  *
  * Deliberately not built on `Layout.astro`: that layout is the public site's
  * chrome (site nav, canonical URL, OG/Twitter metadata, sitemap-facing markup),
  * none of which belongs on an authenticated tool.
  *
- * This page ships **no data**. Every value the admin shows is fetched in the
- * browser from `/earth/api/*` through `src/lib/cms/client/api.ts`, which keeps
- * two properties that matter while the public application remains static:
- *
- * - Nothing private is baked into a prerendered file. The HTML below is an
- *   empty frame, so the release snapshot never has to exclude it.
- * - The shell is on-demand so every request crosses the Access-verifying
- *   middleware. Prerendering would turn the build-time unauthenticated response
- *   into a static file and bypass runtime JWT verification.
- *
- * Access control lives in front of this page, not inside it: Cloudflare Access
- * on `/earth` and `/earth/*`, plus the Worker middleware that re-validates the
- * JWT and the mutation `Origin` (S-02). The `noindex` tag below is defence in
- * depth for the window where the route is served as a static asset.
+ * This page ships **no data**. Every value the portal shows is fetched in the
+ * browser from `/earth/api/*` through `src/lib/cms/client/api.ts` — nothing
+ * private is baked into a prerendered file, and the page stays on-demand so
+ * every request crosses the Access-verifying middleware (S-02). The `noindex`
+ * tag below is defence in depth for the window where the route is served as
+ * a static asset.
  */
-import '../../styles/global.css';
-import EarthAdminShell from '../../components/cms/EarthAdminShell';
+import Portal from '../../components/earth/Portal.astro';
 
 export const prerender = false;
 ---
@@ -32,41 +23,38 @@ export const prerender = false;
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- Same theme bootstrap as Layout.astro: honours the site-wide `theme`
-         key so the admin does not flip appearance between site and tool. -->
-    <script is:inline>
-      (function () {
-        const stored = localStorage.getItem("theme");
-        const isDark = stored ? stored === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
-        document.documentElement.classList.toggle("dark", isDark);
-      })();
-    </script>
     <meta name="robots" content="noindex, nofollow, noarchive" />
     <meta name="referrer" content="same-origin" />
     <title>Earth · frong.me</title>
-
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600&display=swap"
-    />
+    <style>
+      :root {
+        --earth-accent: #6d5bd0;
+        --earth-accent-contrast: #ffffff;
+        --earth-border: rgba(128, 128, 128, 0.3);
+        color-scheme: light dark;
+      }
+      body {
+        margin: 0;
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        background: #fafafa;
+        color: #1a1a1a;
+      }
+      @media (prefers-color-scheme: dark) {
+        body { background: #141414; color: #ededed; }
+      }
+    </style>
   </head>
 
-  <body class="bg-background text-foreground">
-    <!--
-      client:load, not client:idle or client:visible: the shell is the entire
-      page, and its first action is to fetch the admin data.
-    -->
-    <EarthAdminShell client:load />
+  <body>
+    <Portal />
 
     <noscript>
-      <div class="p-6 text-sm">
-        <p class="font-serif text-lg">JavaScript is required</p>
-        <p class="mt-2 text-muted-foreground">
-          The admin area reads and writes through the authenticated
-          <code class="font-mono">/earth/api</code> endpoints. Public article
-          pages remain readable without JavaScript.
+      <div style="padding:1.5rem;font-size:0.875rem;">
+        <p style="font-weight:600;">JavaScript is required</p>
+        <p style="margin-top:0.5rem;opacity:0.7;">
+          The admin portal reads and writes through the authenticated
+          <code>/earth/api</code> endpoints. Public article pages remain
+          readable without JavaScript.
         </p>
       </div>
     </noscript>

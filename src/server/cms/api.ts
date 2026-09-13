@@ -3,7 +3,6 @@ import type {
   CategoryRow,
   PostAssetUsageRow,
   PostRow,
-  ReleaseRow,
   TagRow,
 } from '../../lib/cms/contracts.ts';
 import type { PostSourceRow } from './repositories/taxonomy.ts';
@@ -19,9 +18,15 @@ export interface CmsApiLocals {
 
 export interface CmsApiEnvironment {
   DB?: D1DatabaseBinding;
-  GITHUB_DISPATCH_TOKEN?: string;
-  GITHUB_REPO?: string;
-  RELEASE_CALLBACK_SECRET?: string;
+  MEDIA_BUCKET?: R2BucketBinding;
+  MEDIA_PUBLIC_BASE_URL?: string;
+  GEMINI_API_KEY?: string;
+}
+
+export interface R2BucketBinding {
+  put(key: string, value: ArrayBuffer | Uint8Array | ReadableStream, options?: { httpMetadata?: { contentType?: string } }): Promise<unknown>;
+  get(key: string): Promise<{ body: ReadableStream; httpMetadata?: { contentType?: string } } | null>;
+  delete(key: string): Promise<void>;
 }
 
 export async function resolveCmsEnvironment(locals: unknown): Promise<CmsApiEnvironment> {
@@ -63,6 +68,7 @@ export interface PostListDto {
   lifecycle: PostRow['lifecycle'];
   draftVersion: number;
   updatedAt: number;
+  publishedAt: number | null;
 }
 
 export function postRowToListDto(row: PostRow): PostListDto {
@@ -76,6 +82,7 @@ export function postRowToListDto(row: PostRow): PostListDto {
     lifecycle: row.lifecycle,
     draftVersion: row.draft_version,
     updatedAt: row.updated_at,
+    publishedAt: row.published_at,
   };
 }
 
@@ -130,36 +137,6 @@ export function postDetailDto(
       byteSize: asset.byte_size,
       sha256: asset.sha256,
     })),
-  };
-}
-
-export function releaseRowToSummary(row: ReleaseRow, itemCount: number) {
-  return {
-    id: row.id,
-    status: row.status,
-    triggerKind: row.trigger_kind,
-    itemCount,
-    manifestSha256: row.manifest_sha256,
-    codeCommit: row.code_commit,
-    errorCode: row.error_code,
-    errorMessage: row.error_message,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-    finishedAt: row.finished_at,
-  };
-}
-
-export function releaseAttemptDto(row: import('../../lib/cms/contracts.ts').ReleaseAttemptRow) {
-  return {
-    id: row.id,
-    releaseId: row.release_id,
-    attemptNumber: row.attempt_number,
-    workflowRunId: row.workflow_run_id,
-    providerDeploymentId: row.provider_deployment_id,
-    status: row.status,
-    errorMessage: row.error_message,
-    startedAt: row.started_at,
-    finishedAt: row.finished_at,
   };
 }
 

@@ -26,6 +26,7 @@ Decoupling mutable post drafts from immutable post revisions ensures editorial w
   created_at: 1789030800000,
   updated_at: 1789030800000,
   archived_at: null,
+  published_at: 1789030800000,
 };
 
 /**
@@ -34,7 +35,6 @@ Decoupling mutable post drafts from immutable post revisions ensures editorial w
  */
 export const mockPublicArticleEn: PublicArticle = {
   id: 'post_en_00000001',
-  revisionId: 'rev_en_00000001',
   lang: 'en',
   translationGroupId: 'grp_architecture_2026',
   slug: 'cloudflare-cms-architecture',

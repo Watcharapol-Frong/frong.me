@@ -18,6 +18,7 @@ const POST: PostDetail = {
   lifecycle: 'draft',
   draftVersion: 1,
   updatedAt: 1789140000000,
+  publishedAt: null,
   bodyMarkdown: '# Draft',
   categoryIds: ['cat_existing01'],
   tagIds: [],
@@ -115,74 +116,38 @@ test('PostEditor updates the loaded draft with the server draft version and pres
   assert.equal('status' in body.draft, false);
 });
 
-test('PostEditor publish intent saves the draft and queues a release in D1', async () => {
+test('PostEditor publish intent saves the draft and flips it live directly', async () => {
   const saved = { ...POST, draftVersion: 2, tagIds: DRAFT.tagIds };
-  const release = {
-    id: 'rel_editor00001',
-    status: 'queued',
-    triggerKind: 'publish',
-    itemCount: 1,
-    manifestSha256: 'a'.repeat(64),
-    codeCommit: null,
-    errorCode: null,
-    errorMessage: null,
-    createdAt: 1789140000000,
-    updatedAt: 1789140000000,
-    finishedAt: null,
-  };
+  const published = { ...saved, lifecycle: 'active', publishedAt: 1789140000000 };
   const { api, requests } = client((request) => {
     if (request.method === 'PUT') return { body: saved };
-    if (request.url === '/earth/api/releases') {
-      if (request.method === 'GET') {
-        return {
-          body: {
-            liveReleaseId: null,
-            liveManifest: null,
-            releases: [],
-            pendingDiff: { baseReleaseId: null, entries: [], unchangedCount: 0 },
-          },
-        };
-      }
-      return { status: 201, body: { release } };
+    if (request.url === `/earth/api/posts/${POST.id}/publish`) {
+      return { body: published };
     }
     throw new Error(`Unexpected request: ${request.method} ${request.url}`);
   });
 
   const result = await api.publish({ ...DRAFT, status: 'published' }, POST);
-  assert.equal(result.release.status, 'queued');
+  assert.equal(result.post.lifecycle, 'active');
   assert.deepEqual(requests.map(({ url, method }) => ({ url, method })), [
     { url: `/earth/api/posts/${POST.id}`, method: 'PUT' },
-    { url: '/earth/api/releases', method: 'GET' },
-    { url: '/earth/api/releases', method: 'POST' },
+    { url: `/earth/api/posts/${POST.id}/publish`, method: 'POST' },
   ]);
-  const releaseBody = requests[2]?.body as any;
-  assert.equal(releaseBody.triggerKind, 'publish');
-  assert.equal(releaseBody.triggerPostId, POST.id);
-  assert.equal(releaseBody.revisionSnapshot.expectedDraftVersion, 2);
-  assert.equal(releaseBody.manifest.articles[0].postId, POST.id);
+  const publishBody = requests[1]?.body as any;
+  assert.equal(publishBody.expectedDraftVersion, 2);
 });
 
 test('a publish failure carries the newly saved draft version for a safe retry', async () => {
   const saved = { ...POST, draftVersion: 2 };
   const { api } = client((request) => {
     if (request.method === 'PUT') return { body: saved };
-    if (request.method === 'GET') {
-      return {
-        body: {
-          liveReleaseId: null,
-          liveManifest: null,
-          releases: [],
-          pendingDiff: { baseReleaseId: null, entries: [], unchangedCount: 0 },
-        },
-      };
-    }
     return {
       status: 409,
       body: {
         error: {
-          code: 'RELEASE_BUSY',
-          message: 'Another release is in flight',
-          details: { activeReleaseId: 'rel_busy000001' },
+          code: 'DRAFT_VERSION_CONFLICT',
+          message: 'The post draft changed after it was loaded, or it is already published/archived',
+          details: { currentDraftVersion: 3 },
         },
       },
     };
@@ -193,7 +158,7 @@ test('a publish failure carries the newly saved draft version for a safe retry',
     (error: unknown) => {
       assert.ok(error instanceof PostEditorPublishError);
       assert.equal(error.post.draftVersion, 2);
-      assert.match(error.message, /Another release is in flight/);
+      assert.match(error.message, /draft changed after it was loaded/);
       return true;
     },
   );
