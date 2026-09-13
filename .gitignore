@@ -32,3 +32,7 @@ pnpm-debug.log*
 
 # wrangler local state
 .wrangler/
+
+# wrangler local secrets — holds dev-only values such as the Access bypass flag
+.dev.vars
+.dev.vars.*

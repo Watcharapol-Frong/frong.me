@@ -1,19 +1,22 @@
 ---
 /**
- * Earth admin Zen Editor — composition root.
+ * Earth editor — composition root.
  *
- * Single-column writing area (Title + Body, no split preview — Preview opens
- * a new tab instead), a collapsible left sidebar (`MetadataForm`: slug/font/
- * cover/excerpt/tags/JSON-LD), a collapsible right sidebar (`AiPanel`), and
- * one delegated script that owns:
+ * Header (`ActionBar`) over three columns: metadata sidebar (`MetadataForm`),
+ * the writing surface (`ContentEditor`), and the AI Assistant (`AiPanel`,
+ * which owns its own script). Ctrl+/ collapses both sidebars into Zen mode.
+ *
+ * One delegated script below owns everything else:
  *
  * - Field collection into the strict posts wire contract.
  * - Same-origin create, fetch, versioned update, and direct publish/unpublish
  *   (no release step — see `src/lib/cms/client/post-editor-api.ts`).
  * - Local draft backup: debounced autosave to `localStorage`, restore on
- *   load, "last saved" status in the action bar.
- * - Cover/body image upload directly to R2, auto-slug from title, live
- *   counters, keyboard shortcuts, and Zen mode (hide both sidebars).
+ *   load, and a "saved HH:MM:SS" indicator.
+ * - Cover and body image upload straight to R2, auto-slug from the title,
+ *   live counters, the emoji/image/YouTube inserts, and every shortcut.
+ *
+ * Styling for all four components lives in `src/pages/earth/editor.astro`.
  */
 import MetadataForm from './MetadataForm.astro';
 import ContentEditor from './ContentEditor.astro';
@@ -34,11 +37,12 @@ export interface PostEditorProps {
     body?: string;
   };
   storageKey?: string;
+  siteDomain?: string;
 }
 
 interface Props extends PostEditorProps {}
 
-const { initial = {}, storageKey } = Astro.props as Props;
+const { initial = {}, storageKey, siteDomain = 'frong.me' } = Astro.props as Props;
 
 const resolvedKey = storageKey ?? `earth:draft:${initial.id ?? 'new'}`;
 const seed = {
@@ -56,50 +60,110 @@ const seed = {
 ---
 
 <form
-  class="earth-editor"
+  class="editor-root"
   data-earth-editor
   data-earth-storage-key={resolvedKey}
   data-earth-storage-custom={storageKey ? 'true' : 'false'}
   data-earth-post-id={seed.id || 'new'}
+  data-earth-site-domain={siteDomain}
 >
   <ActionBar status={seed.status} />
 
-  <div class="earth-editor__layout" data-earth-layout>
+  <div class="main-layout" data-earth-layout>
     <MetadataForm
+      siteDomain={siteDomain}
       initial={{
         slug: seed.slug,
         excerpt: seed.excerpt,
         tags: seed.tags,
         font: seed.font,
         coverUrl: seed.coverUrl,
-        status: seed.status,
+        status: seed.status === 'active' ? 'published' : 'draft',
       }}
     />
 
-    <div class="earth-editor__main">
-      <label class="earth-title">
-        <input
-          class="earth-title__input"
-          type="text"
-          name="title"
-          data-earth-field="title"
-          value={seed.title}
-          placeholder="Untitled"
-          autocomplete="off"
-          maxlength="60"
-          required
-        />
-        <span class="earth-title__count" data-earth-count="title">0 / 60</span>
-      </label>
-      <ContentEditor initial={seed.body} />
-    </div>
+    <main class="editor-panel">
+      <input
+        type="text"
+        class="title-input"
+        data-earth-field="title"
+        value={seed.title}
+        placeholder="Title"
+        maxlength="120"
+        autocomplete="off"
+        required
+      />
+      <ContentEditor initial={seed.body} coverUrl={seed.coverUrl} />
+    </main>
 
     <AiPanel />
   </div>
 
-  <input type="hidden" name="id" value={seed.id} />
-  <input type="hidden" name="lang" data-earth-field="lang" value={seed.lang} />
+  <input type="hidden" data-earth-field="id" value={seed.id} />
+  <input type="hidden" data-earth-field="lang" value={seed.lang} />
 </form>
+
+<div class="save-indicator" data-earth-save-indicator hidden>
+  <span data-earth-save-indicator-text>saved</span>
+</div>
+
+<!-- Ctrl+I: upload an image into the body -->
+<div class="modal-overlay" data-earth-modal="image">
+  <div class="modal modal--wide">
+    <div class="upload-dropzone" data-earth-upload-dropzone>
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="upload-icon"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <div class="upload-text">Drop an image here, or <label class="upload-link" for="earth-body-image">browse</label></div>
+      <div class="upload-limits">JPEG, PNG, WebP · uploaded straight to R2</div>
+      <input type="file" id="earth-body-image" accept="image/jpeg,image/png,image/webp" hidden data-earth-body-image-file />
+    </div>
+    <div class="upload-error" data-earth-upload-error hidden></div>
+    <div class="modal-hint">Press Esc to close</div>
+  </div>
+</div>
+
+<!-- Ctrl+Shift+Y: embed a YouTube video -->
+<div class="modal-overlay" data-earth-modal="video">
+  <div class="modal">
+    <h2 class="modal-title">Embed YouTube</h2>
+    <input
+      type="url"
+      class="form-input"
+      data-earth-video-url
+      placeholder="https://youtube.com/watch?v=…"
+      autocomplete="off"
+    />
+    <div class="upload-error" data-earth-video-error hidden></div>
+    <div class="modal-actions">
+      <button type="button" class="modal-btn modal-btn-cancel" data-earth-modal-close>Cancel</button>
+      <button type="button" class="modal-btn modal-btn-confirm" data-earth-action="embed-video">Embed</button>
+    </div>
+    <div class="modal-hint">Paste a YouTube URL or an 11-character video id</div>
+  </div>
+</div>
+
+<!-- Shown after a successful publish -->
+<div class="modal-overlay" data-earth-modal="published">
+  <div class="modal">
+    <div class="publish-success-icon">✓</div>
+    <h2 class="modal-title">Published</h2>
+    <p class="modal-text">The post is live on the site right now.</p>
+    <div class="publish-info">
+      <div class="publish-row">
+        <span class="publish-label">Title</span>
+        <span class="publish-value" data-earth-published-title></span>
+      </div>
+      <div class="publish-row">
+        <span class="publish-label">URL</span>
+        <a class="publish-value publish-url" data-earth-published-url href="#" target="_blank" rel="noopener"></a>
+      </div>
+    </div>
+    <div class="modal-actions modal-actions--stack">
+      <a class="modal-btn modal-btn-confirm" data-earth-published-open href="#" target="_blank" rel="noopener">View post</a>
+      <button type="button" class="modal-btn modal-btn-cancel" data-earth-action="copy-url">Copy link</button>
+      <button type="button" class="modal-btn modal-btn-cancel" data-earth-modal-close>Keep editing</button>
+    </div>
+  </div>
+</div>
 
 <script>
   import { newCmsId, uploadAsset, attachPostAsset, type PostDetail } from '../../lib/cms/client/api.ts';
@@ -112,6 +176,10 @@ const seed = {
   import { renderMarkdown } from '../../lib/cms/markdown/render.ts';
 
   const MAX_TAGS = 2;
+  const EMOJI = [
+    '✨', '✍️', '📝', '🎯', '🧭', '🗺️', '🧩', '📚', '💡', '🔍', '🧠', '⚡',
+    '🌱', '🪴', '☕', '🌊', '🏔️', '🧵', '⏳', '🔁', '📊', '🛠️', '🚀', '🎧',
+  ];
 
   /** ASCII-only, matching the server's slug pattern — Thai titles fall back to empty. */
   function autoSlug(title: string): string {
@@ -120,53 +188,86 @@ const seed = {
       .normalize('NFKD')
       .replace(/[̀-ͯ]/g, '')
       .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '');
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 60)
+      .replace(/-+$/g, '');
+  }
+
+  /** YouTube id from a full URL or a bare id; null when neither. */
+  function youTubeId(input: string): string | null {
+    const value = input.trim();
+    if (/^[A-Za-z0-9_-]{11}$/.test(value)) return value;
+    const match = value.match(
+      /(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/|v\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/,
+    );
+    return match ? match[1] : null;
   }
 
   function initEditor(form: HTMLFormElement) {
     const api = createPostEditorApi();
+    const siteDomain = form.dataset.earthSiteDomain || 'frong.me';
     let storageKey = form.dataset.earthStorageKey || 'earth:draft:new';
     const customStorageKey = form.dataset.earthStorageCustom === 'true';
     const initialPostId = form.dataset.earthPostId || 'new';
     let postId = initialPostId === 'new' ? newCmsId('post') : initialPostId;
     let currentPost: PostDetail | null = null;
-    let slugTouched = initialPostId !== 'new' || Boolean(form.querySelector<HTMLInputElement>('[data-earth-field="slug"]')?.value);
     let pendingCoverAssetId: string | null = null;
 
+    const field = <T extends HTMLElement>(name: string) =>
+      form.querySelector<T>(`[data-earth-field="${name}"]`);
+
     const fields = {
-      id: form.querySelector<HTMLInputElement>('input[name="id"]'),
-      title: form.querySelector<HTMLInputElement>('[data-earth-field="title"]'),
-      lang: form.querySelector<HTMLInputElement>('[data-earth-field="lang"]'),
-      slug: form.querySelector<HTMLInputElement>('[data-earth-field="slug"]'),
-      excerpt: form.querySelector<HTMLTextAreaElement>('[data-earth-field="excerpt"]'),
-      tags: form.querySelector<HTMLInputElement>('[data-earth-field="tags"]'),
-      font: form.querySelector<HTMLSelectElement>('[data-earth-field="font"]'),
-      coverUrl: form.querySelector<HTMLInputElement>('[data-earth-field="coverUrl"]'),
-      jsonLd: form.querySelector<HTMLInputElement>('[data-earth-field="jsonLd"]'),
-      status: form.querySelector<HTMLInputElement>('[data-earth-field="status"]'),
-      body: form.querySelector<HTMLTextAreaElement>('[data-earth-field="body"]'),
+      id: field<HTMLInputElement>('id'),
+      lang: field<HTMLInputElement>('lang'),
+      title: field<HTMLInputElement>('title'),
+      slug: field<HTMLInputElement>('slug'),
+      excerpt: field<HTMLTextAreaElement>('excerpt'),
+      tags: field<HTMLInputElement>('tags'),
+      font: field<HTMLSelectElement>('font'),
+      coverUrl: field<HTMLInputElement>('coverUrl'),
+      jsonLd: field<HTMLInputElement>('jsonLd'),
+      status: field<HTMLInputElement>('status'),
+      body: field<HTMLTextAreaElement>('body'),
     };
 
+    let slugTouched = initialPostId !== 'new' || Boolean(fields.slug?.value);
+
     const saveStatus = form.querySelector<HTMLElement>('[data-earth-save-status]');
-    const aiPanel = form.querySelector<HTMLElement>('[data-earth-ai-panel]');
-    const aiToggle = form.querySelector<HTMLButtonElement>('[data-earth-action="toggle-ai"]');
     const layout = form.querySelector<HTMLElement>('[data-earth-layout]');
-    const zenToggle = form.querySelector<HTMLButtonElement>('[data-earth-action="toggle-zen"]');
-    const leftSidebar = form.querySelector<HTMLElement>('[data-earth-sidebar="left"]');
-    const publishWrap = form.querySelector<HTMLElement>('[data-earth-publish]');
-    const publishConfirm = form.querySelector<HTMLElement>('[data-earth-publish-confirm]');
-    const titleCounter = form.querySelector<HTMLElement>('[data-earth-count="title"]');
-    const excerptCounter = form.querySelector<HTMLElement>('[data-earth-count="excerpt"]');
-    const bodyCounter = form.querySelector<HTMLElement>('[data-earth-count="body"]');
+    const scroll = form.querySelector<HTMLElement>('[data-earth-scroll]');
+    const slugPreview = form.querySelector<HTMLElement>('[data-earth-slug-preview]');
+    const slugMode = form.querySelector<HTMLElement>('[data-earth-slug-mode]');
     const jsonLdPreview = form.querySelector<HTMLElement>('[data-earth-jsonld-preview]');
-    const slugModeLabel = form.querySelector<HTMLElement>('[data-earth-slug-mode]');
-    const coverDrop = form.querySelector<HTMLElement>('[data-earth-cover-drop]');
+    const coverContainer = form.querySelector<HTMLElement>('[data-earth-cover-container]');
     const coverPreview = form.querySelector<HTMLImageElement>('[data-earth-cover-preview]');
-    const coverEmpty = form.querySelector<HTMLElement>('[data-earth-cover-empty]');
-    const coverZoomWrap = form.querySelector<HTMLElement>('[data-earth-cover-zoom]');
-    const coverZoomInput = form.querySelector<HTMLInputElement>('[data-earth-cover-zoom-input]');
+    const coverStatus = form.querySelector<HTMLElement>('[data-earth-cover-status]');
+    const coverError = form.querySelector<HTMLElement>('[data-earth-cover-error]');
     const coverFileInput = form.querySelector<HTMLInputElement>('[data-earth-cover-file]');
     const dropIndicator = form.querySelector<HTMLElement>('[data-earth-drop-indicator]');
+    const emojiPicker = form.querySelector<HTMLElement>('[data-earth-emoji-picker]');
+    const publishWrap = form.querySelector<HTMLElement>('[data-earth-publish-wrap]');
+    const publishConfirm = form.querySelector<HTMLElement>('[data-earth-publish-confirm]');
+    const unpublishWrap = form.querySelector<HTMLElement>('[data-earth-unpublish-wrap]');
+    const unpublishConfirm = form.querySelector<HTMLElement>('[data-earth-unpublish-confirm]');
+
+    const counters = {
+      words: form.querySelector<HTMLElement>('[data-earth-count="words"]'),
+      chars: form.querySelector<HTMLElement>('[data-earth-count="chars"]'),
+      title: form.querySelector<HTMLElement>('[data-earth-count="title"]'),
+      excerpt: form.querySelector<HTMLElement>('[data-earth-count="excerpt"]'),
+    };
+
+    const saveIndicator = document.querySelector<HTMLElement>('[data-earth-save-indicator]');
+    const saveIndicatorText = document.querySelector<HTMLElement>('[data-earth-save-indicator-text]');
+    const modals = {
+      image: document.querySelector<HTMLElement>('[data-earth-modal="image"]'),
+      video: document.querySelector<HTMLElement>('[data-earth-modal="video"]'),
+      published: document.querySelector<HTMLElement>('[data-earth-modal="published"]'),
+    };
+    const bodyImageInput = document.querySelector<HTMLInputElement>('[data-earth-body-image-file]');
+    const uploadError = document.querySelector<HTMLElement>('[data-earth-upload-error]');
+    const videoInput = document.querySelector<HTMLInputElement>('[data-earth-video-url]');
+    const videoError = document.querySelector<HTMLElement>('[data-earth-video-error]');
 
     /* ---------------- Payload ---------------- */
 
@@ -178,18 +279,33 @@ const seed = {
         title: fields.title?.value.trim() ?? '',
         slug: fields.slug?.value.trim() ?? '',
         excerpt: fields.excerpt?.value.trim() ?? '',
-        tagIds: [...new Set(tagsRaw.split(',').map((t) => t.trim()).filter(Boolean))].slice(0, MAX_TAGS),
+        tagIds: [...new Set(tagsRaw.split(',').map((tag) => tag.trim()).filter(Boolean))].slice(0, MAX_TAGS),
         status: statusOverride ?? (fields.status?.value === 'active' ? 'published' : 'draft'),
         bodyMarkdown: fields.body?.value ?? '',
         coverUrl: fields.coverUrl?.value.trim() ?? '',
       };
     }
 
-    /* ---------------- Local draft backup ---------------- */
+    /* ---------------- Status + local backup ---------------- */
 
     let saveTimer: ReturnType<typeof setTimeout> | undefined;
+    let indicatorTimer: ReturnType<typeof setTimeout> | undefined;
     let saving = false;
     let dirty = false;
+
+    function setStatus(text: string, tone: 'idle' | 'saved' | 'offline' | 'error' = 'idle') {
+      if (!saveStatus) return;
+      saveStatus.textContent = text;
+      saveStatus.className = `save-status${tone === 'idle' ? '' : ` ${tone}`}`;
+    }
+
+    function flashIndicator(text: string) {
+      if (!saveIndicator || !saveIndicatorText) return;
+      saveIndicatorText.textContent = text;
+      saveIndicator.hidden = false;
+      clearTimeout(indicatorTimer);
+      indicatorTimer = setTimeout(() => { saveIndicator.hidden = true; }, 1800);
+    }
 
     function readBackup(): PostEditorDraft | null {
       try {
@@ -204,15 +320,16 @@ const seed = {
       try {
         localStorage.setItem(storageKey, JSON.stringify({ ...payload, savedAt: Date.now() }));
       } catch {
-        /* quota or private mode — backup is best-effort */
+        /* quota or private mode — the local backup is best-effort */
       }
     }
 
-    function setStatus(text: string, tone: 'info' | 'error' = 'info') {
-      if (!saveStatus) return;
-      saveStatus.textContent = text;
-      saveStatus.dataset.tone = tone;
-      saveStatus.setAttribute('role', tone === 'error' ? 'alert' : 'status');
+    function scheduleAutosave() {
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => {
+        writeBackup(buildPayload());
+        setStatus('Backed up locally', 'idle');
+      }, 800);
     }
 
     function isPublished(): boolean {
@@ -221,9 +338,223 @@ const seed = {
 
     function setBusy(busy: boolean) {
       form.setAttribute('aria-busy', String(busy));
-      form.querySelectorAll<HTMLButtonElement>('[data-earth-action="save-draft"], [data-earth-action="publish-toggle"]')
-        .forEach((button) => { button.disabled = busy; });
+      form.querySelectorAll<HTMLButtonElement>('.header-btn').forEach((button) => {
+        button.disabled = busy;
+      });
     }
+
+    function refreshPublishControls() {
+      const published = isPublished();
+      if (publishWrap) publishWrap.hidden = published;
+      if (unpublishWrap) unpublishWrap.hidden = !published;
+      if (publishConfirm) publishConfirm.classList.remove('active');
+      if (unpublishConfirm) unpublishConfirm.classList.remove('active');
+    }
+
+    /* ---------------- Derived UI ---------------- */
+
+    function updateCounters() {
+      const body = fields.body?.value ?? '';
+      const words = body.trim().split(/\s+/).filter(Boolean).length;
+      if (counters.words) counters.words.textContent = String(words);
+      if (counters.chars) counters.chars.textContent = String(body.length);
+      if (counters.title) {
+        const length = fields.title?.value.length ?? 0;
+        counters.title.textContent = String(length);
+        counters.title.classList.toggle('over', length > 60);
+      }
+      if (counters.excerpt) {
+        const length = fields.excerpt?.value.length ?? 0;
+        counters.excerpt.textContent = String(length);
+        counters.excerpt.classList.toggle('over', length > 160);
+      }
+    }
+
+    function updateSlugPreview() {
+      if (slugPreview) slugPreview.textContent = fields.slug?.value || 'your-slug';
+    }
+
+    function syncSlugFromTitle() {
+      if (slugTouched || !fields.slug || !fields.title) return;
+      const next = autoSlug(fields.title.value);
+      if (next) fields.slug.value = next;
+      updateSlugPreview();
+    }
+
+    function enforceTagLimit() {
+      if (!fields.tags) return;
+      const tags = fields.tags.value.split(',').map((tag) => tag.trim()).filter(Boolean);
+      if (tags.length > MAX_TAGS) fields.tags.value = tags.slice(0, MAX_TAGS).join(', ');
+    }
+
+    function updateJsonLd() {
+      if (!jsonLdPreview) return;
+      if (!fields.jsonLd?.checked) {
+        jsonLdPreview.hidden = true;
+        return;
+      }
+      jsonLdPreview.textContent = JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'Article',
+        headline: fields.title?.value ?? '',
+        description: fields.excerpt?.value ?? '',
+        image: fields.coverUrl?.value || undefined,
+        datePublished: currentPost?.publishedAt
+          ? new Date(currentPost.publishedAt).toISOString()
+          : undefined,
+      }, null, 2);
+      jsonLdPreview.hidden = false;
+    }
+
+    function showCover(url: string) {
+      if (!coverContainer || !coverPreview) return;
+      if (url) {
+        coverPreview.src = url;
+        coverContainer.hidden = false;
+      } else {
+        coverPreview.removeAttribute('src');
+        coverContainer.hidden = true;
+      }
+    }
+
+    /** The body textarea grows with its content so `.editor-scroll` is the only scroller. */
+    function autoGrow() {
+      const textarea = fields.body;
+      if (!textarea || !scroll) return;
+      const top = scroll.scrollTop;
+      textarea.style.height = 'auto';
+      textarea.style.height = `${textarea.scrollHeight}px`;
+      scroll.scrollTop = top;
+    }
+
+    /* ---------------- Uploads ---------------- */
+
+    function setCoverError(message: string) {
+      if (!coverError) return;
+      coverError.textContent = message;
+      coverError.hidden = !message;
+    }
+
+    async function handleCoverFile(file: File) {
+      setCoverError('');
+      if (coverStatus) coverStatus.textContent = 'Uploading…';
+      try {
+        const uploaded = await uploadAsset(file, 'photo');
+        pendingCoverAssetId = uploaded.id;
+        if (fields.coverUrl) fields.coverUrl.value = uploaded.url;
+        showCover(uploaded.url);
+        updateJsonLd();
+        scheduleAutosave();
+        dirty = true;
+        if (coverStatus) coverStatus.textContent = 'Attaches on next save';
+      } catch (error) {
+        if (coverStatus) coverStatus.textContent = '';
+        setCoverError((error as Error).message);
+      }
+    }
+
+    async function handleBodyImage(file: File) {
+      if (!fields.body) return;
+      if (uploadError) uploadError.hidden = true;
+      try {
+        const uploaded = await uploadAsset(file, 'photo');
+        const alt = file.name.replace(/\.[^.]+$/, '') || 'image';
+        insertAtCursor(`\n![${alt}](${uploaded.url})\n`);
+        closeModal(modals.image);
+        flashIndicator('image inserted');
+      } catch (error) {
+        if (uploadError) {
+          uploadError.textContent = (error as Error).message;
+          uploadError.hidden = false;
+        }
+      }
+    }
+
+    /** Links an uploaded cover to the post so the reader route resolves it from R2. */
+    async function attachPendingCover() {
+      if (!pendingCoverAssetId || !currentPost) return;
+      try {
+        const result = await attachPostAsset(postId, {
+          id: newCmsId('usage'),
+          assetId: pendingCoverAssetId,
+          role: 'cover',
+          altText: fields.title?.value.trim() || 'Cover image',
+          expectedDraftVersion: currentPost.draftVersion,
+        });
+        if (result.ok) {
+          currentPost = result.data;
+          pendingCoverAssetId = null;
+          if (coverStatus) coverStatus.textContent = 'Attached';
+        }
+      } catch {
+        // Non-fatal: the post itself saved, and the cover URL is already
+        // stored on it. The attach retries on the next save.
+      }
+    }
+
+    /* ---------------- Text insertion ---------------- */
+
+    function insertAtCursor(text: string) {
+      const textarea = fields.body;
+      if (!textarea) return;
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      textarea.value = textarea.value.slice(0, start) + text + textarea.value.slice(end);
+      const caret = start + text.length;
+      textarea.setSelectionRange(caret, caret);
+      textarea.focus();
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    function wrapSelection(marker: string, placeholder: string) {
+      const textarea = fields.body;
+      if (!textarea) return;
+      const { selectionStart: start, selectionEnd: end, value } = textarea;
+      const selected = value.slice(start, end) || placeholder;
+      textarea.value = value.slice(0, start) + marker + selected + marker + value.slice(end);
+      textarea.setSelectionRange(start + marker.length, start + marker.length + selected.length);
+      textarea.focus();
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    /* ---------------- Modals ---------------- */
+
+    function openModal(modal: HTMLElement | null) {
+      modal?.setAttribute('data-visible', 'true');
+    }
+
+    function closeModal(modal: HTMLElement | null) {
+      modal?.removeAttribute('data-visible');
+    }
+
+    function closeAllModals() {
+      Object.values(modals).forEach(closeModal);
+      if (emojiPicker) emojiPicker.hidden = true;
+    }
+
+    function toggleEmojiPicker() {
+      if (!emojiPicker) return;
+      if (!emojiPicker.hidden) {
+        emojiPicker.hidden = true;
+        return;
+      }
+      if (emojiPicker.childElementCount === 0) {
+        for (const emoji of EMOJI) {
+          const item = document.createElement('button');
+          item.type = 'button';
+          item.className = 'emoji-item';
+          item.textContent = emoji;
+          item.addEventListener('click', () => {
+            insertAtCursor(emoji);
+            emojiPicker.hidden = true;
+          });
+          emojiPicker.append(item);
+        }
+      }
+      emojiPicker.hidden = false;
+    }
+
+    /* ---------------- Persistence ---------------- */
 
     function applyPost(post: PostDetail) {
       postId = post.id;
@@ -233,29 +564,15 @@ const seed = {
       if (fields.title) fields.title.value = post.title;
       if (fields.slug) fields.slug.value = post.slug;
       if (fields.excerpt) fields.excerpt.value = post.excerpt ?? '';
-      if (fields.tags) fields.tags.value = post.tagIds.slice(0, MAX_TAGS).join(', ');
+      if (fields.tags) fields.tags.value = post.tagNames.slice(0, MAX_TAGS).join(', ');
       if (fields.body) fields.body.value = post.bodyMarkdown;
       if (fields.status) fields.status.value = post.lifecycle === 'active' ? 'active' : 'draft';
       if (fields.coverUrl) fields.coverUrl.value = post.coverImageUrl ?? '';
-      showCoverPreview(fields.coverUrl?.value ?? '');
+      showCover(fields.coverUrl?.value ?? '');
       slugTouched = true;
+      if (slugMode) slugMode.textContent = 'manual';
       currentPost = post;
-      refreshPublishLabel();
-    }
-
-    function refreshPublishLabel() {
-      const btn = form.querySelector<HTMLButtonElement>('[data-earth-action="publish-toggle"]');
-      if (btn) btn.textContent = isPublished() ? 'Unpublish' : 'Publish';
-      publishWrap?.setAttribute('data-earth-publish-status', isPublished() ? 'active' : 'draft');
-    }
-
-    function scheduleAutosave() {
-      clearTimeout(saveTimer);
-      saveTimer = setTimeout(() => {
-        writeBackup(buildPayload());
-        const t = new Date().toLocaleTimeString();
-        setStatus(`Backed up locally · ${t}`);
-      }, 800);
+      refreshPublishControls();
     }
 
     function restoreBackup() {
@@ -272,134 +589,26 @@ const seed = {
       if (fields.title) fields.title.value = backup.title;
       if (fields.slug) fields.slug.value = backup.slug;
       if (fields.excerpt) fields.excerpt.value = backup.excerpt;
-      if (fields.tags && Array.isArray(backup.tagIds)) fields.tags.value = backup.tagIds.slice(0, MAX_TAGS).join(', ');
+      if (fields.tags && Array.isArray(backup.tagIds)) {
+        fields.tags.value = backup.tagIds.slice(0, MAX_TAGS).join(', ');
+      }
       if (fields.body) fields.body.value = backup.bodyMarkdown;
       if (fields.coverUrl && backup.coverUrl) fields.coverUrl.value = backup.coverUrl;
-      showCoverPreview(fields.coverUrl?.value ?? '');
+      showCover(fields.coverUrl?.value ?? '');
       dirty = true;
-      setStatus('Restored local draft');
+      setStatus('Restored a local draft', 'offline');
     }
-
-    /* ---------------- Counters ---------------- */
-
-    function updateCounters() {
-      if (titleCounter && fields.title) titleCounter.textContent = `${fields.title.value.length} / 60`;
-      if (excerptCounter && fields.excerpt) excerptCounter.textContent = `${fields.excerpt.value.length} / 160`;
-      if (bodyCounter && fields.body) {
-        const words = fields.body.value.trim().split(/\s+/).filter(Boolean).length;
-        bodyCounter.textContent = `${words} word${words === 1 ? '' : 's'}`;
-      }
-    }
-
-    /* ---------------- Slug auto-detect ---------------- */
-
-    function syncSlugFromTitle() {
-      if (slugTouched || !fields.slug || !fields.title) return;
-      fields.slug.value = autoSlug(fields.title.value);
-    }
-
-    /* ---------------- Tags (max 2) ---------------- */
-
-    function enforceTagLimit() {
-      if (!fields.tags) return;
-      const tags = fields.tags.value.split(',').map((t) => t.trim()).filter(Boolean);
-      if (tags.length > MAX_TAGS) {
-        fields.tags.value = tags.slice(0, MAX_TAGS).join(', ');
-      }
-    }
-
-    /* ---------------- JSON-LD preview ---------------- */
-
-    function updateJsonLd() {
-      if (!jsonLdPreview) return;
-      if (!fields.jsonLd?.checked) {
-        jsonLdPreview.hidden = true;
-        return;
-      }
-      const schema = {
-        '@context': 'https://schema.org',
-        '@type': 'Article',
-        headline: fields.title?.value ?? '',
-        description: fields.excerpt?.value ?? '',
-        image: fields.coverUrl?.value || undefined,
-        datePublished: currentPost?.updatedAt ? new Date(currentPost.updatedAt).toISOString() : undefined,
-      };
-      jsonLdPreview.textContent = JSON.stringify(schema, null, 2);
-      jsonLdPreview.hidden = false;
-    }
-
-    /* ---------------- Cover image ---------------- */
-
-    function showCoverPreview(url: string) {
-      if (!coverPreview || !coverEmpty) return;
-      if (url) {
-        coverPreview.src = url;
-        coverPreview.hidden = false;
-        coverEmpty.hidden = true;
-        if (coverZoomWrap) coverZoomWrap.hidden = false;
-      } else {
-        coverPreview.hidden = true;
-        coverEmpty.hidden = false;
-        if (coverZoomWrap) coverZoomWrap.hidden = true;
-      }
-    }
-
-    async function handleCoverFile(file: File) {
-      setStatus('Uploading cover…');
-      try {
-        const uploaded = await uploadAsset(file, 'photo');
-        pendingCoverAssetId = uploaded.id;
-        if (fields.coverUrl) fields.coverUrl.value = uploaded.url;
-        showCoverPreview(uploaded.url);
-        scheduleAutosave();
-        setStatus('Cover uploaded — attaches to the post on next save');
-      } catch (err) {
-        setStatus(`Cover upload failed (${(err as Error).message})`, 'error');
-      }
-    }
-
-    async function handleBodyImageFile(file: File) {
-      if (!fields.body) return;
-      setStatus('Uploading image…');
-      try {
-        const uploaded = await uploadAsset(file, 'photo');
-        const ta = fields.body;
-        const pos = ta.selectionEnd ?? ta.value.length;
-        const insertion = `![${file.name.replace(/\.[^.]+$/, '')}](${uploaded.url})`;
-        ta.value = `${ta.value.slice(0, pos)}${insertion}${ta.value.slice(pos)}`;
-        ta.dispatchEvent(new Event('input', { bubbles: true }));
-        setStatus('Image inserted');
-      } catch (err) {
-        setStatus(`Image upload failed (${(err as Error).message})`, 'error');
-      }
-    }
-
-    async function attachPendingCover() {
-      if (!pendingCoverAssetId || postId === 'new' || !currentPost) return;
-      try {
-        const result = await attachPostAsset(postId, {
-          id: newCmsId('usage'),
-          assetId: pendingCoverAssetId,
-          role: 'cover',
-          altText: fields.title?.value.trim() || 'Cover image',
-          expectedDraftVersion: currentPost.draftVersion,
-        });
-        if (result.ok) {
-          currentPost = result.data;
-          pendingCoverAssetId = null;
-        }
-      } catch {
-        // Non-fatal: the post itself already saved; the cover attach can retry on next save.
-      }
-    }
-
-    /* ---------------- Persistence ---------------- */
 
     async function persist(statusOverride: 'draft' | 'published') {
       const payload = buildPayload(statusOverride);
       if (!payload.title) {
         setStatus('Title is required', 'error');
         fields.title?.focus();
+        return;
+      }
+      if (!payload.slug) {
+        setStatus('Slug is required', 'error');
+        fields.slug?.focus();
         return;
       }
       if (saving) return;
@@ -422,29 +631,30 @@ const seed = {
         localStorage.removeItem(storageKey);
         dirty = false;
         if (fields.status) fields.status.value = statusOverride === 'published' ? 'active' : 'draft';
-        refreshPublishLabel();
-        const timestamp = new Date().toLocaleTimeString();
-        setStatus(statusOverride === 'published' ? `Published · ${timestamp}` : `Saved · ${timestamp}`);
-      } catch (err) {
-        if (err instanceof PostEditorPublishError) currentPost = err.post;
+        refreshPublishControls();
+        setStatus('Saved', 'saved');
+        flashIndicator(`saved ${new Date().toLocaleTimeString(undefined, { hour12: false })}`);
+        if (statusOverride === 'published') showPublished(result.post);
+      } catch (error) {
         // A 409 reports the server's real current version. Advancing our copy
         // to match means the *next* explicit save the user triggers succeeds
         // instead of conflicting forever on the same stale number — we do not
         // resend automatically, so this never silently overwrites a genuine
         // concurrent edit without the user taking another explicit action.
-        const conflictVersion = err instanceof PostEditorConflictError
-          ? err.currentDraftVersion
-          : err instanceof PostEditorPublishError
-            ? err.currentDraftVersion
+        if (error instanceof PostEditorPublishError) currentPost = error.post;
+        const conflictVersion = error instanceof PostEditorConflictError
+          ? error.currentDraftVersion
+          : error instanceof PostEditorPublishError
+            ? error.currentDraftVersion
             : undefined;
-        let statusSuffix = '';
+        let suffix = '';
         if (conflictVersion !== undefined && currentPost) {
           currentPost = { ...currentPost, draftVersion: conflictVersion };
-          statusSuffix = ' — version refreshed, try saving again';
+          suffix = ' — version refreshed, try again';
         }
         writeBackup(payload);
         dirty = true;
-        setStatus(`Save failed — draft kept locally (${(err as Error).message})${statusSuffix}`, 'error');
+        setStatus(`Save failed: ${(error as Error).message}${suffix}`, 'error');
       } finally {
         saving = false;
         setBusy(false);
@@ -459,19 +669,34 @@ const seed = {
       try {
         currentPost = await api.unpublish(currentPost);
         if (fields.status) fields.status.value = 'draft';
-        refreshPublishLabel();
-        setStatus('Unpublished');
-      } catch (err) {
-        let statusSuffix = '';
-        if (err instanceof PostEditorConflictError && err.currentDraftVersion !== undefined && currentPost) {
-          currentPost = { ...currentPost, draftVersion: err.currentDraftVersion };
-          statusSuffix = ' — version refreshed, try again';
+        refreshPublishControls();
+        setStatus('Back to draft', 'saved');
+      } catch (error) {
+        let suffix = '';
+        if (error instanceof PostEditorConflictError && error.currentDraftVersion !== undefined && currentPost) {
+          currentPost = { ...currentPost, draftVersion: error.currentDraftVersion };
+          suffix = ' — version refreshed, try again';
         }
-        setStatus(`Unpublish failed (${(err as Error).message})${statusSuffix}`, 'error');
+        setStatus(`Unpublish failed: ${(error as Error).message}${suffix}`, 'error');
       } finally {
         saving = false;
         setBusy(false);
       }
+    }
+
+    function showPublished(post: PostDetail) {
+      const path = `/articles/${post.slug}`;
+      const url = new URL(path, window.location.origin).href;
+      const titleEl = document.querySelector<HTMLElement>('[data-earth-published-title]');
+      const urlEl = document.querySelector<HTMLAnchorElement>('[data-earth-published-url]');
+      const openEl = document.querySelector<HTMLAnchorElement>('[data-earth-published-open]');
+      if (titleEl) titleEl.textContent = post.title;
+      if (urlEl) {
+        urlEl.textContent = `${siteDomain}${path}`;
+        urlEl.href = path;
+      }
+      if (openEl) openEl.href = path;
+      openModal(modals.published);
     }
 
     /* ---------------- Preview in a new tab ---------------- */
@@ -479,57 +704,79 @@ const seed = {
     function openPreview() {
       const { html } = renderMarkdown(fields.body?.value ?? '');
       const title = fields.title?.value || 'Untitled';
-      const page = `<!doctype html><html><head><meta charset="utf-8"><title>${title} — Preview</title>
+      const excerpt = fields.excerpt?.value ?? '';
+      const cover = fields.coverUrl?.value ?? '';
+      const tags = (fields.tags?.value ?? '').split(',').map((tag) => tag.trim()).filter(Boolean);
+      const fontFamily = {
+        'crimson-pro': "'Crimson Pro', Georgia, serif",
+        'jetbrains-mono': "'JetBrains Mono', monospace",
+        'ibm-plex-sans-thai': "'IBM Plex Sans Thai', system-ui, sans-serif",
+        'google-sans': "'Google Sans', system-ui, sans-serif",
+      }[fields.font?.value ?? 'google-sans'] ?? "'Google Sans', system-ui, sans-serif";
+
+      const escape = (value: string) => value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+
+      const page = `<!doctype html><html lang="th"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>${escape(title)} — Preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&family=Google+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  body{max-width:42rem;margin:3rem auto;padding:0 1.5rem;font-family:Georgia,'Times New Roman',serif;line-height:1.75;color:#1a1a1a;}
-  h1,h2,h3{font-family:-apple-system,system-ui,sans-serif;font-weight:600;line-height:1.3;}
-  h1{font-size:2rem;margin-bottom:0.25em;}
-  img{max-width:100%;border-radius:0.5rem;}
-  blockquote{border-left:3px solid #999;margin:1em 0;padding-left:1em;opacity:0.85;}
-  code{background:#f0f0f0;padding:0.1em 0.35em;border-radius:0.25rem;font-size:0.9em;}
-  pre code{display:block;padding:1em;overflow-x:auto;}
-  @media (prefers-color-scheme: dark){body{background:#141414;color:#ededed;}code{background:#2a2a2a;}}
+  :root{--text:#1a1a1a;--muted:#666;--light:#999;--bg:#fff;--alt:#f7f7f6;--border:#e5e5e5}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:${fontFamily};line-height:1.8;-webkit-font-smoothing:antialiased}
+  .scroll{max-width:720px;margin:0 auto;padding:0 24px 96px}
+  .badge{position:fixed;top:16px;right:16px;background:var(--text);color:var(--bg);font-family:'JetBrains Mono',monospace;font-size:10px;padding:6px 14px;border-radius:20px;letter-spacing:.08em;text-transform:uppercase}
+  .meta{text-align:center;padding:64px 0 48px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--light)}
+  .cover{width:100%;aspect-ratio:1.91/1;border-radius:10px;overflow:hidden;background:var(--alt);margin-bottom:56px}
+  .cover img{width:100%;height:100%;object-fit:cover;display:block}
+  header.article{text-align:center;margin-bottom:56px}
+  h1.title{font-size:46px;font-weight:700;line-height:1.12;letter-spacing:-.02em;margin-bottom:20px}
+  .excerpt{font-size:21px;color:var(--muted);font-style:italic;line-height:1.55}
+  .tags{text-align:center;margin-bottom:48px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--light)}
+  hr.divider{border:none;border-top:1px solid var(--border);margin:0 0 56px}
+  article{font-size:20px}
+  article p{margin-bottom:1.8em}
+  article h1,article h2{font-size:30px;font-weight:700;margin:2.5em 0 .8em;line-height:1.2}
+  article h3{font-size:24px;font-weight:600;margin:2em 0 .8em}
+  article a{color:#22c55e;text-decoration:underline;text-underline-offset:3px}
+  article blockquote{margin:2.5em 0;padding:1.2em 1.8em;border-left:3px solid var(--text);background:var(--alt);font-style:italic;color:var(--muted);border-radius:0 8px 8px 0}
+  article ul,article ol{margin:1.5em 0 1.5em 1.5em}
+  article li{margin-bottom:.5em}
+  article img{max-width:100%;height:auto;border-radius:8px;margin:2.5em 0;display:block}
+  article code{font-family:'JetBrains Mono',monospace;font-size:.85em;background:var(--alt);padding:.2em .4em;border-radius:4px}
+  article pre{background:#f6f8fa;padding:1.5em;border-radius:8px;overflow-x:auto;margin:2em 0}
+  article pre code{background:none;padding:0}
+  article hr{border:none;text-align:center;margin:3em 0}
+  article hr::before{content:"· · ·";font-size:20px;letter-spacing:.3em;color:var(--light)}
+  .video-embed{position:relative;width:100%;padding-bottom:56.25%;margin:2em 0;background:#000;border-radius:8px;overflow:hidden}
+  .video-embed iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
 </style></head>
-<body><h1>${title}</h1>${html}</body></html>`;
+<body>
+<div class="badge">Preview</div>
+<div class="scroll">
+  <div class="meta">${escape(new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }))}</div>
+  ${cover ? `<div class="cover"><img src="${escape(cover)}" alt=""></div>` : ''}
+  <header class="article">
+    <h1 class="title">${escape(title)}</h1>
+    ${excerpt ? `<p class="excerpt">${escape(excerpt)}</p>` : ''}
+  </header>
+  ${tags.length > 0 ? `<div class="tags">${tags.map((tag) => `#${escape(tag)}`).join(' · ')}</div>` : ''}
+  <hr class="divider">
+  <article>${html}</article>
+</div>
+</body></html>`;
+
       const blob = new Blob([page], { type: 'text/html' });
       const url = URL.createObjectURL(blob);
-      window.open(url, '_blank', 'noopener');
-      setTimeout(() => URL.revokeObjectURL(url), 30_000);
-    }
-
-    /* ---------------- Toolbar actions on the textarea ---------------- */
-
-    function applyTool(action: string, arg: string) {
-      const ta = fields.body;
-      if (!ta) return;
-      const { selectionStart: s, selectionEnd: e, value } = ta;
-      const sel = value.slice(s, e);
-      let next = value;
-      let cursor = e;
-
-      if (action === 'bold') {
-        next = value.slice(0, s) + `**${sel || 'bold text'}**` + value.slice(e);
-        cursor = s + 2 + (sel || 'bold text').length;
-      } else if (action === 'italic') {
-        next = value.slice(0, s) + `*${sel || 'italic text'}*` + value.slice(e);
-        cursor = s + 1 + (sel || 'italic text').length;
-      } else if (action === 'wrap') {
-        next = value.slice(0, s) + `\`${sel || 'code'}\`` + value.slice(e);
-        cursor = s + 1 + (sel || 'code').length;
-      } else if (action === 'prefix') {
-        const lineStart = value.lastIndexOf('\n', s - 1) + 1;
-        next = value.slice(0, lineStart) + arg + value.slice(lineStart);
-        cursor = e + arg.length;
-      } else if (action === 'link') {
-        const text = sel || 'link text';
-        next = value.slice(0, s) + `[${text}](https://)` + value.slice(e);
-        cursor = s + text.length + 3;
-      }
-
-      ta.value = next;
-      ta.focus();
-      ta.setSelectionRange(cursor, cursor);
-      ta.dispatchEvent(new Event('input', { bubbles: true }));
+      window.open(url, 'earth-preview', 'noopener');
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
     }
 
     /* ---------------- Zen mode ---------------- */
@@ -538,136 +785,209 @@ const seed = {
     function toggleZen(force?: boolean) {
       zenActive = force ?? !zenActive;
       layout?.setAttribute('data-earth-zen', String(zenActive));
-      if (leftSidebar) leftSidebar.hidden = zenActive;
-      if (aiPanel && zenActive) aiPanel.hidden = true;
+      document.body.classList.toggle('zen-mode', zenActive);
     }
 
-    /* ---------------- Events (delegated) ---------------- */
+    /* ---------------- Events ---------------- */
 
-    form.addEventListener('input', (ev) => {
+    form.addEventListener('input', (event) => {
       dirty = true;
-      const target = ev.target as HTMLElement;
+      const target = event.target as HTMLElement;
       if (target === fields.title) syncSlugFromTitle();
+      if (target === fields.slug) {
+        slugTouched = true;
+        if (slugMode) slugMode.textContent = 'manual';
+        updateSlugPreview();
+      }
       if (target === fields.tags) enforceTagLimit();
-      if (target === fields.jsonLd) updateJsonLd();
+      if (target === fields.coverUrl) showCover(fields.coverUrl?.value ?? '');
+      if (target === fields.body) autoGrow();
       updateCounters();
       updateJsonLd();
       scheduleAutosave();
     });
 
-    form.addEventListener('change', (ev) => {
-      const target = ev.target as HTMLElement;
-      if (target === fields.slug) slugTouched = true;
-      if (target.closest('[data-earth-meta]')) scheduleAutosave();
+    form.addEventListener('change', (event) => {
+      const target = event.target as HTMLElement;
       if (target === fields.jsonLd) updateJsonLd();
+      scheduleAutosave();
     });
 
-    form.addEventListener('click', (ev) => {
-      const btn = (ev.target as HTMLElement).closest<HTMLElement>('[data-earth-action], [data-earth-tool]');
-      if (!btn) return;
+    form.addEventListener('submit', (event) => event.preventDefault());
 
-      if (btn.dataset.earthTool) {
-        ev.preventDefault();
-        applyTool(btn.dataset.earthTool, btn.dataset.earthToolArg ?? '');
-        scheduleAutosave();
-        return;
-      }
+    form.addEventListener('click', (event) => {
+      const trigger = (event.target as HTMLElement).closest<HTMLElement>('[data-earth-action]');
+      if (!trigger) return;
+      const action = trigger.dataset.earthAction;
 
-      switch (btn.dataset.earthAction) {
+      switch (action) {
         case 'save-draft':
-          persist('draft');
+          void persist('draft');
           break;
         case 'preview':
           openPreview();
           break;
         case 'publish-toggle':
-          if (isPublished()) {
-            void unpublish();
-          } else if (publishConfirm) {
-            publishConfirm.hidden = false;
-          }
+          publishConfirm?.classList.add('active');
           break;
         case 'publish-confirm':
-          if (publishConfirm) publishConfirm.hidden = true;
-          persist('published');
+          publishConfirm?.classList.remove('active');
+          void persist('published');
           break;
         case 'publish-cancel':
-          if (publishConfirm) publishConfirm.hidden = true;
+          publishConfirm?.classList.remove('active');
           break;
-        case 'toggle-ai':
-          if (!aiPanel) return;
-          aiPanel.hidden = !aiPanel.hidden;
-          if (!aiPanel.hidden) toggleZen(false);
-          btn.setAttribute('aria-expanded', String(!aiPanel.hidden));
+        case 'unpublish-toggle':
+          unpublishConfirm?.classList.add('active');
           break;
-        case 'toggle-zen':
-          toggleZen();
+        case 'unpublish-confirm':
+          unpublishConfirm?.classList.remove('active');
+          void unpublish();
+          break;
+        case 'unpublish-cancel':
+          unpublishConfirm?.classList.remove('active');
           break;
         case 'pick-cover':
           coverFileInput?.click();
           break;
+        case 'clear-cover':
+          if (fields.coverUrl) fields.coverUrl.value = '';
+          pendingCoverAssetId = null;
+          if (coverStatus) coverStatus.textContent = '';
+          showCover('');
+          updateJsonLd();
+          scheduleAutosave();
+          dirty = true;
+          break;
+        case 'toggle-help':
+        case 'toggle-shortcuts': {
+          const isHelp = action === 'toggle-help';
+          const content = form.querySelector<HTMLElement>(
+            isHelp ? '[data-earth-help-content]' : '[data-earth-shortcuts-content]',
+          );
+          const icon = form.querySelector<HTMLElement>(
+            isHelp ? '[data-earth-help-icon]' : '[data-earth-shortcuts-icon]',
+          );
+          if (!content) break;
+          content.hidden = !content.hidden;
+          trigger.setAttribute('aria-expanded', String(!content.hidden));
+          if (icon) icon.textContent = content.hidden ? '+' : '−';
+          break;
+        }
       }
     });
 
     coverFileInput?.addEventListener('change', () => {
       const file = coverFileInput.files?.[0];
       if (file) void handleCoverFile(file);
+      coverFileInput.value = '';
     });
 
-    coverZoomInput?.addEventListener('input', () => {
-      if (coverPreview) coverPreview.style.transform = `scale(${Number(coverZoomInput.value) / 100})`;
+    bodyImageInput?.addEventListener('change', () => {
+      const file = bodyImageInput.files?.[0];
+      if (file) void handleBodyImage(file);
+      bodyImageInput.value = '';
     });
 
-    fields.coverUrl?.addEventListener('input', () => showCoverPreview(fields.coverUrl!.value));
+    /* Drag and drop straight onto the writing surface */
+    const dropZone = form.querySelector<HTMLElement>('[data-earth-image-drop]');
+    dropZone?.addEventListener('dragover', (event) => {
+      event.preventDefault();
+      if (dropIndicator) dropIndicator.hidden = false;
+    });
+    dropZone?.addEventListener('dragleave', () => {
+      if (dropIndicator) dropIndicator.hidden = true;
+    });
+    dropZone?.addEventListener('drop', (event) => {
+      event.preventDefault();
+      if (dropIndicator) dropIndicator.hidden = true;
+      const file = event.dataTransfer?.files?.[0];
+      if (file?.type.startsWith('image/')) void handleBodyImage(file);
+    });
 
-    if (coverDrop) {
-      coverDrop.addEventListener('dragover', (ev) => { ev.preventDefault(); coverDrop.setAttribute('data-earth-dragover', ''); });
-      coverDrop.addEventListener('dragleave', () => coverDrop.removeAttribute('data-earth-dragover'));
-      coverDrop.addEventListener('drop', (ev) => {
-        ev.preventDefault();
-        coverDrop.removeAttribute('data-earth-dragover');
-        const file = ev.dataTransfer?.files?.[0];
-        if (file) void handleCoverFile(file);
-      });
-    }
+    const uploadDropzone = document.querySelector<HTMLElement>('[data-earth-upload-dropzone]');
+    uploadDropzone?.addEventListener('dragover', (event) => {
+      event.preventDefault();
+      uploadDropzone.setAttribute('data-dragover', 'true');
+    });
+    uploadDropzone?.addEventListener('dragleave', () => uploadDropzone.removeAttribute('data-dragover'));
+    uploadDropzone?.addEventListener('drop', (event) => {
+      event.preventDefault();
+      uploadDropzone.removeAttribute('data-dragover');
+      const file = event.dataTransfer?.files?.[0];
+      if (file?.type.startsWith('image/')) void handleBodyImage(file);
+    });
 
-    const imageDropZone = form.querySelector<HTMLElement>('[data-earth-image-drop]');
-    if (imageDropZone) {
-      imageDropZone.addEventListener('dragover', (ev) => {
-        ev.preventDefault();
-        if (dropIndicator) dropIndicator.hidden = false;
-      });
-      imageDropZone.addEventListener('dragleave', () => {
-        if (dropIndicator) dropIndicator.hidden = true;
-      });
-      imageDropZone.addEventListener('drop', (ev) => {
-        ev.preventDefault();
-        if (dropIndicator) dropIndicator.hidden = true;
-        const file = ev.dataTransfer?.files?.[0];
-        if (file) void handleBodyImageFile(file);
-      });
-    }
+    /* Modal chrome */
+    document.querySelectorAll<HTMLElement>('[data-earth-modal]').forEach((modal) => {
+      modal.addEventListener('click', (event) => {
+        const target = event.target as HTMLElement;
+        if (target === modal || target.closest('[data-earth-modal-close]')) closeModal(modal);
 
-    document.addEventListener('keydown', (ev) => {
-      const mod = ev.ctrlKey || ev.metaKey;
-      if (!mod) return;
-      if (!form.contains(document.activeElement) && document.activeElement !== document.body) return;
-      if (ev.key === 's' || ev.key === 'S') {
-        ev.preventDefault();
-        persist('draft');
-      } else if (ev.key === 'p' || ev.key === 'P') {
-        ev.preventDefault();
+        const action = target.closest<HTMLElement>('[data-earth-action]')?.dataset.earthAction;
+        if (action === 'embed-video') {
+          const id = youTubeId(videoInput?.value ?? '');
+          if (!id) {
+            if (videoError) {
+              videoError.textContent = 'That is not a YouTube URL or video id.';
+              videoError.hidden = false;
+            }
+            return;
+          }
+          insertAtCursor(`\n\n@[youtube](${id})\n\n`);
+          closeModal(modals.video);
+        }
+        if (action === 'copy-url') {
+          const link = document.querySelector<HTMLAnchorElement>('[data-earth-published-url]');
+          if (link) void navigator.clipboard.writeText(new URL(link.getAttribute('href') ?? '/', window.location.origin).href);
+          const button = target.closest<HTMLButtonElement>('[data-earth-action="copy-url"]');
+          if (button) {
+            button.textContent = 'Copied';
+            setTimeout(() => { button.textContent = 'Copy link'; }, 1500);
+          }
+        }
+      });
+    });
+
+    /* Shortcuts */
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        closeAllModals();
+        return;
+      }
+      if (!(event.ctrlKey || event.metaKey)) return;
+      const key = event.key.toLowerCase();
+
+      if (key === 's') {
+        event.preventDefault();
+        void persist('draft');
+      } else if (key === 'p') {
+        event.preventDefault();
         openPreview();
-      } else if ((ev.key === 'b' || ev.key === 'B') && document.activeElement === fields.body) {
-        ev.preventDefault();
-        applyTool('bold', '');
-      } else if (ev.key === '/') {
-        ev.preventDefault();
+      } else if (key === 'b' && document.activeElement === fields.body) {
+        event.preventDefault();
+        wrapSelection('**', 'bold text');
+      } else if (key === 'e') {
+        event.preventDefault();
+        toggleEmojiPicker();
+      } else if (key === 'i') {
+        event.preventDefault();
+        if (uploadError) uploadError.hidden = true;
+        openModal(modals.image);
+      } else if (key === 'y' && event.shiftKey) {
+        event.preventDefault();
+        if (videoError) videoError.hidden = true;
+        if (videoInput) videoInput.value = '';
+        openModal(modals.video);
+        setTimeout(() => videoInput?.focus(), 50);
+      } else if (key === 'm') {
+        event.preventDefault();
+        window.location.href = '/earth';
+      } else if (key === '/') {
+        event.preventDefault();
         toggleZen();
       }
     });
-
-    form.addEventListener('submit', (ev) => ev.preventDefault());
 
     window.addEventListener('beforeunload', () => {
       if (dirty || saving) writeBackup(buildPayload());
@@ -681,24 +1001,20 @@ const seed = {
         setStatus('Loading…');
         try {
           applyPost(await api.fetch(initialPostId));
-          setStatus('Loaded');
-        } catch (err) {
-          setStatus(`Load failed — local draft retained (${(err as Error).message})`, 'error');
+          setStatus('Loaded', 'saved');
+        } catch (error) {
+          setStatus(`Load failed — local draft kept: ${(error as Error).message}`, 'error');
         } finally {
           setBusy(false);
         }
       }
       restoreBackup();
       updateCounters();
+      updateSlugPreview();
       updateJsonLd();
-      refreshPublishLabel();
-      showCoverPreview(fields.coverUrl?.value ?? '');
-      if (slugModeLabel) {
-        fields.slug?.addEventListener('input', () => {
-          slugTouched = true;
-          slugModeLabel.textContent = 'manual';
-        });
-      }
+      refreshPublishControls();
+      showCover(fields.coverUrl?.value ?? '');
+      autoGrow();
     }
 
     void boot();
@@ -706,70 +1022,3 @@ const seed = {
 
   document.querySelectorAll<HTMLFormElement>('[data-earth-editor]').forEach(initEditor);
 </script>
-
-<style>
-  .earth-editor {
-    display: flex;
-    flex-direction: column;
-    gap: 1.25rem;
-    max-width: 90rem;
-    margin-inline: auto;
-  }
-
-  .earth-editor__layout {
-    display: grid;
-    grid-template-columns: 16rem minmax(0, 1fr);
-    gap: 1.25rem;
-    align-items: start;
-  }
-
-  .earth-editor__layout[data-earth-zen="true"] {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .earth-editor__layout:has([data-earth-ai-panel]:not([hidden])) {
-    grid-template-columns: 16rem minmax(0, 1fr) 20rem;
-  }
-
-  .earth-editor__layout[data-earth-zen="true"]:has([data-earth-ai-panel]:not([hidden])) {
-    grid-template-columns: minmax(0, 1fr) 20rem;
-  }
-
-  .earth-editor__main {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    min-height: 30rem;
-  }
-
-  .earth-title {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-  }
-
-  .earth-title__input {
-    flex: 1;
-    border: none;
-    background: transparent;
-    color: inherit;
-    font-size: 1.75rem;
-    font-weight: 700;
-    padding: 0.25rem 0;
-    outline: none;
-  }
-
-  .earth-title__count {
-    font-size: 0.75rem;
-    opacity: 0.5;
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-  }
-
-  @media (max-width: 960px) {
-    .earth-editor__layout,
-    .earth-editor__layout:has([data-earth-ai-panel]:not([hidden])) {
-      grid-template-columns: minmax(0, 1fr);
-    }
-  }
-</style>

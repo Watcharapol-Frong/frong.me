@@ -1,8 +1,11 @@
 ---
 /**
- * Left sidebar metadata for the Zen Editor: slug, font, cover image, excerpt,
- * tags, and a JSON-LD toggle. Pure presentational Astro component — all
- * behaviour is wired by the delegated script in `PostEditor.astro`.
+ * Left sidebar: slug (with live URL preview), reading font, cover image,
+ * excerpt, tags, and two collapsible reference panels (Markdown syntax and
+ * editor shortcuts).
+ *
+ * Markup only — behaviour is wired by the delegated script in
+ * `PostEditor.astro`, styling lives in `src/pages/earth/editor.astro`.
  */
 export interface MetadataFormProps {
   initial?: {
@@ -14,11 +17,12 @@ export interface MetadataFormProps {
     jsonLd?: boolean;
     status?: 'draft' | 'published';
   };
+  siteDomain?: string;
 }
 
 interface Props extends MetadataFormProps {}
 
-const { initial = {} } = Astro.props as Props;
+const { initial = {}, siteDomain = 'frong.me' } = Astro.props as Props;
 
 const status = initial.status ?? 'draft';
 const tags = (initial.tags ?? []).join(', ');
@@ -30,244 +34,144 @@ const FONTS = [
   { value: 'ibm-plex-sans-thai', label: 'IBM Plex Sans Thai' },
 ];
 const font = initial.font ?? FONTS[0].value;
+
+const MARKDOWN_HELP = [
+  ['# H1', '## H2', '### H3'],
+  ['**bold**', '*italic*'],
+  ['- list item'],
+  ['1. numbered'],
+  ['> blockquote'],
+  ['`code`', '```code block```'],
+  ['[link](url)', '![img](url)'],
+  ['@[youtube](videoId)'],
+  ['---'],
+];
+
+const SHORTCUTS: { keys: string[]; label: string }[] = [
+  { keys: ['Ctrl', 'S'], label: 'Save draft' },
+  { keys: ['Ctrl', 'P'], label: 'Preview' },
+  { keys: ['Ctrl', 'B'], label: 'Bold' },
+  { keys: ['Ctrl', 'E'], label: 'Emoji' },
+  { keys: ['Ctrl', 'I'], label: 'Images' },
+  { keys: ['Ctrl', 'Shift', 'Y'], label: 'YouTube' },
+  { keys: ['Ctrl', 'M'], label: 'Portal' },
+  { keys: ['Ctrl', '/'], label: 'Zen mode' },
+];
 ---
 
-<aside class="earth-meta" data-earth-meta data-earth-sidebar="left">
-  <input type="hidden" name="status" data-earth-field="status" value={status} />
+<aside class="sidebar" data-earth-meta data-earth-sidebar="left">
+  <input type="hidden" data-earth-field="status" value={status} />
 
-  <div class="earth-meta__section">
-    <label class="earth-field">
-      <span class="earth-field__label">
-        Slug
-        <span class="earth-field__hint" data-earth-slug-mode>auto</span>
-      </span>
-      <input
-        class="earth-field__input earth-field__input--mono"
-        type="text"
-        name="slug"
-        data-earth-field="slug"
-        value={initial.slug ?? ''}
-        placeholder="my-post-slug"
-        autocomplete="off"
-        pattern="[a-z0-9]+(-[a-z0-9]+)*"
-        title="Lowercase letters, numbers and hyphens"
-      />
+  <div class="form-group">
+    <label class="form-label" for="earth-slug">
+      Slug <span class="form-label-hint" data-earth-slug-mode>auto</span>
     </label>
-
-    <label class="earth-field">
-      <span class="earth-field__label">Font</span>
-      <select class="earth-field__input" name="font" data-earth-field="font">
-        {FONTS.map((f) => (
-          <option value={f.value} selected={font === f.value}>{f.label}</option>
-        ))}
-      </select>
-    </label>
-  </div>
-
-  <div class="earth-meta__section">
-    <span class="earth-field__label">Cover image</span>
-    <div class="earth-cover" data-earth-cover-drop>
-      <img class="earth-cover__preview" data-earth-cover-preview src={initial.coverUrl ?? ''} hidden />
-      <p class="earth-cover__empty" data-earth-cover-empty>Drop an image, or paste a URL below</p>
-      <div class="earth-cover__zoom" data-earth-cover-zoom hidden>
-        <label class="earth-field__label" for="earth-cover-zoom-range">Zoom</label>
-        <input id="earth-cover-zoom-range" type="range" min="100" max="200" value="100" data-earth-cover-zoom-input />
-      </div>
-    </div>
     <input
-      class="earth-field__input earth-field__input--mono"
-      type="url"
-      name="coverUrl"
-      data-earth-field="coverUrl"
-      value={initial.coverUrl ?? ''}
-      placeholder="https://images.frong.me/…"
+      id="earth-slug"
+      type="text"
+      class="form-input"
+      data-earth-field="slug"
+      value={initial.slug ?? ''}
+      placeholder="post-url-slug"
+      pattern="[a-z0-9]+(-[a-z0-9]+)*"
+      title="Lowercase letters, numbers, and hyphens only"
       autocomplete="off"
     />
+    <div class="slug-preview">{siteDomain}/articles/<span data-earth-slug-preview>your-slug</span></div>
+  </div>
+
+  <div class="form-group">
+    <label class="form-label" for="earth-font">Font</label>
+    <select id="earth-font" class="form-input form-select" data-earth-field="font">
+      {FONTS.map((option) => (
+        <option value={option.value} selected={font === option.value}>{option.label}</option>
+      ))}
+    </select>
+  </div>
+
+  <div class="form-group">
+    <label class="form-label" for="earth-cover">
+      Cover image (<a
+        href="https://unsplash.com"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="form-label-link">Unsplash</a>)
+    </label>
+    <input
+      id="earth-cover"
+      type="url"
+      class="form-input"
+      data-earth-field="coverUrl"
+      value={initial.coverUrl ?? ''}
+      placeholder="https://…"
+      autocomplete="off"
+    />
+    <div class="inspire-row">
+      <button type="button" class="inspire-btn" data-earth-action="pick-cover">↑ Upload</button>
+      <button type="button" class="inspire-btn" data-earth-action="clear-cover">✕ Clear</button>
+      <span class="inspire-loading" data-earth-cover-status></span>
+    </div>
     <input type="file" accept="image/png,image/jpeg,image/webp" data-earth-cover-file hidden />
-    <button type="button" class="earth-meta__link-btn" data-earth-action="pick-cover">Upload from file…</button>
+    <div class="cover-upload-error" data-earth-cover-error hidden></div>
   </div>
 
-  <div class="earth-meta__section">
-    <label class="earth-field">
-      <span class="earth-field__label">
-        Excerpt
-        <span class="earth-field__hint" data-earth-count="excerpt">0 / 160</span>
-      </span>
-      <textarea
-        class="earth-field__input earth-field__input--area"
-        name="excerpt"
-        data-earth-field="excerpt"
-        rows="3"
-        maxlength="160"
-        placeholder="Short summary shown in listings and social cards"
-      >{initial.excerpt ?? ''}</textarea>
-    </label>
-
-    <label class="earth-field">
-      <span class="earth-field__label">Tags <span class="earth-field__hint">(max 2, comma separated)</span></span>
-      <input
-        class="earth-field__input"
-        type="text"
-        name="tagIds"
-        data-earth-field="tags"
-        value={tags}
-        placeholder="cms, cloudflare"
-        autocomplete="off"
-      />
-    </label>
+  <div class="form-group">
+    <label class="form-label" for="earth-excerpt">Excerpt</label>
+    <textarea
+      id="earth-excerpt"
+      class="form-input"
+      rows="5"
+      maxlength="160"
+      data-earth-field="excerpt"
+      placeholder="Brief summary…">{initial.excerpt ?? ''}</textarea>
   </div>
 
-  <div class="earth-meta__section">
-    <label class="earth-field earth-field--row">
+  <div class="form-group">
+    <label class="form-label" for="earth-tags">Tags</label>
+    <input
+      id="earth-tags"
+      type="text"
+      class="form-input"
+      data-earth-field="tags"
+      value={tags}
+      placeholder="stoicism, discipline"
+      autocomplete="off"
+    />
+    <div class="tags-help">Max 2 tags, comma-separated</div>
+  </div>
+
+  <div class="form-group">
+    <label class="form-label form-label-row">
       <input type="checkbox" data-earth-field="jsonLd" checked={initial.jsonLd ?? true} />
-      <span class="earth-field__label">Generate JSON-LD Article schema</span>
+      JSON-LD Article schema
     </label>
-    <pre class="earth-meta__jsonld" data-earth-jsonld-preview hidden></pre>
+    <pre class="schema-preview" data-earth-jsonld-preview hidden></pre>
+  </div>
+
+  <div class="markdown-help">
+    <button type="button" class="help-toggle" data-earth-action="toggle-help" aria-expanded="false">
+      <span data-earth-help-icon>+</span> Markdown Help
+    </button>
+    <div class="help-content" data-earth-help-content hidden>
+      {MARKDOWN_HELP.map((row) => (
+        <p>{row.map((code) => <code>{code}</code>)}</p>
+      ))}
+    </div>
+  </div>
+
+  <div class="markdown-help">
+    <button type="button" class="help-toggle" data-earth-action="toggle-shortcuts" aria-expanded="false">
+      <span data-earth-shortcuts-icon>+</span> Editor Shortcuts
+    </button>
+    <div class="help-content" data-earth-shortcuts-content hidden>
+      {SHORTCUTS.map((shortcut) => (
+        <p>
+          {shortcut.keys.map((key, index) => (
+            <>{index > 0 && '+'}<kbd>{key}</kbd></>
+          ))}
+          <span class="shortcut-label">{shortcut.label}</span>
+        </p>
+      ))}
+    </div>
   </div>
 </aside>
-
-<style>
-  .earth-meta {
-    border: 1px solid var(--earth-border, color-mix(in oklab, currentColor 15%, transparent));
-    border-radius: 0.75rem;
-    padding: 1.25rem;
-    display: flex;
-    flex-direction: column;
-    gap: 1.25rem;
-  }
-
-  .earth-meta__section {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    padding-bottom: 1.25rem;
-    border-bottom: 1px solid var(--earth-border, color-mix(in oklab, currentColor 10%, transparent));
-  }
-
-  .earth-meta__section:last-child {
-    border-bottom: none;
-    padding-bottom: 0;
-  }
-
-  .earth-field {
-    display: flex;
-    flex-direction: column;
-    gap: 0.375rem;
-  }
-
-  .earth-field--row {
-    flex-direction: row;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-  .earth-field__label {
-    font-size: 0.8125rem;
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-  }
-
-  .earth-field__hint {
-    font-weight: 400;
-    opacity: 0.55;
-    font-size: 0.75rem;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .earth-field__input {
-    width: 100%;
-    border: 1px solid var(--earth-border, color-mix(in oklab, currentColor 15%, transparent));
-    border-radius: 0.5rem;
-    background: transparent;
-    color: inherit;
-    padding: 0.5rem 0.75rem;
-    font: inherit;
-    font-size: 0.875rem;
-    outline: none;
-    transition: border-color 120ms ease, box-shadow 120ms ease;
-  }
-
-  .earth-field__input:focus-visible {
-    border-color: var(--earth-accent, currentColor);
-    box-shadow: 0 0 0 2px color-mix(in oklab, var(--earth-accent, currentColor) 25%, transparent);
-  }
-
-  .earth-field__input--mono {
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 0.8125rem;
-  }
-
-  .earth-field__input--area {
-    resize: vertical;
-    min-height: 4.5rem;
-  }
-
-  .earth-meta__link-btn {
-    align-self: flex-start;
-    border: none;
-    background: transparent;
-    color: var(--earth-accent, currentColor);
-    font-size: 0.8125rem;
-    cursor: pointer;
-    padding: 0;
-  }
-
-  .earth-cover {
-    border: 1px dashed var(--earth-border, color-mix(in oklab, currentColor 20%, transparent));
-    border-radius: 0.5rem;
-    min-height: 6rem;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 0.75rem;
-    position: relative;
-    overflow: hidden;
-    transition: border-color 120ms ease, background 120ms ease;
-  }
-
-  .earth-cover[data-earth-dragover] {
-    border-color: var(--earth-accent, currentColor);
-    background: color-mix(in oklab, var(--earth-accent, currentColor) 6%, transparent);
-  }
-
-  .earth-cover__preview {
-    width: 100%;
-    height: 6rem;
-    object-fit: cover;
-    border-radius: 0.375rem;
-  }
-
-  .earth-cover__empty {
-    font-size: 0.75rem;
-    opacity: 0.55;
-    text-align: center;
-    margin: 0;
-  }
-
-  .earth-cover__zoom {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    width: 100%;
-    margin-top: 0.5rem;
-  }
-
-  .earth-cover__zoom input[type="range"] {
-    flex: 1;
-  }
-
-  .earth-meta__jsonld {
-    font-size: 0.6875rem;
-    max-height: 8rem;
-    overflow: auto;
-    background: color-mix(in oklab, currentColor 5%, transparent);
-    padding: 0.5rem;
-    border-radius: 0.375rem;
-    white-space: pre-wrap;
-    word-break: break-word;
-  }
-</style>

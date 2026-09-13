@@ -99,6 +99,26 @@ export async function listTags(db: CmsDatabase, lang?: Language): Promise<TagRow
   return listTerms<TagRow>(db, 'tags', lang);
 }
 
+/**
+ * Tag names for every post in one query, so the portal list can show and
+ * filter by real tags without an N+1 fetch per row.
+ */
+export async function listTagNamesByPost(db: CmsDatabase): Promise<Map<string, string[]>> {
+  const rows = await db.all<{ post_id: string; name: string }>(
+    `SELECT relation.post_id, t.name
+     FROM post_tags AS relation
+     JOIN tags AS t ON t.id = relation.tag_id
+     ORDER BY relation.post_id ASC, relation.position ASC, t.id ASC`,
+  );
+  const byPost = new Map<string, string[]>();
+  for (const row of rows) {
+    const existing = byPost.get(row.post_id);
+    if (existing) existing.push(row.name);
+    else byPost.set(row.post_id, [row.name]);
+  }
+  return byPost;
+}
+
 export async function getPostTaxonomy(db: CmsDatabase, postId: string): Promise<PostTaxonomy> {
   const [categories, tags] = await Promise.all([
     db.all<CategoryRow>(

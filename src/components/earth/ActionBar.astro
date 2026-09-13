@@ -1,8 +1,12 @@
 ---
 /**
- * Top bar for the Zen Editor: Save Draft, Preview (opens a new tab), and a
- * Publish/Unpublish toggle with an inline "Sure? Yes / No" confirmation.
- * Pure markup — `PostEditor.astro`'s script handles every click.
+ * Editor header: wordmark, live save status, counters, and the Save / Preview
+ * / Publish / Unpublish actions. Publish and Unpublish each slide out an
+ * inline "Sure? Yes / No" rather than opening a dialog, so a destructive flip
+ * always takes two deliberate clicks without stealing focus from the draft.
+ *
+ * Markup only — every click is handled by the delegated script in
+ * `PostEditor.astro`, and all styling lives in `src/pages/earth/editor.astro`.
  */
 export interface ActionBarProps {
   status?: 'draft' | 'active';
@@ -13,172 +17,58 @@ interface Props extends ActionBarProps {}
 const { status = 'draft' } = Astro.props as Props;
 ---
 
-<div class="earth-actions" data-earth-actions>
-  <button
-    type="button"
-    class="earth-actions__btn earth-actions__btn--ghost"
-    data-earth-action="toggle-zen"
-    title="Toggle Zen mode (Ctrl+/)"
-  >
-    ⤢ Zen
-  </button>
-
-  <span class="earth-actions__divider" aria-hidden="true"></span>
-
-  <button
-    type="button"
-    class="earth-actions__btn earth-actions__btn--ghost"
-    data-earth-action="save-draft"
-    title="Save draft (Ctrl+S)"
-  >
-    Save Draft
-  </button>
-
-  <button
-    type="button"
-    class="earth-actions__btn earth-actions__btn--ghost"
-    data-earth-action="preview"
-    title="Preview in a new tab (Ctrl+P)"
-  >
-    Preview
-  </button>
-
-  <span class="earth-actions__divider" aria-hidden="true"></span>
-
-  <div class="earth-publish" data-earth-publish data-earth-publish-status={status}>
-    <button
-      type="button"
-      class="earth-actions__btn earth-actions__btn--primary"
-      data-earth-action="publish-toggle"
-    >
-      {status === 'active' ? 'Unpublish' : 'Publish'}
-    </button>
-    <div class="earth-publish__confirm" data-earth-publish-confirm hidden>
-      <span>Sure?</span>
-      <button type="button" class="earth-publish__confirm-btn" data-earth-action="publish-confirm">Yes</button>
-      <button type="button" class="earth-publish__confirm-btn earth-publish__confirm-btn--no" data-earth-action="publish-cancel">No</button>
-    </div>
+<header class="header">
+  <div class="header-left">
+    <a href="/earth" class="logo" title="Back to the portal (Ctrl+M)">EARTH</a>
+    <div class="save-status" data-earth-save-status role="status" aria-live="polite"></div>
   </div>
 
-  <button
-    type="button"
-    class="earth-actions__btn earth-actions__btn--ai"
-    data-earth-action="toggle-ai"
-    aria-expanded="false"
-    aria-controls="earth-ai-panel"
-  >
-    ✨ AI
-  </button>
+  <div class="header-actions">
+    <span class="word-count-header">
+      <span data-earth-count="words">0</span> words · <span data-earth-count="chars">0</span> chars<span
+        class="count-sep"
+      > | </span>Title: <span data-earth-count="title">0</span>/60 · Excerpt:
+      <span data-earth-count="excerpt">0</span>/160
+    </span>
 
-  <span class="earth-actions__status" data-earth-save-status role="status" aria-live="polite"></span>
-</div>
+    <button
+      type="button"
+      class="header-btn header-btn-secondary"
+      data-earth-action="save-draft"
+      title="Save draft (Ctrl+S)"
+    >
+      Save
+    </button>
 
-<style>
-  .earth-actions {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-  }
+    <button
+      type="button"
+      class="header-btn header-btn-secondary"
+      data-earth-action="preview"
+      title="Preview in a new tab (Ctrl+P)"
+    >
+      Preview
+    </button>
 
-  .earth-actions__btn {
-    height: 2.25rem;
-    padding-inline: 0.9rem;
-    border-radius: 0.5rem;
-    border: 1px solid var(--earth-border, color-mix(in oklab, currentColor 15%, transparent));
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    font-size: 0.875rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background 120ms ease, opacity 120ms ease, transform 60ms ease;
-    white-space: nowrap;
-  }
+    <span class="publish-confirm-wrap" data-earth-publish-wrap hidden={status === 'active'}>
+      <button type="button" class="header-btn header-btn-primary" data-earth-action="publish-toggle">
+        Publish
+      </button>
+      <span class="publish-confirm" data-earth-publish-confirm>
+        <span class="publish-confirm-label">Sure?</span>
+        <button type="button" class="confirm-yes" data-earth-action="publish-confirm">Yes</button>
+        <button type="button" class="confirm-no" data-earth-action="publish-cancel">No</button>
+      </span>
+    </span>
 
-  .earth-actions__btn:active:not(:disabled) {
-    transform: translateY(1px);
-  }
-
-  .earth-actions__btn:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-  }
-
-  .earth-actions__btn--primary {
-    background: var(--earth-accent, currentColor);
-    border-color: transparent;
-    color: var(--earth-accent-contrast, #fff);
-  }
-
-  .earth-actions__btn--primary:hover:not(:disabled) {
-    opacity: 0.9;
-  }
-
-  .earth-actions__btn--ghost:hover:not(:disabled),
-  .earth-actions__btn--ai:hover:not(:disabled) {
-    background: color-mix(in oklab, currentColor 8%, transparent);
-  }
-
-  .earth-actions__divider {
-    width: 1px;
-    height: 1.25rem;
-    background: var(--earth-border, color-mix(in oklab, currentColor 15%, transparent));
-  }
-
-  .earth-actions__status {
-    font-size: 0.75rem;
-    opacity: 0.65;
-    margin-left: auto;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .earth-actions__status[data-tone='error'] {
-    color: #b42318;
-    opacity: 1;
-  }
-
-  .earth-publish {
-    position: relative;
-    display: flex;
-    align-items: center;
-  }
-
-  .earth-publish__confirm {
-    position: absolute;
-    top: calc(100% + 0.375rem);
-    left: 0;
-    display: flex;
-    align-items: center;
-    gap: 0.375rem;
-    padding: 0.5rem 0.625rem;
-    border: 1px solid var(--earth-border, color-mix(in oklab, currentColor 15%, transparent));
-    border-radius: 0.5rem;
-    background: Canvas;
-    box-shadow: 0 4px 16px color-mix(in oklab, currentColor 12%, transparent);
-    font-size: 0.8125rem;
-    z-index: 5;
-    white-space: nowrap;
-  }
-
-  .earth-publish__confirm[hidden] {
-    display: none;
-  }
-
-  .earth-publish__confirm-btn {
-    border: none;
-    border-radius: 0.375rem;
-    padding: 0.25rem 0.5rem;
-    background: var(--earth-accent, currentColor);
-    color: var(--earth-accent-contrast, #fff);
-    font-size: 0.75rem;
-    font-weight: 600;
-    cursor: pointer;
-  }
-
-  .earth-publish__confirm-btn--no {
-    background: transparent;
-    color: inherit;
-    border: 1px solid var(--earth-border, color-mix(in oklab, currentColor 15%, transparent));
-  }
-</style>
+    <span class="publish-confirm-wrap" data-earth-unpublish-wrap hidden={status !== 'active'}>
+      <button type="button" class="header-btn header-btn-danger" data-earth-action="unpublish-toggle">
+        Unpublish
+      </button>
+      <span class="publish-confirm" data-earth-unpublish-confirm>
+        <span class="publish-confirm-label">Sure?</span>
+        <button type="button" class="confirm-yes confirm-yes-danger" data-earth-action="unpublish-confirm">Yes</button>
+        <button type="button" class="confirm-no" data-earth-action="unpublish-cancel">No</button>
+      </span>
+    </span>
+  </div>
+</header>

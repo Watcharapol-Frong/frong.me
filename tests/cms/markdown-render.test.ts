@@ -63,3 +63,23 @@ test('blockquotes and horizontal rules render as their own elements', () => {
   assert.match(html, /<blockquote>quoted text<\/blockquote>/);
   assert.match(html, /<hr \/>/);
 });
+
+test('a @[youtube] token on its own line becomes a privacy-preserving embed', () => {
+  const { html } = renderMarkdown('Before\n\n@[youtube](dQw4w9WgXcQ)\n\nAfter');
+  assert.match(html, /<div class="video-embed"><iframe src="https:\/\/www\.youtube-nocookie\.com\/embed\/dQw4w9WgXcQ"/);
+  assert.match(html, /<p>Before<\/p>/);
+  assert.match(html, /<p>After<\/p>/);
+});
+
+test('a malformed or hostile youtube token stays inert text instead of building a src', () => {
+  const attempts = [
+    '@[youtube](short)',
+    '@[youtube](https://evil.example/x)',
+    '@[youtube]("onload=alert(1))',
+    '@[youtube](dQw4w9WgXcQ) trailing words',
+  ];
+  for (const source of attempts) {
+    const { html } = renderMarkdown(source);
+    assert.ok(!html.includes('<iframe'), `must not emit an iframe for: ${source}`);
+  }
+});

@@ -174,6 +174,12 @@ export interface PostSummary {
   updatedAt: EpochMilliseconds;
   publishedAt: EpochMilliseconds | null;
   coverImageUrl: string | null;
+  /**
+   * Tag names. List responses only — the detail route sends full `tags`
+   * objects under that name instead, so this one stays distinct to keep the
+   * two shapes from colliding in one parser. Defaults to `[]`.
+   */
+  tagNames: string[];
   /** Draft edits exist that no release has picked up yet. Derived by the server. */
   hasUnpublishedChanges?: boolean;
 }
@@ -482,6 +488,7 @@ function parsePostSummary(value: unknown, field: string): PostSummary {
     updatedAt: num(row.updatedAt, `${field}.updatedAt`),
     publishedAt: nullableNum(row.publishedAt ?? null, `${field}.publishedAt`),
     coverImageUrl: nullableStr(row.coverImageUrl ?? null, `${field}.coverImageUrl`),
+    tagNames: list(row.tagNames ?? [], `${field}.tagNames`, str),
     ...(typeof row.hasUnpublishedChanges === 'boolean'
       ? { hasUnpublishedChanges: row.hasUnpublishedChanges }
       : {}),
@@ -506,6 +513,15 @@ function parsePostDetail(value: unknown, field = 'post'): PostDetail {
     bodyMarkdown: str(row.bodyMarkdown, `${field}.bodyMarkdown`),
     categoryIds: list(row.categoryIds ?? [], `${field}.categoryIds`, str),
     tagIds: list(row.tagIds ?? [], `${field}.tagIds`, str),
+    // The detail route sends resolved `{id, slug, name}` objects. The editor's
+    // tag field holds names, not ids — writing ids back into it would make the
+    // next save upsert literal "tag_<uuid>" tags (`resolveTagIds` treats the
+    // field as free text), so the names are pulled out here.
+    tagNames: list(
+      row.tags ?? [],
+      `${field}.tags`,
+      (entry, entryField) => str(obj(entry, entryField).name, `${entryField}.name`),
+    ),
     sources: list(row.sources ?? [], `${field}.sources`, parsePostSource),
   };
 }

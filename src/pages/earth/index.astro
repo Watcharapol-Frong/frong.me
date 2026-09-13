@@ -25,22 +25,42 @@ export const prerender = false;
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex, nofollow, noarchive" />
     <meta name="referrer" content="same-origin" />
-    <title>Earth · frong.me</title>
-    <style>
-      :root {
-        --earth-accent: #6d5bd0;
-        --earth-accent-contrast: #ffffff;
-        --earth-border: rgba(128, 128, 128, 0.3);
-        color-scheme: light dark;
-      }
+    <title>Portal · Earth</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&family=Google+Sans:wght@400;500;600&display=swap"
+    />
+    <style is:global>
+      *, *::before, *::after { box-sizing: border-box; }
+      * { margin: 0; padding: 0; }
+
+      html, body { height: 100%; }
+
       body {
-        margin: 0;
-        font-family: 'Inter', system-ui, -apple-system, sans-serif;
-        background: #fafafa;
-        color: #1a1a1a;
+        background: #fff;
+        color: #000;
+        font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+        overflow: hidden;
+        animation: earth-fade-in 0.8s ease-out forwards;
       }
-      @media (prefers-color-scheme: dark) {
-        body { background: #141414; color: #ededed; }
+
+      @keyframes earth-fade-in {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+
+      ::-webkit-scrollbar { width: 6px; height: 6px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
+      ::-webkit-scrollbar-thumb:hover { background: #ccc; }
+      * { scrollbar-width: thin; scrollbar-color: #ddd transparent; }
+
+      ::selection { background: #e5e5e5; color: #000; }
+
+      @media (max-width: 1000px) {
+        html, body { height: auto; overflow: auto; }
       }
     </style>
   </head>

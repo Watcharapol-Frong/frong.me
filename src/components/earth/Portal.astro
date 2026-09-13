@@ -1,9 +1,10 @@
 ---
 /**
- * Earth admin portal — 3-column landing view.
+ * Earth admin portal — three full-height columns.
  *
- * Left: identity, post counts, search, export, sign-out.
- * Center: drafts. Right: published (direct-SSR live) posts.
+ * Left: a dark identity rail (greeting, counts, tag filters, search, export,
+ * sign-out). Centre: drafts plus a 60-day writing streak calendar. Right:
+ * published posts, which under direct SSR are live the moment they flip.
  *
  * Ships no data server-side (see `src/pages/earth/index.astro`'s header
  * comment for why): everything here is fetched client-side from
@@ -11,286 +12,498 @@
  */
 export interface PortalProps {
   ownerHandle?: string;
+  siteDomain?: string;
 }
 
 interface Props extends PortalProps {}
 
-const { ownerHandle = 'frong98' } = Astro.props as Props;
+const { ownerHandle = 'frong98', siteDomain = 'frong.me' } = Astro.props as Props;
 ---
 
-<div class="earth-portal" data-earth-portal>
-  <aside class="earth-portal__col earth-portal__identity">
-    <div class="earth-portal__greeting">
-      <p class="earth-portal__hello" data-earth-greeting>Hello</p>
-      <p class="earth-portal__handle">@{ownerHandle}</p>
-      <a class="earth-portal__domain" href="/" target="_blank" rel="noopener">frong.me ↗</a>
+<div class="portal-grid" data-earth-portal>
+  <aside class="column col-identity">
+    <div class="logo">EARTH</div>
+
+    <h1 class="greeting" data-earth-greeting>Good morning</h1>
+    <div class="username-tag">@{ownerHandle}</div>
+    <a href="/" class="blog-link" target="_blank" rel="noopener">{siteDomain} ↗</a>
+
+    <div class="stats-box">
+      <div class="stat-item">Published <span data-earth-count="active">–</span></div>
+      <div class="stat-item">Drafts <span data-earth-count="draft">–</span></div>
+      <div class="stat-item">Words written <span data-earth-count="words">–</span></div>
     </div>
 
-    <div class="earth-portal__counts">
-      <div class="earth-portal__count">
-        <span class="earth-portal__count-value" data-earth-count="draft">–</span>
-        <span class="earth-portal__count-label">Drafts</span>
-      </div>
-      <div class="earth-portal__count">
-        <span class="earth-portal__count-value" data-earth-count="active">–</span>
-        <span class="earth-portal__count-label">Published</span>
-      </div>
-    </div>
-
-    <label class="earth-portal__search">
-      <span class="earth-portal__search-icon" aria-hidden="true">⌕</span>
+    <div class="search-container">
       <input
         type="search"
-        placeholder="Search posts…"
+        class="search-input"
         data-earth-search
+        placeholder="Search posts…"
         autocomplete="off"
       />
-    </label>
+      <div class="user-tags" data-earth-tag-cloud></div>
+    </div>
 
-    <div class="earth-portal__identity-actions">
-      <button type="button" class="earth-portal__link-btn" data-earth-export="json">
-        Export JSON
-      </button>
-      <button type="button" class="earth-portal__link-btn" data-earth-export="markdown">
-        Export Markdown
-      </button>
-      <a class="earth-portal__link-btn earth-portal__link-btn--danger" href="/cdn-cgi/access/logout">
-        Sign out
-      </a>
+    <div class="identity-links">
+      <button type="button" class="logout-link" data-earth-export="json">Export (JSON)</button>
+      <button type="button" class="logout-link" data-earth-export="markdown">Export (Markdown)</button>
+      <a class="logout-link logout-link--sign-out" href="/cdn-cgi/access/logout">Sign Out</a>
     </div>
   </aside>
 
-  <section class="earth-portal__col earth-portal__drafts">
-    <header class="earth-portal__col-header">
-      <h2>Drafts</h2>
-      <a class="earth-portal__new-btn" href="/earth/editor">+ New Post</a>
-    </header>
-    <ul class="earth-portal__list" data-earth-list="draft">
-      <li class="earth-portal__empty" data-earth-loading>Loading…</li>
-    </ul>
+  <section class="column col-content">
+    <div class="col-header">
+      <h2 class="col-title">Drafts</h2>
+      <div class="col-header-right">
+        <span class="col-count" data-earth-col-count="draft">0</span>
+        <a class="new-post-btn" href="/earth/editor">+ New</a>
+      </div>
+    </div>
+
+    <div class="post-list" data-earth-list="draft">
+      <p class="empty-state">Loading…</p>
+    </div>
+
+    <div class="streak-fixed">
+      <div class="streak-cal">
+        <div class="cal-header">
+          <span class="cal-title" data-earth-cal-title>0 posts in 60 days</span>
+          <span class="cal-streak" data-earth-cal-streak>no streak</span>
+        </div>
+        <div class="cal-grid" data-earth-cal-grid></div>
+      </div>
+    </div>
   </section>
 
-  <section class="earth-portal__col earth-portal__published">
-    <header class="earth-portal__col-header">
-      <h2>Published</h2>
-    </header>
-    <ul class="earth-portal__list" data-earth-list="active">
-      <li class="earth-portal__empty" data-earth-loading>Loading…</li>
-    </ul>
+  <section class="column col-content">
+    <div class="col-header">
+      <h2 class="col-title">Published</h2>
+      <div class="col-header-right">
+        <span class="col-count" data-earth-col-count="active">0</span>
+      </div>
+    </div>
+
+    <div class="post-list" data-earth-list="active">
+      <p class="empty-state">Loading…</p>
+    </div>
   </section>
 </div>
 
-<template data-earth-post-row-template>
-  <li class="earth-portal__row">
-    <a class="earth-portal__row-link" href="#">
-      <span class="earth-portal__row-title"></span>
-      <span class="earth-portal__row-meta"></span>
-    </a>
-  </li>
+<div class="modal-overlay" data-earth-modal="delete">
+  <div class="modal">
+    <h2 class="modal-title">Archive?</h2>
+    <p class="modal-text">
+      This post is moved out of the portal. Nothing is deleted from the
+      database, so it can be restored by hand later.
+    </p>
+    <div class="modal-actions">
+      <button class="modal-btn modal-btn-cancel" data-earth-modal-close>Wait</button>
+      <button class="modal-btn modal-btn-confirm" data-earth-modal-confirm>Archive</button>
+    </div>
+  </div>
+</div>
+
+<template data-earth-row-template>
+  <article class="post-item">
+    <div class="post-info">
+      <h3 class="post-title"></h3>
+      <p class="post-excerpt"></p>
+      <div class="post-meta">
+        <span class="date"></span>
+        <span class="tags"></span>
+      </div>
+    </div>
+    <div class="post-actions">
+      <a class="icon-btn" data-slot="view" title="View" target="_blank" rel="noopener" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+      </a>
+      <a class="icon-btn" data-slot="edit" title="Edit">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+      </a>
+      <button type="button" class="icon-btn danger" data-slot="archive" title="Archive">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+      </button>
+    </div>
+  </article>
 </template>
 
-<style>
-  .earth-portal {
+<!--
+  Global rather than scoped: rows are cloned from the template above and the
+  empty/error states are built in script, so a scope attribute would not reach
+  them. This component only ever renders on `/earth`, which has no other CSS.
+-->
+<style is:global>
+  .portal-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 1.5rem;
-    max-width: 72rem;
-    margin: 0 auto;
-    padding: 1.5rem 1.25rem 4rem;
+    grid-template-columns: 1fr 1.2fr 1.2fr;
+    height: 100vh;
+    width: 100%;
   }
 
-  @media (min-width: 860px) {
-    .earth-portal {
-      grid-template-columns: 16rem minmax(0, 1fr) minmax(0, 1fr);
-      align-items: start;
-    }
+  .column {
+    height: 100%;
+    overflow-y: auto;
+    padding: 40px;
+    border-right: 1px solid #f5f5f5;
   }
 
-  .earth-portal__col {
-    border: 1px solid var(--earth-border, color-mix(in oklab, currentColor 15%, transparent));
-    border-radius: 0.75rem;
-    padding: 1.25rem;
-    background: color-mix(in oklab, currentColor 2%, transparent);
-  }
+  .column:last-child { border-right: none; }
 
-  .earth-portal__greeting {
-    margin-bottom: 1.25rem;
-  }
+  /* ---------------- Column 1: identity ---------------- */
 
-  .earth-portal__hello {
-    margin: 0;
-    font-size: 0.8125rem;
-    opacity: 0.6;
-  }
-
-  .earth-portal__handle {
-    margin: 0.125rem 0 0.375rem;
-    font-size: 1.25rem;
-    font-weight: 600;
-  }
-
-  .earth-portal__domain {
-    font-size: 0.8125rem;
-    color: var(--earth-accent, currentColor);
-    text-decoration: none;
-  }
-
-  .earth-portal__domain:hover {
-    text-decoration: underline;
-  }
-
-  .earth-portal__counts {
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 1.25rem;
-  }
-
-  .earth-portal__count {
+  .col-identity {
+    background: #1f1f1f;
+    color: #fff;
     display: flex;
     flex-direction: column;
   }
 
-  .earth-portal__count-value {
-    font-size: 1.5rem;
+  .logo {
+    margin-bottom: 24px;
+    font-size: 11px;
     font-weight: 700;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .earth-portal__count-label {
-    font-size: 0.75rem;
-    opacity: 0.6;
-  }
-
-  .earth-portal__search {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    border: 1px solid var(--earth-border, color-mix(in oklab, currentColor 15%, transparent));
-    border-radius: 0.5rem;
-    padding: 0.5rem 0.75rem;
-    margin-bottom: 1.25rem;
-  }
-
-  .earth-portal__search input {
-    border: none;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    font-size: 0.875rem;
-    outline: none;
-    width: 100%;
-  }
-
-  .earth-portal__search-icon {
+    letter-spacing: 3px;
     opacity: 0.5;
   }
 
-  .earth-portal__identity-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 0.375rem;
-  }
-
-  .earth-portal__link-btn {
-    display: block;
-    width: 100%;
-    text-align: left;
-    padding: 0.5rem 0.625rem;
-    border-radius: 0.5rem;
-    border: none;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    font-size: 0.8125rem;
-    cursor: pointer;
-    text-decoration: none;
-  }
-
-  .earth-portal__link-btn:hover {
-    background: color-mix(in oklab, currentColor 8%, transparent);
-  }
-
-  .earth-portal__link-btn--danger {
-    color: #b42318;
-  }
-
-  .earth-portal__col-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 1rem;
-  }
-
-  .earth-portal__col-header h2 {
-    margin: 0;
-    font-size: 0.9375rem;
+  .greeting {
+    font-family: 'Crimson Pro', Georgia, serif;
+    font-size: 46px;
     font-weight: 600;
-  }
-
-  .earth-portal__new-btn {
-    padding: 0.375rem 0.75rem;
-    border-radius: 999px;
-    background: var(--earth-accent, currentColor);
-    color: var(--earth-accent-contrast, #fff);
-    font-size: 0.8125rem;
-    font-weight: 600;
-    text-decoration: none;
-  }
-
-  .earth-portal__list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-    max-height: 32rem;
-    overflow-y: auto;
-  }
-
-  .earth-portal__empty {
-    padding: 0.75rem 0;
-    font-size: 0.8125rem;
-    opacity: 0.55;
-  }
-
-  .earth-portal__row-link {
-    display: flex;
-    flex-direction: column;
-    gap: 0.125rem;
-    padding: 0.625rem 0.625rem;
-    border-radius: 0.5rem;
-    color: inherit;
-    text-decoration: none;
-  }
-
-  .earth-portal__row-link:hover {
-    background: color-mix(in oklab, currentColor 8%, transparent);
-  }
-
-  .earth-portal__row-title {
-    font-size: 0.875rem;
-    font-weight: 500;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    line-height: 1;
+    margin: 0 0 16px;
+    letter-spacing: -2px;
     white-space: nowrap;
   }
 
-  .earth-portal__row-meta {
-    font-size: 0.75rem;
-    opacity: 0.55;
+  .username-tag { font-size: 14px; color: #666; margin-bottom: 8px; }
+
+  .blog-link {
+    font-size: 11px;
+    color: #444;
+    text-decoration: none;
+    margin-bottom: 40px;
+    display: block;
+    transition: color 0.2s;
+  }
+
+  .blog-link:hover { color: #fff; text-decoration: underline; }
+
+  .stats-box { margin-bottom: 60px; width: 100%; }
+
+  .stat-item {
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 12px;
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    border-bottom: 1px solid #111;
+    padding-bottom: 8px;
+  }
+
+  .stat-item span { color: #fff; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  .search-container { margin-top: auto; }
+
+  .search-input {
+    width: 100%;
+    padding: 14px 0;
+    border: none;
+    border-bottom: 1px solid #222;
+    background: transparent;
+    font-family: inherit;
+    font-size: 14px;
+    color: #fff;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .search-input:focus { border-bottom-color: #fff; }
+  .search-input::placeholder { color: #555; }
+
+  .user-tags {
+    margin-top: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+  }
+
+  .user-tag {
+    font-size: 11px;
+    color: #555;
+    background: none;
+    border: none;
+    padding: 0;
+    font-family: inherit;
+    cursor: pointer;
+    transition: color 0.2s;
+  }
+
+  .user-tag:hover { color: #fff; }
+  .user-tag[data-active='true'] { color: #fff; text-decoration: underline; }
+
+  .identity-links {
+    margin-top: 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .logout-link {
+    font-family: inherit;
+    font-size: 10px;
+    color: #888;
+    background: none;
+    border: none;
+    padding: 0;
+    text-decoration: none;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    cursor: pointer;
+    transition: color 0.2s;
+  }
+
+  .logout-link:hover { color: #fff; }
+  .logout-link--sign-out { color: #444; margin-top: 12px; }
+
+  /* ---------------- Columns 2 & 3: content ---------------- */
+
+  .col-content {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .col-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 32px;
+    min-height: 34px;
+    flex-shrink: 0;
+  }
+
+  .col-title {
+    margin: 0;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+
+  .col-header-right { display: flex; align-items: center; gap: 16px; }
+
+  .col-count {
+    font-size: 10px;
+    color: #999;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .new-post-btn {
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #fff;
+    background: #000;
+    border: none;
+    padding: 8px 16px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: opacity 0.2s;
+  }
+
+  .new-post-btn:hover { opacity: 0.7; }
+
+  .post-list {
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+
+  .post-item {
+    padding: 20px 0;
+    border-bottom: 1px solid #f9f9f9;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+
+  .post-item[hidden] { display: none; }
+
+  .post-info { flex: 1; min-width: 0; padding-right: 20px; }
+
+  .post-title {
+    font-family: 'Google Sans', system-ui, sans-serif;
+    font-size: 19px;
+    font-weight: 600;
+    margin: 0 0 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .post-excerpt {
+    font-family: 'Google Sans', system-ui, sans-serif;
+    font-size: 13px;
+    color: #bbb;
+    line-height: 1.4;
+    margin: 0 0 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .post-meta { font-size: 11px; color: #ccc; display: flex; gap: 12px; }
+  .post-meta .tags { color: #999; }
+
+  .post-actions {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .post-item:hover .post-actions,
+  .post-item:focus-within .post-actions { opacity: 1; }
+
+  .icon-btn {
+    background: none;
+    border: none;
+    color: #aaa;
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+
+  .icon-btn:hover { color: #000; }
+  .icon-btn.danger:hover { color: #ef4444; }
+  .icon-btn[hidden] { display: none; }
+
+  .empty-state {
+    color: #ddd;
+    font-style: italic;
+    font-size: 14px;
+    margin: 20px 0 0;
+  }
+
+  /* ---------------- Streak calendar ---------------- */
+
+  .streak-fixed { margin-top: auto; padding-top: 32px; }
+  .streak-cal { padding: 20px 0 0; flex-shrink: 0; }
+
+  .cal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+
+  .cal-title { font-size: 10px; color: #999; text-transform: uppercase; letter-spacing: 1px; }
+  .cal-streak { font-size: 10px; color: #000; font-weight: 600; letter-spacing: 0.5px; }
+
+  .cal-grid { display: grid; grid-template-columns: repeat(14, 1fr); gap: 3px; }
+
+  .sq {
+    aspect-ratio: 1;
+    border-radius: 2px;
+    background: #f0f0f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .sq-day { font-size: 9px; color: #ccc; }
+  .sq.active { background: #1f1f1f; }
+  .sq.active .sq-day { color: #fff; }
+  .sq.today { outline: 1.5px solid #1f1f1f; outline-offset: 1px; }
+
+  /* ---------------- Modal ---------------- */
+
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(10px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+  }
+
+  .modal-overlay[data-visible='true'] { display: flex; }
+
+  .modal {
+    background: #fff;
+    border: 1px solid #eee;
+    padding: 40px;
+    max-width: 380px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.05);
+  }
+
+  .modal-title { font-family: 'Crimson Pro', Georgia, serif; font-size: 24px; margin: 0 0 12px; }
+  .modal-text { font-size: 14px; color: #666; margin: 0 0 32px; line-height: 1.5; }
+  .modal-actions { display: flex; gap: 12px; }
+
+  .modal-btn {
+    flex: 1;
+    padding: 14px;
+    font-size: 11px;
+    font-family: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .modal-btn-confirm { background: #000; color: #fff; }
+  .modal-btn-cancel { background: #f5f5f5; color: #999; }
+
+  @media (max-width: 1000px) {
+    .portal-grid { grid-template-columns: 1fr; height: auto; }
+    .column {
+      height: auto;
+      border-right: none;
+      border-bottom: 1px solid #f5f5f5;
+      padding: 32px 24px;
+    }
+    .greeting { white-space: normal; font-size: 38px; }
+    .search-container { margin-top: 32px; }
+    .streak-fixed { margin-top: 32px; }
+    .post-actions { opacity: 1; }
   }
 </style>
 
 <script>
-  import { listPosts, type PostSummary } from '../../lib/cms/client/api.ts';
+  import { archivePost, listPosts, type PostSummary } from '../../lib/cms/client/api.ts';
+
+  const STREAK_DAYS = 60;
 
   function greeting(): string {
     const hour = new Date().getHours();
-    if (hour < 5) return 'Working late';
+    if (hour < 5) return 'Still awake';
     if (hour < 12) return 'Good morning';
     if (hour < 18) return 'Good afternoon';
     return 'Good evening';
+  }
+
+  function dayKey(epochMs: number): string {
+    const date = new Date(epochMs);
+    return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
   }
 
   function formatDate(epochMs: number | null): string {
@@ -302,73 +515,178 @@ const { ownerHandle = 'frong98' } = Astro.props as Props;
     });
   }
 
+  function wordCount(posts: PostSummary[]): number {
+    // The list endpoint carries no body, so excerpts stand in for a rough
+    // "how much have I written" signal rather than a precise total.
+    return posts.reduce((total, post) => total + (post.excerpt ?? '').trim().split(/\s+/).filter(Boolean).length, 0);
+  }
+
   function initPortal(root: HTMLElement) {
     const greetingEl = root.querySelector<HTMLElement>('[data-earth-greeting]');
     if (greetingEl) greetingEl.textContent = greeting();
 
     const searchInput = root.querySelector<HTMLInputElement>('[data-earth-search]');
+    const tagCloud = root.querySelector<HTMLElement>('[data-earth-tag-cloud]');
+    const rowTemplate = document.querySelector<HTMLTemplateElement>('[data-earth-row-template]');
+    const modal = document.querySelector<HTMLElement>('[data-earth-modal="delete"]');
+    const modalConfirm = modal?.querySelector<HTMLButtonElement>('[data-earth-modal-confirm]');
+
     const lists = {
-      draft: root.querySelector<HTMLUListElement>('[data-earth-list="draft"]'),
-      active: root.querySelector<HTMLUListElement>('[data-earth-list="active"]'),
+      draft: root.querySelector<HTMLElement>('[data-earth-list="draft"]'),
+      active: root.querySelector<HTMLElement>('[data-earth-list="active"]'),
     };
-    const counts = {
+    const statCounts = {
       draft: root.querySelector<HTMLElement>('[data-earth-count="draft"]'),
       active: root.querySelector<HTMLElement>('[data-earth-count="active"]'),
+      words: root.querySelector<HTMLElement>('[data-earth-count="words"]'),
     };
-    const rowTemplate = document.querySelector<HTMLTemplateElement>('[data-earth-post-row-template]');
+    const colCounts = {
+      draft: root.querySelector<HTMLElement>('[data-earth-col-count="draft"]'),
+      active: root.querySelector<HTMLElement>('[data-earth-col-count="active"]'),
+    };
 
     let allPosts: PostSummary[] = [];
+    let pendingArchive: PostSummary | null = null;
 
-    function renderList(target: HTMLUListElement | null, posts: PostSummary[]) {
+    /* ---------------- Rendering ---------------- */
+
+    function renderList(target: HTMLElement | null, posts: PostSummary[], lifecycle: 'draft' | 'active') {
       if (!target || !rowTemplate) return;
-      target.innerHTML = '';
+      target.replaceChildren();
       if (posts.length === 0) {
-        const empty = document.createElement('li');
-        empty.className = 'earth-portal__empty';
-        empty.textContent = 'Nothing here yet.';
+        const empty = document.createElement('p');
+        empty.className = 'empty-state';
+        empty.textContent = lifecycle === 'draft' ? 'No drafts. Start one.' : 'Nothing published yet.';
         target.append(empty);
         return;
       }
       for (const post of posts) {
         const node = rowTemplate.content.cloneNode(true) as DocumentFragment;
-        const link = node.querySelector<HTMLAnchorElement>('.earth-portal__row-link')!;
-        link.href = `/earth/editor?id=${encodeURIComponent(post.id)}`;
-        node.querySelector('.earth-portal__row-title')!.textContent = post.title || '(untitled)';
-        const metaParts = [post.lang.toUpperCase()];
-        const when = formatDate(post.publishedAt ?? post.updatedAt);
-        if (when) metaParts.push(when);
-        node.querySelector('.earth-portal__row-meta')!.textContent = metaParts.join(' · ');
+        const item = node.querySelector<HTMLElement>('.post-item')!;
+        item.dataset.earthPostId = post.id;
+
+        node.querySelector('.post-title')!.textContent = post.title || 'Untitled';
+        node.querySelector('.post-excerpt')!.textContent = post.excerpt || '…';
+        node.querySelector('.date')!.textContent = formatDate(post.publishedAt ?? post.updatedAt);
+        node.querySelector('.tags')!.textContent = post.tagNames.map((tag) => `#${tag}`).join(' ');
+
+        node.querySelector<HTMLAnchorElement>('[data-slot="edit"]')!.href =
+          `/earth/editor?id=${encodeURIComponent(post.id)}`;
+
+        const view = node.querySelector<HTMLAnchorElement>('[data-slot="view"]')!;
+        if (lifecycle === 'active') {
+          view.href = `/articles/${encodeURIComponent(post.slug)}`;
+          view.hidden = false;
+        }
+
         target.append(node);
+      }
+    }
+
+    function renderTagCloud() {
+      if (!tagCloud) return;
+      const names = [...new Set(allPosts.flatMap((post) => post.tagNames))].sort();
+      tagCloud.replaceChildren();
+      const active = (searchInput?.value ?? '').trim().toLowerCase();
+      for (const name of names) {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'user-tag';
+        chip.textContent = `#${name}`;
+        chip.dataset.earthTag = name;
+        if (active === name.toLowerCase()) chip.dataset.active = 'true';
+        tagCloud.append(chip);
+      }
+    }
+
+    function renderStreak() {
+      const grid = root.querySelector<HTMLElement>('[data-earth-cal-grid]');
+      const titleEl = root.querySelector<HTMLElement>('[data-earth-cal-title]');
+      const streakEl = root.querySelector<HTMLElement>('[data-earth-cal-streak]');
+      if (!grid) return;
+
+      const activeDays = new Set(
+        allPosts.map((post) => dayKey(post.publishedAt ?? post.updatedAt)),
+      );
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      grid.replaceChildren();
+      let daysWithWriting = 0;
+      for (let offset = STREAK_DAYS - 1; offset >= 0; offset -= 1) {
+        const day = new Date(today);
+        day.setDate(today.getDate() - offset);
+        const isActive = activeDays.has(dayKey(day.getTime()));
+        if (isActive) daysWithWriting += 1;
+
+        const cell = document.createElement('span');
+        cell.className = `sq${isActive ? ' active' : ''}${offset === 0 ? ' today' : ''}`;
+        cell.title = day.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        const label = document.createElement('span');
+        label.className = 'sq-day';
+        label.textContent = String(day.getDate());
+        cell.append(label);
+        grid.append(cell);
+      }
+
+      // Current streak: consecutive active days counting back from today.
+      let streak = 0;
+      for (let offset = 0; offset < STREAK_DAYS; offset += 1) {
+        const day = new Date(today);
+        day.setDate(today.getDate() - offset);
+        if (!activeDays.has(dayKey(day.getTime()))) break;
+        streak += 1;
+      }
+
+      if (titleEl) titleEl.textContent = `${daysWithWriting} days in ${STREAK_DAYS}`;
+      if (streakEl) {
+        streakEl.textContent = streak > 0 ? `${streak} day streak` : 'no streak';
       }
     }
 
     function applyFilter() {
       const term = (searchInput?.value ?? '').trim().toLowerCase();
-      const filtered = term
-        ? allPosts.filter((post) =>
-            post.title.toLowerCase().includes(term) || post.slug.toLowerCase().includes(term))
-        : allPosts;
-      renderList(lists.draft, filtered.filter((post) => post.lifecycle === 'draft'));
-      renderList(lists.active, filtered.filter((post) => post.lifecycle === 'active'));
+      const matches = (post: PostSummary) =>
+        !term
+        || post.title.toLowerCase().includes(term)
+        || post.slug.toLowerCase().includes(term)
+        || (post.excerpt ?? '').toLowerCase().includes(term)
+        || post.tagNames.some((tag) => tag.toLowerCase().includes(term));
+
+      const visible = allPosts.filter(matches);
+      const drafts = visible.filter((post) => post.lifecycle === 'draft');
+      const published = visible.filter((post) => post.lifecycle === 'active');
+
+      renderList(lists.draft, drafts, 'draft');
+      renderList(lists.active, published, 'active');
+      if (colCounts.draft) colCounts.draft.textContent = String(drafts.length);
+      if (colCounts.active) colCounts.active.textContent = String(published.length);
+      renderTagCloud();
     }
+
+    function renderStats() {
+      const drafts = allPosts.filter((post) => post.lifecycle === 'draft');
+      const published = allPosts.filter((post) => post.lifecycle === 'active');
+      if (statCounts.draft) statCounts.draft.textContent = String(drafts.length);
+      if (statCounts.active) statCounts.active.textContent = String(published.length);
+      if (statCounts.words) statCounts.words.textContent = wordCount(allPosts).toLocaleString();
+    }
+
+    /* ---------------- Data ---------------- */
 
     async function load() {
       try {
         const response = await listPosts();
-        allPosts = response.posts;
-        if (counts.draft) {
-          counts.draft.textContent = String(allPosts.filter((post) => post.lifecycle === 'draft').length);
-        }
-        if (counts.active) {
-          counts.active.textContent = String(allPosts.filter((post) => post.lifecycle === 'active').length);
-        }
+        allPosts = response.posts.filter((post) => post.lifecycle !== 'archived');
+        renderStats();
+        renderStreak();
         applyFilter();
       } catch (error) {
         for (const list of Object.values(lists)) {
           if (!list) continue;
-          list.innerHTML = '';
-          const failed = document.createElement('li');
-          failed.className = 'earth-portal__empty';
+          list.replaceChildren();
+          const failed = document.createElement('p');
+          failed.className = 'empty-state';
           failed.textContent = 'Could not load posts.';
           list.append(failed);
         }
@@ -376,14 +694,80 @@ const { ownerHandle = 'frong98' } = Astro.props as Props;
       }
     }
 
+    function closeModal() {
+      pendingArchive = null;
+      modal?.removeAttribute('data-visible');
+      if (modalConfirm) modalConfirm.textContent = 'Archive';
+    }
+
+    async function confirmArchive() {
+      if (!pendingArchive || !modalConfirm) return;
+      const target = pendingArchive;
+      modalConfirm.textContent = 'Archiving…';
+      modalConfirm.disabled = true;
+      try {
+        const result = await archivePost(target.id, target.draftVersion);
+        if (!result.ok) {
+          // The row moved on while the dialog was open; a reload is the honest fix.
+          modalConfirm.textContent = 'Out of date — reloading';
+          setTimeout(() => window.location.reload(), 900);
+          return;
+        }
+        allPosts = allPosts.filter((post) => post.id !== target.id);
+        renderStats();
+        renderStreak();
+        applyFilter();
+        closeModal();
+      } catch (error) {
+        console.error('[earth-portal] archive failed', error);
+        modalConfirm.textContent = 'Failed — try again';
+      } finally {
+        modalConfirm.disabled = false;
+      }
+    }
+
+    /* ---------------- Events ---------------- */
+
     searchInput?.addEventListener('input', applyFilter);
+
+    tagCloud?.addEventListener('click', (event) => {
+      const chip = (event.target as HTMLElement).closest<HTMLElement>('[data-earth-tag]');
+      if (!chip || !searchInput) return;
+      const tag = chip.dataset.earthTag ?? '';
+      searchInput.value = searchInput.value.trim().toLowerCase() === tag.toLowerCase() ? '' : tag;
+      applyFilter();
+    });
+
+    root.addEventListener('click', (event) => {
+      const trigger = (event.target as HTMLElement).closest<HTMLElement>('[data-slot="archive"]');
+      if (!trigger) return;
+      const row = trigger.closest<HTMLElement>('.post-item');
+      const postId = row?.dataset.earthPostId;
+      pendingArchive = allPosts.find((post) => post.id === postId) ?? null;
+      if (pendingArchive) modal?.setAttribute('data-visible', 'true');
+    });
+
+    modal?.addEventListener('click', (event) => {
+      if (event.target === modal || (event.target as HTMLElement).closest('[data-earth-modal-close]')) {
+        closeModal();
+      }
+    });
+    modalConfirm?.addEventListener('click', () => void confirmArchive());
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') closeModal();
+      if ((event.key === '/' || event.key === 'k') && (event.metaKey || event.ctrlKey)) {
+        event.preventDefault();
+        searchInput?.focus();
+      }
+    });
 
     root.querySelectorAll<HTMLButtonElement>('[data-earth-export]').forEach((button) => {
       button.addEventListener('click', () => {
         const format = button.dataset.earthExport;
         const filename = `frong-me-posts.${format === 'markdown' ? 'md' : 'json'}`;
         const content = format === 'markdown'
-          ? allPosts.map((post) => `# ${post.title}\n\n- slug: ${post.slug}\n- lang: ${post.lang}\n- status: ${post.lifecycle}\n`).join('\n---\n\n')
+          ? allPosts.map((post) => `# ${post.title}\n\n- slug: ${post.slug}\n- lang: ${post.lang}\n- status: ${post.lifecycle}\n- tags: ${post.tagNames.join(', ')}\n`).join('\n---\n\n')
           : JSON.stringify(allPosts, null, 2);
         const blob = new Blob([content], { type: format === 'markdown' ? 'text/markdown' : 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -397,7 +781,7 @@ const { ownerHandle = 'frong98' } = Astro.props as Props;
       });
     });
 
-    load();
+    void load();
   }
 
   const portalRoot = document.querySelector<HTMLElement>('[data-earth-portal]');

@@ -1,137 +1,35 @@
 ---
 /**
- * Zen writing surface: single-column Markdown textarea, no split preview
- * (preview opens in a new tab instead — see `ActionBar.astro` / the
- * `PostEditor.astro` script). Presentational only; all behaviour is wired by
- * the delegated script in `PostEditor.astro`.
+ * The writing surface: the cover preview above a single auto-growing Markdown
+ * textarea. No split preview — Preview opens a new tab (Ctrl+P) so the
+ * writing column keeps the full width of the page.
+ *
+ * Markup only — behaviour is wired by the delegated script in
+ * `PostEditor.astro`, styling lives in `src/pages/earth/editor.astro`.
  */
 export interface ContentEditorProps {
   initial?: string;
+  coverUrl?: string;
 }
 
 interface Props extends ContentEditorProps {}
 
-const { initial = '' } = Astro.props as Props;
-
-const toolbarButtons: { label: string; title: string; action: string; arg?: string }[] = [
-  { label: 'B', title: 'Bold (Ctrl+B)', action: 'bold' },
-  { label: 'I', title: 'Italic', action: 'italic' },
-  { label: 'H2', title: 'Heading', action: 'prefix', arg: '## ' },
-  { label: '•', title: 'List item', action: 'prefix', arg: '- ' },
-  { label: '❝', title: 'Blockquote', action: 'prefix', arg: '> ' },
-  { label: '</>', title: 'Inline code', action: 'wrap', arg: '`' },
-  { label: '🔗', title: 'Link', action: 'link' },
-];
+const { initial = '', coverUrl = '' } = Astro.props as Props;
 ---
 
-<section class="earth-content" data-earth-content data-earth-image-drop>
-  <div class="earth-content__toolbar" role="toolbar" aria-label="Markdown formatting">
-    {
-      toolbarButtons.map((btn) => (
-        <button
-          type="button"
-          class="earth-content__tool"
-          title={btn.title}
-          aria-label={btn.title}
-          data-earth-tool={btn.action}
-          data-earth-tool-arg={btn.arg ?? ''}
-        >
-          {btn.label}
-        </button>
-      ))
-    }
-    <span class="earth-content__spacer" aria-hidden="true"></span>
-    <span class="earth-content__count" data-earth-count="body">0 words</span>
-  </div>
+<div class="editor-scroll" data-earth-scroll data-earth-image-drop>
+  <figure class="cover-container" data-earth-cover-container hidden={!coverUrl}>
+    <img class="cover-preview" data-earth-cover-preview src={coverUrl} alt="Cover preview" />
+  </figure>
 
   <textarea
-    class="earth-content__input"
-    name="body"
+    class="body-input"
     data-earth-field="body"
-    data-earth-editor-input
-    placeholder="Write in Markdown… (drop an image anywhere to insert it)"
+    placeholder="Start writing…  (Ctrl+I to add an image, Ctrl+E for emoji)"
     spellcheck="true"
->{initial}</textarea>
-  <div class="earth-content__drop-indicator" data-earth-drop-indicator hidden>Drop image to upload…</div>
-</section>
+  >{initial}</textarea>
 
-<style>
-  .earth-content {
-    border: 1px solid var(--earth-border, color-mix(in oklab, currentColor 15%, transparent));
-    border-radius: 0.75rem;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-height: 24rem;
-    position: relative;
-  }
+  <div class="drop-indicator" data-earth-drop-indicator hidden>Drop the image to upload it…</div>
+</div>
 
-  .earth-content__toolbar {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-    padding: 0.375rem 0.5rem;
-    border-bottom: 1px solid var(--earth-border, color-mix(in oklab, currentColor 15%, transparent));
-    background: color-mix(in oklab, currentColor 4%, transparent);
-    flex-wrap: wrap;
-  }
-
-  .earth-content__tool {
-    min-width: 2rem;
-    height: 1.75rem;
-    padding-inline: 0.4rem;
-    border: none;
-    border-radius: 0.375rem;
-    background: transparent;
-    color: inherit;
-    font-size: 0.8125rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 100ms ease;
-  }
-
-  .earth-content__tool:hover {
-    background: color-mix(in oklab, currentColor 10%, transparent);
-  }
-
-  .earth-content__spacer {
-    flex: 1;
-  }
-
-  .earth-content__count {
-    font-size: 0.75rem;
-    opacity: 0.6;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .earth-content__input {
-    flex: 1;
-    border: none;
-    background: transparent;
-    color: inherit;
-    padding: 1.25rem;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 0.9375rem;
-    line-height: 1.7;
-    resize: none;
-    outline: none;
-  }
-
-  .earth-content__drop-indicator {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: color-mix(in oklab, var(--earth-accent, currentColor) 10%, transparent);
-    border: 2px dashed var(--earth-accent, currentColor);
-    font-size: 0.9375rem;
-    font-weight: 600;
-    pointer-events: none;
-  }
-
-  .earth-content__drop-indicator[hidden] {
-    display: none;
-  }
-</style>
+<div class="emoji-picker" data-earth-emoji-picker hidden></div>

@@ -4,7 +4,7 @@ import { parseCreatePostInput, parsePostListQuery } from '../../../../lib/cms/va
 import { resolveCmsDatabase, postRowToListDto, privateJson, readJsonRequest } from '../../../../server/cms/api.ts';
 import { cmsErrorResponse } from '../../../../server/cms/errors.ts';
 import { createPostDraft, listPostDrafts } from '../../../../server/cms/repositories/posts.ts';
-import { listCategories, listTags } from '../../../../server/cms/repositories/taxonomy.ts';
+import { listCategories, listTagNamesByPost, listTags } from '../../../../server/cms/repositories/taxonomy.ts';
 import { postDetailDto } from '../../../../server/cms/api.ts';
 
 export const prerender = false;
@@ -13,13 +13,17 @@ export const GET: APIRoute = async ({ request, locals }) => {
   try {
     const query = parsePostListQuery(new URL(request.url).searchParams);
     const db = await resolveCmsDatabase(locals);
-    const [posts, categories, tags] = await Promise.all([
+    const [posts, categories, tags, tagNamesByPost] = await Promise.all([
       listPostDrafts(db, query),
       listCategories(db),
       listTags(db),
+      listTagNamesByPost(db),
     ]);
     return privateJson({
-      posts: posts.map(postRowToListDto),
+      posts: posts.map((row) => ({
+        ...postRowToListDto(row),
+        tagNames: tagNamesByPost.get(row.id) ?? [],
+      })),
       taxonomy: {
         categories: {
           th: categories.filter((term) => term.lang === 'th').map(({ id, slug, name }) => ({ id, slug, name })),

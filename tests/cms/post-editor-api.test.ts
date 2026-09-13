@@ -21,6 +21,7 @@ const POST: PostDetail = {
   updatedAt: 1789140000000,
   publishedAt: null,
   coverImageUrl: null,
+  tagNames: [],
   bodyMarkdown: '# Draft',
   categoryIds: ['cat_existing01'],
   tagIds: [],
@@ -253,5 +254,24 @@ test('a conflict with no currentDraftVersion in its details leaves the field und
       assert.equal(error.currentDraftVersion, undefined);
       return true;
     },
+  );
+});
+
+test('loading a post reads tag names from the detail payload, never the raw tag ids', async () => {
+  const detail = {
+    ...POST,
+    tagIds: ['tag_6a937517b25847d88f10bfb2', 'tag_5f92332843c64b9cb4403d0c'],
+    tags: [
+      { id: 'tag_6a937517b25847d88f10bfb2', slug: 'blogging', name: 'เขียนบล็อก' },
+      { id: 'tag_5f92332843c64b9cb4403d0c', slug: 'cms', name: 'cms' },
+    ],
+  };
+  const { api } = client(() => ({ body: detail }));
+
+  const loaded = await api.fetch(POST.id);
+  assert.deepEqual(
+    loaded.tagNames,
+    ['เขียนบล็อก', 'cms'],
+    'the editor fills its tag field from these; ids here would be re-upserted as literal tag names on the next save',
   );
 });

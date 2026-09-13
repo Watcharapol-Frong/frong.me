@@ -71,6 +71,14 @@ function renderInline(escapedLine: string): string {
     .replace(/`([^`]+)`/g, '<code>$1</code>');
 }
 
+/**
+ * `@[youtube](<id>)` on its own line. The id pattern is the whole allow-list:
+ * only YouTube's 11-character id alphabet reaches the emitted URL, so nothing
+ * from the author can break out of the src attribute. `youtube-nocookie.com`
+ * keeps a reader's visit out of YouTube's ad profile until they press play.
+ */
+const YOUTUBE_PATTERN = /^@\[youtube\]\(([A-Za-z0-9_-]{11})\)$/;
+
 const HEADING_PATTERN = /^(#{1,6})\s+(.*)$/;
 const ORDERED_ITEM_PATTERN = /^\d+\.\s+(.*)$/;
 const UNORDERED_ITEM_PATTERN = /^[-*]\s+(.*)$/;
@@ -135,6 +143,18 @@ export function renderMarkdown(markdown: string): RenderedMarkdown {
     if (HR_PATTERN.test(rawLine.trim())) {
       closeList();
       html.push('<hr />');
+      continue;
+    }
+
+    const youtube = rawLine.trim().match(YOUTUBE_PATTERN);
+    if (youtube) {
+      closeList();
+      html.push(
+        `<div class="video-embed"><iframe src="https://www.youtube-nocookie.com/embed/${youtube[1]}"`
+        + ' title="YouTube video" loading="lazy" frameborder="0"'
+        + ' allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"'
+        + ' allowfullscreen></iframe></div>',
+      );
       continue;
     }
 
