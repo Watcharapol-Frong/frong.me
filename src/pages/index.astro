@@ -32,7 +32,7 @@ const articles = await Promise.all(
       slug: post.slug,
       title: post.title,
       tags: taxonomy.tags.map((tag) => tag.slug),
-      cover: cover ? publicAssetUrl(cover, "https://images.frong.me") : "",
+      cover: cover ? publicAssetUrl(cover, "https://images.frong.me") : post.cover_image_url ?? "",
     };
   }),
 );

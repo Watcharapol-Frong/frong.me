@@ -8,6 +8,7 @@ export function createCmsDbFixture() {
     'db/migrations/0002_taxonomy_assets.sql',
     'db/migrations/0003_releases.sql',
     'db/migrations/0004_direct_publish.sql',
+    'db/migrations/0005_post_cover_url.sql',
   );
   return { binding, db: createCmsDatabase(binding) };
 }

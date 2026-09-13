@@ -9,13 +9,13 @@ import type { CmsDatabase } from '../db.ts';
 
 const PUBLIC_POST_COLUMNS = `
   id, lang, translation_group_id, slug, title, excerpt, body_markdown,
-  created_at, updated_at, published_at
+  created_at, updated_at, published_at, cover_image_url
 `;
 
 export type PublicPostRow = Pick<
   PostRow,
   | 'id' | 'lang' | 'translation_group_id' | 'slug' | 'title' | 'excerpt'
-  | 'body_markdown' | 'created_at' | 'updated_at' | 'published_at'
+  | 'body_markdown' | 'created_at' | 'updated_at' | 'published_at' | 'cover_image_url'
 >;
 
 export interface PublicPostAssetRow {

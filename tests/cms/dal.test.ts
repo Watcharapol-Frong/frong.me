@@ -80,6 +80,46 @@ test('draft writes use optimistic locking and stale taxonomy batches roll back',
   assert.equal((await getPostDraft(db, POST_ID)).draft_version, 3);
 });
 
+test('cover_image_url persists through create, update, and the bundled update, and clearing it stores null', async (t) => {
+  const { binding, db } = createCmsDbFixture();
+  t.after(() => binding.close());
+
+  const created = await createPost(db, {
+    id: POST_ID,
+    lang: 'th',
+    slug: 'cover-proof',
+    title: 'Cover proof',
+    bodyMarkdown: '# Body',
+    coverImageUrl: 'https://images.unsplash.com/photo-1',
+  }, NOW);
+  assert.equal(created.cover_image_url, 'https://images.unsplash.com/photo-1');
+
+  const afterDraftUpdate = await updatePostDraft(db, POST_ID, {
+    expectedDraftVersion: 1,
+    lang: 'th',
+    slug: 'cover-proof',
+    title: 'Cover proof',
+    bodyMarkdown: '# Body',
+    coverImageUrl: 'https://images.unsplash.com/photo-2',
+  }, NOW + 1);
+  assert.equal(afterDraftUpdate.cover_image_url, 'https://images.unsplash.com/photo-2');
+
+  const afterBundleUpdate = await updatePostBundle(db, POST_ID, {
+    draft: {
+      expectedDraftVersion: 2,
+      lang: 'th',
+      slug: 'cover-proof',
+      title: 'Cover proof',
+      bodyMarkdown: '# Body',
+      coverImageUrl: null,
+    },
+    categoryIds: [],
+    tagIds: [],
+    sources: [],
+  }, NOW + 2);
+  assert.equal(afterBundleUpdate.cover_image_url, null, 'omitting the cover on a later save clears the stored URL rather than leaving it stale');
+});
+
 test('resolveTagIds upserts free-typed tag names and reuses the same row on a repeat name', async (t) => {
   const { binding, db } = createCmsDbFixture();
   t.after(() => binding.close());

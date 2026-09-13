@@ -27,6 +27,7 @@ export const mockPostRowTh: PostRow = {
   updated_at: 1789030800000,
   archived_at: null,
   published_at: 1789030800000,
+  cover_image_url: null,
 };
 
 /**

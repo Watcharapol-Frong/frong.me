@@ -30,6 +30,7 @@ export interface PostRow {
   updated_at: EpochMilliseconds;
   archived_at: EpochMilliseconds | null;
   published_at: EpochMilliseconds | null;
+  cover_image_url: string | null;
 }
 
 export interface CategoryRow {
@@ -148,6 +149,7 @@ export interface CreatePostInput {
   title: string;
   excerpt?: string;
   bodyMarkdown?: string;
+  coverImageUrl?: string;
 }
 
 export interface UpdatePostDraftInput {
@@ -158,6 +160,7 @@ export interface UpdatePostDraftInput {
   title: string;
   excerpt?: string | null;
   bodyMarkdown: string;
+  coverImageUrl?: string | null;
 }
 
 export interface DraftSourceInput {

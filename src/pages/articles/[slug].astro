@@ -44,7 +44,9 @@ const [assets, taxonomy, sources, otherPosts] = await Promise.all([
 ]);
 
 const cover = assets.find((asset) => asset.role === "cover");
-const coverUrl = cover ? publicAssetUrl(cover, "https://images.frong.me") : undefined;
+const coverUrl = cover
+  ? publicAssetUrl(cover, "https://images.frong.me")
+  : post.cover_image_url ?? undefined;
 const tags = taxonomy.tags.map((tag) => tag.slug);
 
 const { html: bodyHtml, headings } = renderMarkdown(post.body_markdown);

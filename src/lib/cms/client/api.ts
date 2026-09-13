@@ -173,6 +173,7 @@ export interface PostSummary {
   draftVersion: number;
   updatedAt: EpochMilliseconds;
   publishedAt: EpochMilliseconds | null;
+  coverImageUrl: string | null;
   /** Draft edits exist that no release has picked up yet. Derived by the server. */
   hasUnpublishedChanges?: boolean;
 }
@@ -480,6 +481,7 @@ function parsePostSummary(value: unknown, field: string): PostSummary {
     draftVersion: num(row.draftVersion, `${field}.draftVersion`),
     updatedAt: num(row.updatedAt, `${field}.updatedAt`),
     publishedAt: nullableNum(row.publishedAt ?? null, `${field}.publishedAt`),
+    coverImageUrl: nullableStr(row.coverImageUrl ?? null, `${field}.coverImageUrl`),
     ...(typeof row.hasUnpublishedChanges === 'boolean'
       ? { hasUnpublishedChanges: row.hasUnpublishedChanges }
       : {}),

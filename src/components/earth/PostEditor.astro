@@ -181,6 +181,7 @@ const seed = {
         tagIds: [...new Set(tagsRaw.split(',').map((t) => t.trim()).filter(Boolean))].slice(0, MAX_TAGS),
         status: statusOverride ?? (fields.status?.value === 'active' ? 'published' : 'draft'),
         bodyMarkdown: fields.body?.value ?? '',
+        coverUrl: fields.coverUrl?.value.trim() ?? '',
       };
     }
 
@@ -235,6 +236,8 @@ const seed = {
       if (fields.tags) fields.tags.value = post.tagIds.slice(0, MAX_TAGS).join(', ');
       if (fields.body) fields.body.value = post.bodyMarkdown;
       if (fields.status) fields.status.value = post.lifecycle === 'active' ? 'active' : 'draft';
+      if (fields.coverUrl) fields.coverUrl.value = post.coverImageUrl ?? '';
+      showCoverPreview(fields.coverUrl?.value ?? '');
       slugTouched = true;
       currentPost = post;
       refreshPublishLabel();
@@ -271,6 +274,8 @@ const seed = {
       if (fields.excerpt) fields.excerpt.value = backup.excerpt;
       if (fields.tags && Array.isArray(backup.tagIds)) fields.tags.value = backup.tagIds.slice(0, MAX_TAGS).join(', ');
       if (fields.body) fields.body.value = backup.bodyMarkdown;
+      if (fields.coverUrl && backup.coverUrl) fields.coverUrl.value = backup.coverUrl;
+      showCoverPreview(fields.coverUrl?.value ?? '');
       dirty = true;
       setStatus('Restored local draft');
     }

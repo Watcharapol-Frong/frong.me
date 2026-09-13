@@ -27,6 +27,7 @@ Decoupling mutable post drafts from immutable post revisions ensures editorial w
   updated_at: 1789030800000,
   archived_at: null,
   published_at: 1789030800000,
+  cover_image_url: 'https://images.frong.me/staging/cover-architecture.webp',
 };
 
 /**

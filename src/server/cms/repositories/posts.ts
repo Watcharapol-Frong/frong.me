@@ -28,7 +28,8 @@ const POST_COLUMNS = `
   created_at,
   updated_at,
   archived_at,
-  published_at
+  published_at,
+  cover_image_url
 `;
 
 export interface ListDraftsOptions {
@@ -48,8 +49,8 @@ export async function createPost(
   const result = await db.run<PostRow>(
     `INSERT INTO posts (
       id, lang, translation_group_id, slug, title, excerpt, body_markdown,
-      draft_version, lifecycle, created_at, updated_at
-    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 1, 'draft', ?8, ?8)
+      draft_version, lifecycle, created_at, updated_at, cover_image_url
+    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 1, 'draft', ?8, ?8, ?9)
     RETURNING ${POST_COLUMNS}`,
     [
       input.id,
@@ -60,6 +61,7 @@ export async function createPost(
       input.excerpt ?? null,
       input.bodyMarkdown ?? '',
       now,
+      input.coverImageUrl ?? null,
     ],
   );
   return requiredReturnedRow(result.results[0], 'post', input.id);
@@ -130,10 +132,11 @@ export async function updatePostDraft(
          title = ?4,
          excerpt = ?5,
          body_markdown = ?6,
+         cover_image_url = ?7,
          draft_version = draft_version + 1,
-         updated_at = ?7
-     WHERE id = ?8
-       AND draft_version = ?9
+         updated_at = ?8
+     WHERE id = ?9
+       AND draft_version = ?10
        AND lifecycle <> 'archived'
      RETURNING ${POST_COLUMNS}`,
     [
@@ -143,6 +146,7 @@ export async function updatePostDraft(
       input.title,
       input.excerpt ?? null,
       input.bodyMarkdown,
+      input.coverImageUrl ?? null,
       now,
       postId,
       input.expectedDraftVersion,
@@ -174,8 +178,8 @@ export async function updatePostBundle(
     {
       sql: `UPDATE posts
             SET lang = ?1, translation_group_id = ?2, slug = ?3, title = ?4,
-                excerpt = ?5, body_markdown = ?6
-            WHERE id = ?7 AND draft_version = ?8 AND lifecycle <> 'archived'`,
+                excerpt = ?5, body_markdown = ?6, cover_image_url = ?7
+            WHERE id = ?8 AND draft_version = ?9 AND lifecycle <> 'archived'`,
       params: [
         input.draft.lang,
         input.draft.translationGroupId ?? null,
@@ -183,6 +187,7 @@ export async function updatePostBundle(
         input.draft.title,
         input.draft.excerpt ?? null,
         input.draft.bodyMarkdown,
+        input.draft.coverImageUrl ?? null,
         postId,
         version,
       ],

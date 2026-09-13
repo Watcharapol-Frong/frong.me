@@ -69,6 +69,7 @@ export interface PostListDto {
   draftVersion: number;
   updatedAt: number;
   publishedAt: number | null;
+  coverImageUrl: string | null;
 }
 
 export function postRowToListDto(row: PostRow): PostListDto {
@@ -83,6 +84,7 @@ export function postRowToListDto(row: PostRow): PostListDto {
     draftVersion: row.draft_version,
     updatedAt: row.updated_at,
     publishedAt: row.published_at,
+    coverImageUrl: row.cover_image_url,
   };
 }
 

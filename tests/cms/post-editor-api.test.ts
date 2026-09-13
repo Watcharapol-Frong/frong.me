@@ -20,6 +20,7 @@ const POST: PostDetail = {
   draftVersion: 1,
   updatedAt: 1789140000000,
   publishedAt: null,
+  coverImageUrl: null,
   bodyMarkdown: '# Draft',
   categoryIds: ['cat_existing01'],
   tagIds: [],
@@ -35,6 +36,7 @@ const DRAFT: PostEditorDraft = {
   bodyMarkdown: POST.bodyMarkdown,
   tagIds: ['tag_editor001'],
   status: 'draft',
+  coverUrl: '',
 };
 
 interface RecordedRequest {
@@ -100,6 +102,29 @@ test('PostEditor creates with POST then applies tag ids through versioned PUT', 
   assert.deepEqual((requests[1]?.body as any).tagIds, ['tag_editor001']);
   assert.equal((requests[1]?.body as any).draft.expectedDraftVersion, 1);
   assert.equal('status' in (requests[0]?.body as object), false, 'strict posts payload excludes UI status');
+});
+
+test('a pasted external cover URL is sent on create so it is not lost when no file was uploaded', async () => {
+  const withCover = { ...DRAFT, coverUrl: 'https://images.unsplash.com/photo-1', tagIds: [] };
+  const created = { ...POST, coverImageUrl: withCover.coverUrl };
+  const { api, requests } = client(() => ({ status: 201, body: created }));
+
+  const saved = await api.save(withCover, null);
+  assert.equal(saved.coverImageUrl, withCover.coverUrl);
+  assert.equal(requests.length, 1, 'no tags means no follow-up PUT is needed to carry the cover');
+  assert.equal((requests[0]?.body as any).coverImageUrl, withCover.coverUrl);
+});
+
+test('an external cover URL survives a save on an already-existing post, and clearing it sends null', async () => {
+  const coverUrl = 'https://images.unsplash.com/photo-2';
+  const { api, requests } = client(() => ({ body: { ...POST, coverImageUrl: coverUrl } }));
+
+  await api.save({ ...DRAFT, coverUrl }, POST);
+  assert.equal((requests[0]?.body as any).draft.coverImageUrl, coverUrl);
+
+  const { api: api2, requests: requests2 } = client(() => ({ body: POST }));
+  await api2.save({ ...DRAFT, coverUrl: '' }, POST);
+  assert.equal((requests2[0]?.body as any).draft.coverImageUrl, null, 'clearing the field must not leave the old URL stored');
 });
 
 test('PostEditor updates the loaded draft with the server draft version and preserved relations', async () => {
