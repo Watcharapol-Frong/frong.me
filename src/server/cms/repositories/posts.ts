@@ -13,6 +13,7 @@ import {
 } from '../../../lib/cms/validation.ts';
 import { type CmsDatabase, requireChanged } from '../db.ts';
 import { CmsConflictError, CmsNotFoundError } from '../errors.ts';
+import { resolveTagIds } from './taxonomy.ts';
 
 const POST_COLUMNS = `
   id,
@@ -165,6 +166,10 @@ export async function updatePostBundle(
   const input: UpdatePostBundleInput = parseUpdatePostBundleInput(value);
   const version = input.draft.expectedDraftVersion;
   const sourcesJson = JSON.stringify(input.sources);
+  // input.tagIds is free-typed tag text from the editor, not tags(id) values —
+  // post_tags.tag_id is a real foreign key, so it must be resolved to actual
+  // rows (upserted by lang+slug) before the batch below can write it.
+  const resolvedTagIds = await resolveTagIds(db, input.draft.lang, input.tagIds, now);
   const results = await db.batch<PostRow>([
     {
       sql: `UPDATE posts
@@ -210,7 +215,7 @@ export async function updatePostBundle(
             WHERE EXISTS (
               SELECT 1 FROM posts WHERE id = ?1 AND draft_version = ?3 AND lifecycle <> 'archived'
             )`,
-      params: [postId, JSON.stringify(input.tagIds), version],
+      params: [postId, JSON.stringify(resolvedTagIds), version],
     },
     {
       sql: `DELETE FROM post_sources

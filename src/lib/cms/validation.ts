@@ -263,12 +263,17 @@ export function parseUpdatePostDraftInput(value: unknown): UpdatePostDraftInput 
 export function parseUpdatePostBundleInput(value: unknown): UpdatePostBundleInput {
   const row = object(value, 'request', ['draft', 'categoryIds', 'tagIds', 'sources']);
   const categoryIds = array(row.categoryIds, 'request.categoryIds', identifier, 20);
-  const tagIds = array(row.tagIds, 'request.tagIds', identifier, 100);
+  // Tag "ids" here are actually free-typed tag text from the Zen Editor's
+  // comma-separated input (e.g. "cms"), not CMS identifiers — `identifier()`
+  // rejected anything under 8 characters. `updatePostBundle` resolves each
+  // string into a real tags(id) row (upserted by lang+slug, deduped so the
+  // same typed name reuses its existing row) before writing post_tags.
+  const tagIds = array(row.tagIds, 'request.tagIds', (v, f) => string(v, f, 50), 100);
   if (new Set(categoryIds).size !== categoryIds.length) {
     throw new CmsValidationError('request.categoryIds', 'contains duplicate identifiers');
   }
   if (new Set(tagIds).size !== tagIds.length) {
-    throw new CmsValidationError('request.tagIds', 'contains duplicate identifiers');
+    throw new CmsValidationError('request.tagIds', 'contains duplicate tags');
   }
   const sources = array(row.sources, 'request.sources', (value, field) => {
     const sourceRow = object(value, field, ['id', 'label', 'url', 'publisher', 'accessedAt']);

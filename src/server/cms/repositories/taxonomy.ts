@@ -4,6 +4,7 @@ import type {
   Language,
   TagRow,
 } from '../../../lib/cms/contracts.ts';
+import { slugifyHeading } from '../../../lib/cms/markdown/render.ts';
 import { type CmsDatabase, requireChanged } from '../db.ts';
 import { CmsBadRequestError, CmsNotFoundError } from '../errors.ts';
 
@@ -51,6 +52,43 @@ export async function upsertTag(
   now = Date.now(),
 ): Promise<TagRow> {
   return upsertTerm<TagRow>(db, 'tags', input, now);
+}
+
+/**
+ * Resolves free-typed tag names (the Zen Editor's comma-separated tag input)
+ * into real `tags(id)` rows — `post_tags.tag_id` is a foreign key, so typed
+ * text can never be written there directly.
+ *
+ * Upserts by `(lang, slug)`, which `tags` already enforces UNIQUE: a name
+ * that slugifies to one already stored reuses that row's existing id rather
+ * than creating a duplicate on every save. The existing row's `name` is left
+ * untouched on a repeat match — a tag is shared taxonomy, so a later post's
+ * differently-cased retyping of the same word should not silently rename it
+ * for every other post already using it.
+ */
+export async function resolveTagIds(
+  db: CmsDatabase,
+  lang: Language,
+  tagNames: readonly string[],
+  now = Date.now(),
+): Promise<string[]> {
+  const ids: string[] = [];
+  for (const rawName of tagNames) {
+    const name = rawName.trim();
+    if (!name) continue;
+    const slug = slugifyHeading(name);
+    const newId = `tag_${crypto.randomUUID().replace(/-/g, '')}`;
+    const result = await db.run<{ id: string }>(
+      `INSERT INTO tags (id, lang, slug, name, created_at, updated_at)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?5)
+       ON CONFLICT(lang, slug) DO UPDATE SET updated_at = excluded.updated_at
+       RETURNING id`,
+      [newId, lang, slug, name, now],
+    );
+    const row = result.results[0];
+    if (row) ids.push(row.id);
+  }
+  return [...new Set(ids)];
 }
 
 export async function listCategories(db: CmsDatabase, lang?: Language): Promise<CategoryRow[]> {
