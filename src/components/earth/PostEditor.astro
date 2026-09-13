@@ -105,6 +105,7 @@ const seed = {
   import { newCmsId, uploadAsset, attachPostAsset, type PostDetail } from '../../lib/cms/client/api.ts';
   import {
     createPostEditorApi,
+    PostEditorConflictError,
     PostEditorPublishError,
     type PostEditorDraft,
   } from '../../lib/cms/client/post-editor-api.ts';
@@ -421,9 +422,24 @@ const seed = {
         setStatus(statusOverride === 'published' ? `Published · ${timestamp}` : `Saved · ${timestamp}`);
       } catch (err) {
         if (err instanceof PostEditorPublishError) currentPost = err.post;
+        // A 409 reports the server's real current version. Advancing our copy
+        // to match means the *next* explicit save the user triggers succeeds
+        // instead of conflicting forever on the same stale number — we do not
+        // resend automatically, so this never silently overwrites a genuine
+        // concurrent edit without the user taking another explicit action.
+        const conflictVersion = err instanceof PostEditorConflictError
+          ? err.currentDraftVersion
+          : err instanceof PostEditorPublishError
+            ? err.currentDraftVersion
+            : undefined;
+        let statusSuffix = '';
+        if (conflictVersion !== undefined && currentPost) {
+          currentPost = { ...currentPost, draftVersion: conflictVersion };
+          statusSuffix = ' — version refreshed, try saving again';
+        }
         writeBackup(payload);
         dirty = true;
-        setStatus(`Save failed — draft kept locally (${(err as Error).message})`, 'error');
+        setStatus(`Save failed — draft kept locally (${(err as Error).message})${statusSuffix}`, 'error');
       } finally {
         saving = false;
         setBusy(false);
@@ -441,7 +457,12 @@ const seed = {
         refreshPublishLabel();
         setStatus('Unpublished');
       } catch (err) {
-        setStatus(`Unpublish failed (${(err as Error).message})`, 'error');
+        let statusSuffix = '';
+        if (err instanceof PostEditorConflictError && err.currentDraftVersion !== undefined && currentPost) {
+          currentPost = { ...currentPost, draftVersion: err.currentDraftVersion };
+          statusSuffix = ' — version refreshed, try again';
+        }
+        setStatus(`Unpublish failed (${(err as Error).message})${statusSuffix}`, 'error');
       } finally {
         saving = false;
         setBusy(false);

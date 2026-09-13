@@ -3,6 +3,7 @@ import { test } from 'node:test';
 
 import {
   createPostEditorApi,
+  PostEditorConflictError,
   PostEditorPublishError,
   type PostEditorDraft,
 } from '../../src/lib/cms/client/post-editor-api.ts';
@@ -158,7 +159,73 @@ test('a publish failure carries the newly saved draft version for a safe retry',
     (error: unknown) => {
       assert.ok(error instanceof PostEditorPublishError);
       assert.equal(error.post.draftVersion, 2);
+      assert.equal(error.currentDraftVersion, 3, 'the server-reported version must survive the wrap into PostEditorPublishError');
       assert.match(error.message, /draft changed after it was loaded/);
+      return true;
+    },
+  );
+});
+
+test('a plain save conflict reports the server version so the next save can succeed', async () => {
+  const { api } = client(() => ({
+    status: 409,
+    body: {
+      error: {
+        code: 'DRAFT_VERSION_CONFLICT',
+        message: 'The post draft changed after it was loaded',
+        details: { currentDraftVersion: 5 },
+      },
+    },
+  }));
+
+  await assert.rejects(
+    () => api.save(DRAFT, POST),
+    (error: unknown) => {
+      assert.ok(error instanceof PostEditorConflictError);
+      assert.equal(error.currentDraftVersion, 5);
+      return true;
+    },
+  );
+});
+
+test('an unpublish conflict reports the server version so the next attempt can succeed', async () => {
+  const { api } = client(() => ({
+    status: 409,
+    body: {
+      error: {
+        code: 'DRAFT_VERSION_CONFLICT',
+        message: 'The post draft changed after it was loaded, or it is not currently published',
+        details: { currentDraftVersion: 7 },
+      },
+    },
+  }));
+
+  await assert.rejects(
+    () => api.unpublish(POST),
+    (error: unknown) => {
+      assert.ok(error instanceof PostEditorConflictError);
+      assert.equal(error.currentDraftVersion, 7);
+      return true;
+    },
+  );
+});
+
+test('a conflict with no currentDraftVersion in its details leaves the field undefined, not a false 0', async () => {
+  const { api } = client(() => ({
+    status: 409,
+    body: {
+      error: {
+        code: 'CONFLICT',
+        message: 'Idempotency key was already used for a different post',
+      },
+    },
+  }));
+
+  await assert.rejects(
+    () => api.save(DRAFT, POST),
+    (error: unknown) => {
+      assert.ok(error instanceof PostEditorConflictError);
+      assert.equal(error.currentDraftVersion, undefined);
       return true;
     },
   );

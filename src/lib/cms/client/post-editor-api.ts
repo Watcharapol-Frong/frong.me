@@ -29,11 +29,40 @@ export interface PostEditorPublishResult {
 /** Publish failed after the draft may already have been saved successfully. */
 export class PostEditorPublishError extends Error {
   readonly post: PostDetail;
+  /** Set when the failure was a 409 that reported the server's current version. */
+  readonly currentDraftVersion?: number;
 
   constructor(message: string, post: PostDetail, options: { cause?: unknown } = {}) {
     super(message, options);
     this.name = 'PostEditorPublishError';
     this.post = post;
+    this.currentDraftVersion = options.cause instanceof PostEditorConflictError
+      ? options.cause.currentDraftVersion
+      : undefined;
+  }
+}
+
+/**
+ * A 409 from the server. Carries the server's current draft version (when it
+ * reported one) so the caller can advance its in-memory `currentPost` before
+ * the next explicit save — without that, every retry keeps resending the
+ * same stale `expectedDraftVersion` and conflicts forever, even when the
+ * mismatch was caused by the editor's own earlier request landing but its
+ * response getting lost, not by a genuine concurrent edit.
+ *
+ * Deliberately does not auto-retry: doing so would resend the same in-memory
+ * title/body under the corrected version number with no visible signal,
+ * which would silently overwrite a real concurrent edit if that's what
+ * actually caused the conflict. Surfacing the version bump only sets up the
+ * next explicit user-triggered save to succeed.
+ */
+export class PostEditorConflictError extends Error {
+  readonly currentDraftVersion?: number;
+
+  constructor(message: string, currentDraftVersion: number | undefined, options: { cause?: unknown } = {}) {
+    super(message, options);
+    this.name = 'PostEditorConflictError';
+    this.currentDraftVersion = currentDraftVersion;
   }
 }
 
@@ -44,8 +73,8 @@ export interface PostEditorApi {
   unpublish(current: PostDetail): Promise<PostDetail>;
 }
 
-function conflictError(result: { ok: false; conflict: Parameters<typeof describeConflict>[0] }): Error {
-  return new Error(describeConflict(result.conflict));
+function conflictError(result: { ok: false; conflict: Parameters<typeof describeConflict>[0] }): PostEditorConflictError {
+  return new PostEditorConflictError(describeConflict(result.conflict), result.conflict.currentDraftVersion);
 }
 
 /**
