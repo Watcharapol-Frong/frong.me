@@ -43,17 +43,6 @@ const { ownerHandle = 'Frong Watcharapol', siteDomain = 'frong.me' } = Astro.pro
       <div class="stat-item">Words written <span data-earth-count="words">–</span></div>
     </div>
 
-    <div class="search-container">
-      <input
-        type="search"
-        class="search-input"
-        data-earth-search
-        placeholder="Search posts…"
-        autocomplete="off"
-      />
-      <div class="user-tags" data-earth-tag-cloud></div>
-    </div>
-
     <div class="identity-links">
       <button type="button" class="logout-link" data-earth-action="open-settings">⚙ Settings</button>
     </div>
@@ -65,6 +54,17 @@ const { ownerHandle = 'Frong Watcharapol', siteDomain = 'frong.me' } = Astro.pro
       <div class="col-header-right">
         <span class="col-count" data-earth-col-count="active">0</span>
       </div>
+    </div>
+
+    <div class="search-container">
+      <input
+        type="search"
+        class="search-input"
+        data-earth-search
+        placeholder="Search posts…"
+        autocomplete="off"
+      />
+      <div class="user-tags" data-earth-tag-cloud></div>
     </div>
 
     <div class="post-list" data-earth-list="active">
@@ -340,26 +340,27 @@ const { ownerHandle = 'Frong Watcharapol', siteDomain = 'frong.me' } = Astro.pro
 
   .stat-item span { color: #fff; font-weight: 600; font-variant-numeric: tabular-nums; }
 
-  .search-container { margin-top: auto; }
+  /* Lives in the (light) Published column now, not the dark sidebar. */
+  .search-container { margin-bottom: 28px; flex-shrink: 0; }
 
   .search-input {
     width: 100%;
     padding: 14px 0;
     border: none;
-    border-bottom: 1px solid #222;
+    border-bottom: 1px solid #eee;
     background: transparent;
     font-family: inherit;
     font-size: 14px;
-    color: #fff;
+    color: #000;
     outline: none;
     transition: border-color 0.2s;
   }
 
-  .search-input:focus { border-bottom-color: #fff; }
-  .search-input::placeholder { color: #555; }
+  .search-input:focus { border-bottom-color: #000; }
+  .search-input::placeholder { color: #ccc; }
 
   .user-tags {
-    margin-top: 20px;
+    margin-top: 12px;
     display: flex;
     flex-wrap: wrap;
     gap: 8px 12px;
@@ -367,7 +368,7 @@ const { ownerHandle = 'Frong Watcharapol', siteDomain = 'frong.me' } = Astro.pro
 
   .user-tag {
     font-size: 11px;
-    color: #555;
+    color: #999;
     background: none;
     border: none;
     padding: 0;
@@ -376,8 +377,8 @@ const { ownerHandle = 'Frong Watcharapol', siteDomain = 'frong.me' } = Astro.pro
     transition: color 0.2s;
   }
 
-  .user-tag:hover { color: #fff; }
-  .user-tag[data-active='true'] { color: #fff; text-decoration: underline; }
+  .user-tag:hover { color: #000; }
+  .user-tag[data-active='true'] { color: #000; text-decoration: underline; }
 
   .identity-links {
     margin-top: 40px;
@@ -711,7 +712,6 @@ const { ownerHandle = 'Frong Watcharapol', siteDomain = 'frong.me' } = Astro.pro
       padding: 32px 24px;
     }
     .col-identity { padding: calc(24px + var(--earth-topbar-h)) 24px 24px; width: 280px; }
-    .search-container { margin-top: 32px; }
     .streak-fixed { margin-top: 32px; }
     .post-actions { opacity: 1; }
   }
