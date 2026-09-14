@@ -61,6 +61,19 @@ const { ownerHandle = 'Frong Watcharapol', siteDomain = 'frong.me' } = Astro.pro
 
   <section class="column col-content">
     <div class="col-header">
+      <h2 class="col-title">Published</h2>
+      <div class="col-header-right">
+        <span class="col-count" data-earth-col-count="active">0</span>
+      </div>
+    </div>
+
+    <div class="post-list" data-earth-list="active">
+      <p class="empty-state">Loading…</p>
+    </div>
+  </section>
+
+  <section class="column col-content">
+    <div class="col-header">
       <h2 class="col-title">Drafts</h2>
       <div class="col-header-right">
         <span class="col-count" data-earth-col-count="draft">0</span>
@@ -80,19 +93,6 @@ const { ownerHandle = 'Frong Watcharapol', siteDomain = 'frong.me' } = Astro.pro
         </div>
         <div class="cal-grid" data-earth-cal-grid></div>
       </div>
-    </div>
-  </section>
-
-  <section class="column col-content">
-    <div class="col-header">
-      <h2 class="col-title">Published</h2>
-      <div class="col-header-right">
-        <span class="col-count" data-earth-col-count="active">0</span>
-      </div>
-    </div>
-
-    <div class="post-list" data-earth-list="active">
-      <p class="empty-state">Loading…</p>
     </div>
   </section>
 </div>
