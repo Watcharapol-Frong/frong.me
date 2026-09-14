@@ -22,7 +22,9 @@ npx wrangler d1 migrations apply DB --local
 node scripts/db/verify-staging.mjs --wrangler --local
 ```
 
-`wrangler.jsonc` binds `DB` to the staging database `portfolio-db-staging`. Never run migrations, seeds, or mutations with `--remote` without an explicit, reviewed reason. Record command output as evidence in the plan, and never put secret values in documentation or committed configuration.
+`wrangler.jsonc` binds `DB` to the staging database `portfolio-db-staging` by default, and has a real (non-placeholder) `env.production` block pointing at `portfolio-db-prod`. Never run migrations, seeds, or mutations with `--remote` without an explicit, reviewed reason. Record command output as evidence in the plan, and never put secret values in documentation or committed configuration.
+
+Deploys are local-only — GitHub is not connected to Cloudflare, there is no CI/CD auto-deploy, and pushing to `main` does not deploy anything. Use `npm run deploy:staging` for staging and `wrangler deploy --env production` for production; both need a Cloudflare API token (Workers Scripts:Edit, D1:Edit) supplied as a local `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID`. See [`docs/cms/environment-map.md`](docs/cms/environment-map.md) for the full variable list, the real Cloudflare Access team domain/AUD already in use on production, and the exact remote-migration commands.
 
 ## Documentation
 

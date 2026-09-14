@@ -6,10 +6,10 @@ Project documentation is maintained in English. Thai text may appear in explicit
 
 - Phase 0 is complete and Gate G0 passed: the production AI Worker is protected and rejects unauthenticated requests.
 - Gate G0.5 passed after owner-confirmed staging Worker/workerd, D1 binding/query, and Access guard verification; the architecture record retains local evidence and identifies remote IDs still to record.
-- Phase 1 milestone 1A is partly complete. P1-01 through P1-03 are accepted: data contracts and runtime validation, three versioned D1 migrations, the typed D1 data-access layer with atomic revision snapshots, idempotent releases, and live-pointer compare-and-set enforced in both code and database triggers.
-- P1-04 (dispatch, authenticated callbacks, provider reconciliation) is the current task. Supporting code that exists but is not yet wired to a route — snapshot exporter, Markdown asset resolver, image metadata, admin UI components — does not close P1-06, P1-08, or P1-10.
-- All CMS checks run locally with `npm run test:cms`. Remote staging mutation, dispatch, and reconciliation evidence has not been recorded.
-- The main-site CMS production cutover has not started; the public site is still the Sanity-backed legacy application.
+- Phase 1 milestone 1A is partly complete. P1-01 through P1-03 are accepted: data contracts and runtime validation, versioned D1 migrations, the typed D1 data-access layer with atomic revision snapshots, idempotent releases, and live-pointer compare-and-set enforced in both code and database triggers.
+- P1-04a (authenticated release confirm/fail callback) is done locally, but as of 2026-09-14 has no caller: the GitHub Actions deploy workflow it was built for was removed the same day (GitHub was never actually connected to Cloudflare). Whether P1-04b (provider-first reconciliation) is still needed given that is an open question — see `plan.md`.
+- **Both staging and production are deployed and live as of 2026-09-14** — `frong.me` (production, real custom domain) and `frong-me-staging.frongbook.workers.dev`, both with the current `main`, migrated D1 schemas, and real Cloudflare Access secrets set. This is the first session where CMS code (including `/earth` and `/articles`) reached production. See `plan.md`'s "First real staging + production deploy" entry and `cms/environment-map.md` for exactly what that involved and what's still unverified (a real human login through Access).
+- This was an additive deploy, not a replacement cutover: the existing Sanity-backed portfolio pages (home, about) are unaffected and still present alongside the new CMS routes.
 
 | Document | Purpose |
 |---|---|

@@ -109,16 +109,19 @@ export function deployStaging(options = {}) {
     throw new Error(`Wrangler deploy failed with exit code ${deployProcess.status}`);
   }
 
-  // Parse deployment details
-  let deployUrl = 'https://cms-staging.frong.me';
+  // Parse deployment details. `frong-me-staging` has no custom domain (see
+  // docs/cms/environment-map.md), so the real URL is always the workers.dev
+  // one wrangler prints — this fallback is only hit if that parse fails.
+  let deployUrl = 'https://frong-me-staging.frongbook.workers.dev';
   let deploymentId = dryRun ? `dry-run-${Date.now()}` : 'unknown-id';
 
-  const urlMatch = output.match(/https:\/\/[a-zA-Z0-9.-]+\.workers\.dev|https:\/\/cms-staging\.frong\.me/);
+  const urlMatch = output.match(/https:\/\/[a-zA-Z0-9.-]+\.workers\.dev/);
   if (urlMatch) {
     deployUrl = urlMatch[0];
   }
 
-  const idMatch = output.match(/(?:Current Deployment ID|Deployment ID):\s*([a-f0-9-]+)/i);
+  // wrangler 4.x prints "Current Version ID:"; older wrangler used "Deployment ID:".
+  const idMatch = output.match(/(?:Current Deployment ID|Current Version ID|Deployment ID|Version ID):\s*([a-f0-9-]+)/i);
   if (idMatch && idMatch[1]) {
     deploymentId = idMatch[1];
   }

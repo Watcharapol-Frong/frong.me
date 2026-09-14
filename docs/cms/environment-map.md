@@ -1,25 +1,25 @@
 # CMS Environment Map
 
-Updated: 2026-09-10 UTC
+Updated: 2026-09-14 UTC
 
 Tasks: P0-03, Phase 0.5 configuration follow-up, and Phase 1 root configuration
 
-This document records resource and secret names, ownership boundaries, and configuration locations. Never store secret values here.
+This document records resource and secret names, ownership boundaries, and configuration locations. Never store *credential* values here (API tokens, service token secrets). Cloudflare Access's team domain and Application AUD are recorded below despite that rule — they are not credentials, and are already visible to anyone who makes an unauthenticated request to `/earth` (see the note under "Environment separation").
 
 ## Environment separation
 
 | Resource | Staging | Production | Owner / authoritative configuration | Current evidence |
 |---|---|---|---|---|
-| Main-site Worker | Prototype defined; remote resource still required | `frong.me`; Worker name/dashboard locator unknown | Cloudflare account and root `wrangler.jsonc` (Worker name `frong-me`, compatibility date 2026-09-10, `nodejs_compat`) | Isolated Phase 0.5 workerd build passes; the root config is used for D1 migrations only, and no staging or production cutover has occurred |
+| Main-site Worker | `frong-me-staging`; `https://frong-me-staging.frongbook.workers.dev` (no custom domain) | `frong-me`; **`https://frong.me`** — bound as a real Workers Custom Domain (cert `14405d42-49b3-48a1-9caa-dca124a89f11`) | Cloudflare account and root `wrangler.jsonc` (compatibility date 2026-09-10, `nodejs_compat`) | Both deployed and live as of 2026-09-14 with the current `main`. Confirmed via `workers_list`/`workers/domains` API and live `curl` (both return 200 on `/`) |
 | AI Worker | A separate staging environment is recommended before future changes | Worker name `ai-assistant-worker`; URL `https://ai-assistant-worker.frongbook.workers.dev` | `ai-worker/wrangler.jsonc` plus Cloudflare Worker secrets | Production unauthenticated probe returned 401 with `no-store` on 2026-09-10 |
-| CMS D1 | `portfolio-db-staging`, bound as `DB` with its database ID recorded in the root `wrangler.jsonc` | `portfolio-db` proposed; actual ID unknown | Root `wrangler.jsonc`, `migrations_dir: db/migrations` | Three migrations, the staging seed, and the verification script pass against local D1; no remote application or verification run is recorded |
-| Private media R2 | Separate private bucket required | Name to decide | Main-site Wrangler config/Cloudflare dashboard | Not present |
-| Public media R2/domain | Separate public bucket/domain required | `portfolio-images` proposed; actual locator unknown | Main-site Wrangler config/Cloudflare dashboard | Not present |
-| Cloudflare Access | Staging application/audience required | `/earth` and `/earth/*`; team domain/AUD unknown | Cloudflare Zero Trust | Worker-side JWT/owner/Origin behavior proven locally; remote Access application unavailable |
-| GitHub repository | `Watcharapol-Frong/frong.me`, default branch `main`; CI only (`cms-ci.yml` runs tests on push/PR) | Same | GitHub repository settings | GitHub is not connected to Cloudflare — no Workers Builds/Pages Git integration and no deploy-capable Actions workflow. Removed `.github/workflows/cms-staging-deploy.yml` on 2026-09-14; it depended on Cloudflare credentials as GitHub Actions secrets that were never actually configured. Deploys are run locally (`npm run deploy:staging`, see below) |
+| CMS D1 | `portfolio-db-staging` (uuid `71cba742-a269-475d-84b0-8df1223a368a`), bound as `DB` | `portfolio-db-prod` (uuid `e8442532-a929-40d5-8ff4-c05510fad616`), bound as `DB` | Root `wrangler.jsonc`, `env.staging`/`env.production` blocks, `migrations_dir: db/migrations` | Both are real, isolated databases (confirmed via `d1_databases_list`) and both had every migration applied via `--remote` on 2026-09-14 (staging was missing 0004-0006, production 0005-0006 — 0001-0004 were already there from an earlier, unrecorded session). `wrangler.jsonc`'s `env.production` block held literal placeholder values (`portfolio-db-production`, `portfolio-db-production-id`) until 2026-09-14 — it was never actually filled in despite the database having existed since 2026-09-12 |
+| Media R2 (uploads) | `portfolio-media-staging`, bound as `MEDIA_BUCKET` | `portfolio-media-prod`, bound as `MEDIA_BUCKET` | Root `wrangler.jsonc` | Both confirmed to exist via `r2_buckets_list`. Same placeholder-until-2026-09-14 issue as the production D1 row above (`portfolio-media-production` never existed) |
+| Public media domain (`images.frong.me`) | n/a | Hardcoded in code (`PUBLIC_ASSET_BASE_URL` in `src/lib/cms/assets/r2.ts` and `src/lib/cms/markdown/asset-resolver.ts`) as `https://images.frong.me` | DNS/R2 custom domain configuration in the Cloudflare dashboard, outside this repo | **Unverified** — never confirmed this hostname actually resolves or is bound to a bucket. Distinct from the `MEDIA_BUCKET` binding above: that's where uploads land; this is how published posts expect to *serve* them publicly |
+| Cloudflare Access | No Access application in front of `frong-me-staging.frongbook.workers.dev` — only a real custom domain gets a Zero Trust app in practice, and staging has none | **A real Access application already protects `/earth` on `frong.me`.** Team domain: `proud-shadow-577d.cloudflareaccess.com`. Application AUD: `eb777fbc55eea6cfa6e5dea974869947855dd7cc76f162d3f57d963f99de9089` | Cloudflare Zero Trust dashboard (not this repo) | Discovered 2026-09-14 by observing the real `302` redirect from an unauthenticated `GET https://frong.me/earth` — both values are visible in that redirect's `meta` JWT (`kid` and `aud` claims) to anyone, authenticated or not, which is why they're recorded here despite the "no credentials" rule above. Set as `CF_ACCESS_TEAM_DOMAIN`/`CF_ACCESS_AUD` Worker secrets on both `frong-me` and `frong-me-staging` via `wrangler secret put` on 2026-09-14. **Not yet verified**: a real human login completing successfully, and whether an Access Service Auth policy exists for the `CF_ACCESS_CLIENT_ID`/`CF_ACCESS_CLIENT_SECRET` pair `verify-access-staging.mjs` expects |
+| GitHub repository | `Watcharapol-Frong/frong.me`, default branch `main`; CI only (`cms-ci.yml` runs tests on push/PR) | Same | GitHub repository settings | GitHub is not connected to Cloudflare — no Workers Builds/Pages Git integration and no deploy-capable Actions workflow. Removed `.github/workflows/cms-staging-deploy.yml` on 2026-09-14; it depended on Cloudflare credentials as GitHub Actions secrets that were never actually configured. Deploys are run locally (`npm run deploy:staging`, `wrangler deploy --env production`; see below) |
 | Backup destination | Separate private test destination required | Off-production-account or encrypted offline destination required | Backup runbook created in Phase 1 | Not selected |
 
-Do not reuse staging databases, buckets, Access audience values, or deployment secrets in production. Cloudflare secrets are environment-specific and must be configured separately.
+Do not reuse staging databases, buckets, or deployment secrets in production — they are genuinely separate resources (see above), so this is about not accidentally repointing one at the other's ID, not about the Access audience value (Access applications are usually per-domain, not per-environment, so reuse there wasn't a design choice).
 
 ## SSOT: canonical environment variable names
 
@@ -99,17 +99,17 @@ Use `.dev.vars` for local Worker secrets and never commit it. `ai-worker/.dev.va
 
 ## Required access for CMS staging and future production
 
-Deploys are local-only (`npm run deploy:staging`) — GitHub is not connected to Cloudflare, so none of this requires a GitHub Environment.
+Deploys are local-only (`npm run deploy:staging`, `wrangler deploy --env production`) — GitHub is not connected to Cloudflare, so none of this requires a GitHub Environment.
 
-1. Cloudflare credentials (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`) available as local shell/`.env` variables to whoever runs the deploy.
-2. Isolated staging Worker, D1, and Access resources with owners and dashboard locators. Do not reuse production resource IDs.
+1. Cloudflare credentials (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`) available as local shell/`.env` variables to whoever runs the deploy. The token needs, at minimum, Workers Scripts:Edit (deploy) and D1:Edit (migrations); Workers Scripts:Edit alone was not enough to run migrations when this was tried 2026-09-14.
+2. ~~Isolated staging Worker, D1, and Access resources~~ — **done**. Staging and production use genuinely separate D1 databases and R2 buckets (see "Environment separation" above); `wrangler.jsonc`'s `env.production` block just hadn't been filled in with their real names/IDs until 2026-09-14.
 3. Separate D1 Read and Worker deploy credentials with only the permissions each needs.
-4. Named owners and dashboard locators for future production D1, R2, Access, and backup storage before those phases use them.
-5. A Cloudflare Access Service Auth policy on the staging `/earth` application that accepts the `CF_ACCESS_CLIENT_ID`/`CF_ACCESS_CLIENT_SECRET` Service Token used by 1C-03's verification script. `RELEASE_CALLBACK_SECRET` (Cloudflare Worker secret) is still referenced by `/earth/api/releases/[id]/{confirm,fail}` but currently has no caller now that the deploy workflow is gone — provision it only if that callback path is still wanted. None of this is code work; it is dashboard/CLI configuration against the real staging resources and cannot be completed from this repository.
+4. Named owners and dashboard locators for future production R2/backup storage before those phases use them (Access and D1 are done — see above).
+5. A Cloudflare Access Service Auth policy on `/earth` that accepts the `CF_ACCESS_CLIENT_ID`/`CF_ACCESS_CLIENT_SECRET` Service Token used by 1C-03's verification script — **still unconfirmed**. `RELEASE_CALLBACK_SECRET` (Cloudflare Worker secret) is still referenced by `/earth/api/releases/[id]/{confirm,fail}` but currently has no caller now that the deploy workflow is gone — provision it only if that callback path is still wanted.
 
 ## CMS database commands
 
-The root `wrangler.jsonc` binds `DB` to the staging database `portfolio-db-staging` and reads versioned migrations from `db/migrations/`. Run everything against local D1 first; `--remote` touches the real staging database.
+The root `wrangler.jsonc` binds `DB` to the staging database `portfolio-db-staging` (and, under `env.production`, to `portfolio-db-prod`) and reads versioned migrations from `db/migrations/`. Run everything against local D1 first; `--remote` touches the real database — get an explicit, reviewed reason before running it (see the project's CLAUDE.md).
 
 ```sh
 npm run test:cms
@@ -120,6 +120,17 @@ node scripts/db/verify-staging.mjs --wrangler --local
 ```
 
 `db/seeds/staging.sql` is deterministic and idempotent, so repeated execution neither errors nor violates the immutability triggers. `scripts/db/verify-staging.mjs` checks foreign keys and the partial indexes `idx_one_cover_per_post`, `idx_one_active_release`, and `idx_release_visible_routes`. It also accepts `--http` for the Cloudflare D1 HTTP API using `CF_ACCOUNT_ID`, `CF_D1_DATABASE_ID`, and `CF_D1_READ_TOKEN`, and `--sqlite <path>` for a local file.
+
+### Applying migrations to the real remote databases
+
+Once new migration files land in `db/migrations/`, both remote databases need them applied explicitly — this repo's tooling never does it automatically (no CI/CD deploy hook exists, and `wrangler deploy` does not run migrations itself):
+
+```sh
+npx wrangler d1 migrations apply DB --env staging --remote
+npx wrangler d1 migrations apply DB --env production --remote
+```
+
+Requires a Cloudflare API token with D1:Edit, exported as `CLOUDFLARE_API_TOKEN` (and `CLOUDFLARE_ACCOUNT_ID`). Apply to staging first, verify, then production — both were brought fully up to date on 2026-09-14 this way.
 
 `scripts/build/export-live-snapshot.mjs` writes the validated live release snapshot to `.cache/cms-live-snapshot.json`, or to `CMS_SNAPSHOT_PATH`. It prefers the D1 HTTP API when the read credentials are present, falls back to local D1 state, and accepts `--mock` for a fixture snapshot when no database is connected. `.cache/` and `.wrangler/` are ignored by git.
 
