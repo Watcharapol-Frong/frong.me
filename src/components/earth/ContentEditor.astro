@@ -19,7 +19,14 @@ const { initial = '', coverUrl = '' } = Astro.props as Props;
 
 <div class="editor-scroll" data-earth-scroll data-earth-image-drop>
   <figure class="cover-container" data-earth-cover-container hidden={!coverUrl}>
-    <img class="cover-preview" data-earth-cover-preview src={coverUrl} alt="Cover preview" />
+    <img class="cover-preview" data-earth-cover-preview src={coverUrl} alt="Cover preview" draggable="false" />
+    <div class="cover-controls" data-earth-cover-controls>
+      <button type="button" class="cover-ctrl-btn" data-earth-action="cover-zoom-out" title="Zoom out">−</button>
+      <span class="cover-zoom-label" data-earth-cover-zoom-label>1.0x</span>
+      <button type="button" class="cover-ctrl-btn" data-earth-action="cover-zoom-in" title="Zoom in">+</button>
+      <button type="button" class="cover-ctrl-btn" data-earth-action="cover-reset-position" title="Reset position">Reset</button>
+    </div>
+    <div class="cover-drag-hint" data-earth-cover-drag-hint>Drag to reposition</div>
   </figure>
 
   <textarea

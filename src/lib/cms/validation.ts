@@ -1,6 +1,7 @@
 import {
   type CreatePostInput,
   type AttachPostAssetInput,
+  type CoverCrop,
   type Language,
   type PublicArticle,
   type PublicAsset,
@@ -124,6 +125,25 @@ function nullableHttpsUrl(value: unknown, field: string): string | null | undefi
   return value === undefined || value === null ? value : httpsUrl(value, field);
 }
 
+function cropObject(value: unknown, field: string): CoverCrop {
+  const cropRow = object(value, field, ['x', 'y', 'zoom']);
+  const x = finiteNumber(cropRow.x, `${field}.x`, 0);
+  const y = finiteNumber(cropRow.y, `${field}.y`, 0);
+  const zoom = finiteNumber(cropRow.zoom, `${field}.zoom`, 1);
+  if (x > 100 || y > 100) {
+    throw new CmsValidationError(field, 'x and y must be percentages from 0 to 100');
+  }
+  return { x, y, zoom };
+}
+
+function optionalCrop(value: unknown, field: string): CoverCrop | undefined {
+  return value === undefined ? undefined : cropObject(value, field);
+}
+
+function nullableCrop(value: unknown, field: string): CoverCrop | null | undefined {
+  return value === undefined || value === null ? value : cropObject(value, field);
+}
+
 function array<T>(
   value: unknown,
   field: string,
@@ -230,6 +250,7 @@ export function parsePublicArticle(value: unknown, field = 'article'): PublicArt
 export function parseCreatePostInput(value: unknown): CreatePostInput {
   const row = object(value, 'post', [
     'id', 'lang', 'translationGroupId', 'slug', 'title', 'excerpt', 'bodyMarkdown', 'coverImageUrl',
+    'coverCrop',
   ]);
   const translationGroupId = optionalIdentifier(row.translationGroupId, 'post.translationGroupId');
   const excerpt = optionalString(row.excerpt, 'post.excerpt', 1_000);
@@ -237,6 +258,7 @@ export function parseCreatePostInput(value: unknown): CreatePostInput {
   const coverImageUrl = row.coverImageUrl === undefined
     ? undefined
     : httpsUrl(row.coverImageUrl, 'post.coverImageUrl');
+  const coverCrop = optionalCrop(row.coverCrop, 'post.coverCrop');
   return {
     id: identifier(row.id, 'post.id'),
     lang: language(row.lang, 'post.lang'),
@@ -246,19 +268,21 @@ export function parseCreatePostInput(value: unknown): CreatePostInput {
     ...(excerpt === undefined ? {} : { excerpt }),
     ...(bodyMarkdown === undefined ? {} : { bodyMarkdown }),
     ...(coverImageUrl === undefined ? {} : { coverImageUrl }),
+    ...(coverCrop === undefined ? {} : { coverCrop }),
   };
 }
 
 export function parseUpdatePostDraftInput(value: unknown): UpdatePostDraftInput {
   const row = object(value, 'post', [
     'expectedDraftVersion', 'lang', 'translationGroupId', 'slug', 'title', 'excerpt', 'bodyMarkdown',
-    'coverImageUrl',
+    'coverImageUrl', 'coverCrop',
   ]);
   const translationGroupId = row.translationGroupId === null
     ? null
     : optionalIdentifier(row.translationGroupId, 'post.translationGroupId');
   const excerpt = nullableString(row.excerpt, 'post.excerpt', 1_000);
   const coverImageUrl = nullableHttpsUrl(row.coverImageUrl, 'post.coverImageUrl');
+  const coverCrop = nullableCrop(row.coverCrop, 'post.coverCrop');
   return {
     expectedDraftVersion: integer(row.expectedDraftVersion, 'post.expectedDraftVersion', 1),
     lang: language(row.lang, 'post.lang'),
@@ -268,6 +292,7 @@ export function parseUpdatePostDraftInput(value: unknown): UpdatePostDraftInput 
     ...(excerpt === undefined ? {} : { excerpt }),
     bodyMarkdown: string(row.bodyMarkdown, 'post.bodyMarkdown', 1_500_000),
     ...(coverImageUrl === undefined ? {} : { coverImageUrl }),
+    ...(coverCrop === undefined ? {} : { coverCrop }),
   };
 }
 

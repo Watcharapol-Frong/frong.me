@@ -174,6 +174,7 @@ export interface PostSummary {
   updatedAt: EpochMilliseconds;
   publishedAt: EpochMilliseconds | null;
   coverImageUrl: string | null;
+  coverCrop: { x: number; y: number; zoom: number } | null;
   /**
    * Tag names. List responses only — the detail route sends full `tags`
    * objects under that name instead, so this one stays distinct to keep the
@@ -458,6 +459,16 @@ function nullableNum(value: unknown, field: string): number | null {
   return value === null ? null : num(value, field);
 }
 
+function nullableCrop(value: unknown, field: string): { x: number; y: number; zoom: number } | null {
+  if (value === null || value === undefined) return null;
+  const row = obj(value, field);
+  return {
+    x: num(row.x, `${field}.x`),
+    y: num(row.y, `${field}.y`),
+    zoom: num(row.zoom, `${field}.zoom`),
+  };
+}
+
 function list<T>(value: unknown, field: string, item: (entry: unknown, field: string) => T): T[] {
   if (!Array.isArray(value)) throw new ResponseShapeError(field, 'must be an array');
   return value.map((entry, index) => item(entry, `${field}[${index}]`));
@@ -488,6 +499,7 @@ function parsePostSummary(value: unknown, field: string): PostSummary {
     updatedAt: num(row.updatedAt, `${field}.updatedAt`),
     publishedAt: nullableNum(row.publishedAt ?? null, `${field}.publishedAt`),
     coverImageUrl: nullableStr(row.coverImageUrl ?? null, `${field}.coverImageUrl`),
+    coverCrop: nullableCrop(row.coverCrop, `${field}.coverCrop`),
     tagNames: list(row.tagNames ?? [], `${field}.tagNames`, str),
     ...(typeof row.hasUnpublishedChanges === 'boolean'
       ? { hasUnpublishedChanges: row.hasUnpublishedChanges }

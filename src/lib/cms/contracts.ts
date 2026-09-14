@@ -8,6 +8,9 @@
 
 export const CMS_SCHEMA_VERSION = 1 as const;
 
+/** A post's lifecycle returns to 'draft' on unpublish, so this caps both paths that produce one. */
+export const MAX_DRAFT_POSTS = 3 as const;
+
 export type EpochMilliseconds = number;
 export type IsoDateTime = string;
 export type Language = 'th' | 'en';
@@ -31,6 +34,14 @@ export interface PostRow {
   archived_at: EpochMilliseconds | null;
   published_at: EpochMilliseconds | null;
   cover_image_url: string | null;
+  cover_crop: string | null;
+}
+
+/** Cover image focal point (percentages, 0-100) and zoom (>= 1). */
+export interface CoverCrop {
+  x: number;
+  y: number;
+  zoom: number;
 }
 
 export interface CategoryRow {
@@ -150,6 +161,7 @@ export interface CreatePostInput {
   excerpt?: string;
   bodyMarkdown?: string;
   coverImageUrl?: string;
+  coverCrop?: CoverCrop;
 }
 
 export interface UpdatePostDraftInput {
@@ -161,6 +173,7 @@ export interface UpdatePostDraftInput {
   excerpt?: string | null;
   bodyMarkdown: string;
   coverImageUrl?: string | null;
+  coverCrop?: CoverCrop | null;
 }
 
 export interface DraftSourceInput {

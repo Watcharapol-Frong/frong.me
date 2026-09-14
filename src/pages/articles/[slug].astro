@@ -47,6 +47,30 @@ const cover = assets.find((asset) => asset.role === "cover");
 const coverUrl = cover
   ? publicAssetUrl(cover, "https://images.frong.me")
   : post.cover_image_url ?? undefined;
+
+// Focal point + zoom set by dragging/zooming the cover in the Earth editor.
+// Tolerant on purpose: malformed stored JSON should fall back to a plain,
+// uncropped cover rather than 500 the page for a reader.
+function parseCoverCrop(value: string | null): { x: number; y: number; zoom: number } | null {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(value);
+    if (
+      parsed && typeof parsed === "object"
+      && typeof parsed.x === "number" && typeof parsed.y === "number" && typeof parsed.zoom === "number"
+    ) {
+      return { x: parsed.x, y: parsed.y, zoom: parsed.zoom };
+    }
+  } catch {
+    // fall through to null
+  }
+  return null;
+}
+
+const coverCrop = parseCoverCrop(post.cover_crop);
+const coverStyle = coverCrop
+  ? `object-position: ${coverCrop.x}% ${coverCrop.y}%; transform: scale(${coverCrop.zoom}); transform-origin: ${coverCrop.x}% ${coverCrop.y}%;`
+  : undefined;
 const tags = taxonomy.tags.map((tag) => tag.slug);
 
 const { html: bodyHtml, headings } = renderMarkdown(post.body_markdown);
@@ -74,7 +98,7 @@ const publishedAtIso = new Date(post.published_at ?? post.created_at).toISOStrin
     {coverUrl && (
       <section class="pt-20 px-4 md:px-6">
         <div class="w-full h-[40vh] md:h-[60vh] overflow-hidden rounded-2xl md:rounded-3xl fade-in-up">
-          <img src={coverUrl} alt={post.title} class="w-full h-full object-cover" />
+          <img src={coverUrl} alt={post.title} class="w-full h-full object-cover" style={coverStyle} />
         </div>
       </section>
     )}

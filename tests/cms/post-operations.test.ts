@@ -87,6 +87,46 @@ test('title validation rejects empty string, overly long strings, and non-string
   );
 });
 
+test('coverCrop validation accepts a valid focal point + zoom and rejects out-of-range values', () => {
+  const baseInput = {
+    id: 'post_crop_00001',
+    lang: 'th' as const,
+    slug: 'crop-validation-test',
+    title: 'Crop validation test',
+    bodyMarkdown: '# Body',
+  };
+
+  const parsed = parseCreatePostInput({ ...baseInput, coverCrop: { x: 49.16, y: 32.86, zoom: 1.4 } });
+  assert.deepEqual(parsed.coverCrop, { x: 49.16, y: 32.86, zoom: 1.4 });
+
+  for (const invalidCrop of [
+    { x: 101, y: 50, zoom: 1 },
+    { x: 50, y: -1, zoom: 1 },
+    { x: 50, y: 50, zoom: 0 },
+    { x: 50, y: 50, zoom: 'wide' },
+    { x: 50, y: 50 },
+    'center',
+  ]) {
+    assert.throws(
+      () => parseCreatePostInput({ ...baseInput, coverCrop: invalidCrop }),
+      (err: unknown) => err instanceof CmsValidationError,
+    );
+  }
+
+  // parseUpdatePostDraftInput accepts the same shape, plus an explicit null to clear it.
+  const updateBase = {
+    expectedDraftVersion: 1,
+    lang: 'th' as const,
+    slug: 'crop-validation-test',
+    title: 'Crop validation test',
+    bodyMarkdown: '# Body',
+  };
+  const parsedUpdate = parseUpdatePostDraftInput({ ...updateBase, coverCrop: { x: 10, y: 90, zoom: 2 } });
+  assert.deepEqual(parsedUpdate.coverCrop, { x: 10, y: 90, zoom: 2 });
+  const cleared = parseUpdatePostDraftInput({ ...updateBase, coverCrop: null });
+  assert.equal(cleared.coverCrop, null);
+});
+
 test('D1 database rejects whitespace-only title via CHECK constraint', async (t) => {
   const { binding, db } = createCmsDbFixture();
   t.after(() => binding.close());

@@ -151,6 +151,10 @@ export function renderMarkdown(markdown: string): RenderedMarkdown {
       closeList();
       html.push(
         `<div class="video-embed"><iframe src="https://www.youtube-nocookie.com/embed/${youtube[1]}"`
+        // A page-level `same-origin` referrer policy (e.g. the Earth admin
+        // pages) would otherwise strip the referrer YouTube's player needs
+        // to configure itself, surfacing as a generic "Error 153".
+        + ' referrerpolicy="strict-origin-when-cross-origin"'
         + ' title="YouTube video" loading="lazy" frameborder="0"'
         + ' allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"'
         + ' allowfullscreen></iframe></div>',

@@ -243,6 +243,7 @@ const seed = {
     const coverStatus = form.querySelector<HTMLElement>('[data-earth-cover-status]');
     const coverError = form.querySelector<HTMLElement>('[data-earth-cover-error]');
     const coverFileInput = form.querySelector<HTMLInputElement>('[data-earth-cover-file]');
+    const coverZoomLabel = form.querySelector<HTMLElement>('[data-earth-cover-zoom-label]');
     const dropIndicator = form.querySelector<HTMLElement>('[data-earth-drop-indicator]');
     const emojiPicker = form.querySelector<HTMLElement>('[data-earth-emoji-picker]');
     const publishWrap = form.querySelector<HTMLElement>('[data-earth-publish-wrap]');
@@ -283,6 +284,7 @@ const seed = {
         status: statusOverride ?? (fields.status?.value === 'active' ? 'published' : 'draft'),
         bodyMarkdown: fields.body?.value ?? '',
         coverUrl: fields.coverUrl?.value.trim() ?? '',
+        coverCrop: isDefaultCoverCrop(coverCrop) ? null : coverCrop,
       };
     }
 
@@ -417,6 +419,78 @@ const seed = {
       }
     }
 
+    /* ---------------- Cover focal point + zoom ---------------- */
+
+    const DEFAULT_COVER_CROP = { x: 50, y: 50, zoom: 1 };
+    let coverCrop = { ...DEFAULT_COVER_CROP };
+
+    function isDefaultCoverCrop(crop: typeof coverCrop): boolean {
+      return crop.x === DEFAULT_COVER_CROP.x && crop.y === DEFAULT_COVER_CROP.y && crop.zoom === DEFAULT_COVER_CROP.zoom;
+    }
+
+    function applyCoverCropStyle() {
+      if (!coverPreview) return;
+      coverPreview.style.objectPosition = `${coverCrop.x}% ${coverCrop.y}%`;
+      coverPreview.style.transform = `scale(${coverCrop.zoom})`;
+      coverPreview.style.transformOrigin = `${coverCrop.x}% ${coverCrop.y}%`;
+      if (coverZoomLabel) coverZoomLabel.textContent = `${coverCrop.zoom.toFixed(1)}x`;
+    }
+
+    /** Pass `null` for a freshly chosen image, where the old framing no longer applies. */
+    function setCoverCrop(crop: typeof coverCrop | null) {
+      coverCrop = crop ? { ...crop } : { ...DEFAULT_COVER_CROP };
+      applyCoverCropStyle();
+    }
+
+    function adjustCoverZoom(delta: number) {
+      const zoom = Math.min(3, Math.max(1, Math.round((coverCrop.zoom + delta) * 10) / 10));
+      coverCrop = { ...coverCrop, zoom };
+      applyCoverCropStyle();
+      dirty = true;
+      scheduleAutosave();
+    }
+
+    let coverDrag: { startX: number; startY: number; startCropX: number; startCropY: number } | null = null;
+
+    coverPreview?.addEventListener('pointerdown', (event) => {
+      if (!coverPreview.src) return;
+      coverDrag = {
+        startX: event.clientX,
+        startY: event.clientY,
+        startCropX: coverCrop.x,
+        startCropY: coverCrop.y,
+      };
+      coverContainer?.setAttribute('data-earth-dragging', 'true');
+      coverPreview.setPointerCapture(event.pointerId);
+      event.preventDefault();
+    });
+
+    coverPreview?.addEventListener('pointermove', (event) => {
+      if (!coverDrag || !coverContainer) return;
+      const rect = coverContainer.getBoundingClientRect();
+      // Dragging the photo right should reveal more of what's off-screen to
+      // the left, so the focal point moves opposite to the pointer.
+      const dxPct = ((event.clientX - coverDrag.startX) / rect.width) * 100;
+      const dyPct = ((event.clientY - coverDrag.startY) / rect.height) * 100;
+      coverCrop = {
+        ...coverCrop,
+        x: Math.min(100, Math.max(0, coverDrag.startCropX - dxPct)),
+        y: Math.min(100, Math.max(0, coverDrag.startCropY - dyPct)),
+      };
+      applyCoverCropStyle();
+    });
+
+    function endCoverDrag() {
+      if (!coverDrag) return;
+      coverDrag = null;
+      coverContainer?.removeAttribute('data-earth-dragging');
+      dirty = true;
+      scheduleAutosave();
+    }
+
+    coverPreview?.addEventListener('pointerup', endCoverDrag);
+    coverPreview?.addEventListener('pointercancel', endCoverDrag);
+
     /** The body textarea grows with its content so `.editor-scroll` is the only scroller. */
     function autoGrow() {
       const textarea = fields.body;
@@ -443,6 +517,7 @@ const seed = {
         pendingCoverAssetId = uploaded.id;
         if (fields.coverUrl) fields.coverUrl.value = uploaded.url;
         showCover(uploaded.url);
+        setCoverCrop(null);
         updateJsonLd();
         scheduleAutosave();
         dirty = true;
@@ -569,6 +644,7 @@ const seed = {
       if (fields.status) fields.status.value = post.lifecycle === 'active' ? 'active' : 'draft';
       if (fields.coverUrl) fields.coverUrl.value = post.coverImageUrl ?? '';
       showCover(fields.coverUrl?.value ?? '');
+      setCoverCrop(post.coverCrop);
       slugTouched = true;
       if (slugMode) slugMode.textContent = 'manual';
       currentPost = post;
@@ -595,6 +671,7 @@ const seed = {
       if (fields.body) fields.body.value = backup.bodyMarkdown;
       if (fields.coverUrl && backup.coverUrl) fields.coverUrl.value = backup.coverUrl;
       showCover(fields.coverUrl?.value ?? '');
+      setCoverCrop(backup.coverCrop ?? null);
       dirty = true;
       setStatus('Restored a local draft', 'offline');
     }
@@ -703,80 +780,25 @@ const seed = {
 
     function openPreview() {
       const { html } = renderMarkdown(fields.body?.value ?? '');
-      const title = fields.title?.value || 'Untitled';
-      const excerpt = fields.excerpt?.value ?? '';
-      const cover = fields.coverUrl?.value ?? '';
-      const tags = (fields.tags?.value ?? '').split(',').map((tag) => tag.trim()).filter(Boolean);
-      const fontFamily = {
-        'crimson-pro': "'Crimson Pro', Georgia, serif",
-        'jetbrains-mono': "'JetBrains Mono', monospace",
-        'ibm-plex-sans-thai': "'IBM Plex Sans Thai', system-ui, sans-serif",
-        'google-sans': "'Google Sans', system-ui, sans-serif",
-      }[fields.font?.value ?? 'google-sans'] ?? "'Google Sans', system-ui, sans-serif";
+      const payload = {
+        title: fields.title?.value || 'Untitled',
+        excerpt: fields.excerpt?.value ?? '',
+        cover: fields.coverUrl?.value ?? '',
+        coverCrop: isDefaultCoverCrop(coverCrop) ? null : coverCrop,
+        tags: (fields.tags?.value ?? '').split(',').map((tag) => tag.trim()).filter(Boolean),
+        font: fields.font?.value || 'google-sans',
+        articleHtml: html,
+      };
 
-      const escape = (value: string) => value
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-
-      const page = `<!doctype html><html lang="th"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex, nofollow">
-<title>${escape(title)} — Preview</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&family=Google+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap" rel="stylesheet">
-<style>
-  :root{--text:#1a1a1a;--muted:#666;--light:#999;--bg:#fff;--alt:#f7f7f6;--border:#e5e5e5}
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{background:var(--bg);color:var(--text);font-family:${fontFamily};line-height:1.8;-webkit-font-smoothing:antialiased}
-  .scroll{max-width:720px;margin:0 auto;padding:0 24px 96px}
-  .badge{position:fixed;top:16px;right:16px;background:var(--text);color:var(--bg);font-family:'JetBrains Mono',monospace;font-size:10px;padding:6px 14px;border-radius:20px;letter-spacing:.08em;text-transform:uppercase}
-  .meta{text-align:center;padding:64px 0 48px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--light)}
-  .cover{width:100%;aspect-ratio:1.91/1;border-radius:10px;overflow:hidden;background:var(--alt);margin-bottom:56px}
-  .cover img{width:100%;height:100%;object-fit:cover;display:block}
-  header.article{text-align:center;margin-bottom:56px}
-  h1.title{font-size:46px;font-weight:700;line-height:1.12;letter-spacing:-.02em;margin-bottom:20px}
-  .excerpt{font-size:21px;color:var(--muted);font-style:italic;line-height:1.55}
-  .tags{text-align:center;margin-bottom:48px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--light)}
-  hr.divider{border:none;border-top:1px solid var(--border);margin:0 0 56px}
-  article{font-size:20px}
-  article p{margin-bottom:1.8em}
-  article h1,article h2{font-size:30px;font-weight:700;margin:2.5em 0 .8em;line-height:1.2}
-  article h3{font-size:24px;font-weight:600;margin:2em 0 .8em}
-  article a{color:#22c55e;text-decoration:underline;text-underline-offset:3px}
-  article blockquote{margin:2.5em 0;padding:1.2em 1.8em;border-left:3px solid var(--text);background:var(--alt);font-style:italic;color:var(--muted);border-radius:0 8px 8px 0}
-  article ul,article ol{margin:1.5em 0 1.5em 1.5em}
-  article li{margin-bottom:.5em}
-  article img{max-width:100%;height:auto;border-radius:8px;margin:2.5em 0;display:block}
-  article code{font-family:'JetBrains Mono',monospace;font-size:.85em;background:var(--alt);padding:.2em .4em;border-radius:4px}
-  article pre{background:#f6f8fa;padding:1.5em;border-radius:8px;overflow-x:auto;margin:2em 0}
-  article pre code{background:none;padding:0}
-  article hr{border:none;text-align:center;margin:3em 0}
-  article hr::before{content:"· · ·";font-size:20px;letter-spacing:.3em;color:var(--light)}
-  .video-embed{position:relative;width:100%;padding-bottom:56.25%;margin:2em 0;background:#000;border-radius:8px;overflow:hidden}
-  .video-embed iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
-</style></head>
-<body>
-<div class="badge">Preview</div>
-<div class="scroll">
-  <div class="meta">${escape(new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }))}</div>
-  ${cover ? `<div class="cover"><img src="${escape(cover)}" alt=""></div>` : ''}
-  <header class="article">
-    <h1 class="title">${escape(title)}</h1>
-    ${excerpt ? `<p class="excerpt">${escape(excerpt)}</p>` : ''}
-  </header>
-  ${tags.length > 0 ? `<div class="tags">${tags.map((tag) => `#${escape(tag)}`).join(' · ')}</div>` : ''}
-  <hr class="divider">
-  <article>${html}</article>
-</div>
-</body></html>`;
-
-      const blob = new Blob([page], { type: 'text/html' });
-      const url = URL.createObjectURL(blob);
-      window.open(url, 'earth-preview', 'noopener');
-      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      // A blob: URL document breaks YouTube's embedded player (Error 153),
+      // and writing the page via document.write into a window.open('', ...)
+      // popup proved unreliable across real browsers (some leave the tab
+      // blank). Handing the draft to a real, same-origin page instead avoids
+      // both: sessionStorage is shared with same-origin auxiliary tabs as
+      // long as `noopener` isn't used, so /earth/preview reads it back and
+      // renders it itself through an ordinary navigation.
+      sessionStorage.setItem('earth:preview', JSON.stringify(payload));
+      window.open('/earth/preview', 'earth-preview');
     }
 
     /* ---------------- Zen mode ---------------- */
@@ -800,7 +822,10 @@ const seed = {
         updateSlugPreview();
       }
       if (target === fields.tags) enforceTagLimit();
-      if (target === fields.coverUrl) showCover(fields.coverUrl?.value ?? '');
+      if (target === fields.coverUrl) {
+        showCover(fields.coverUrl?.value ?? '');
+        setCoverCrop(null);
+      }
       if (target === fields.body) autoGrow();
       updateCounters();
       updateJsonLd();
@@ -855,9 +880,21 @@ const seed = {
           pendingCoverAssetId = null;
           if (coverStatus) coverStatus.textContent = '';
           showCover('');
+          setCoverCrop(null);
           updateJsonLd();
           scheduleAutosave();
           dirty = true;
+          break;
+        case 'cover-zoom-in':
+          adjustCoverZoom(0.1);
+          break;
+        case 'cover-zoom-out':
+          adjustCoverZoom(-0.1);
+          break;
+        case 'cover-reset-position':
+          setCoverCrop(null);
+          dirty = true;
+          scheduleAutosave();
           break;
         case 'toggle-help':
         case 'toggle-shortcuts': {

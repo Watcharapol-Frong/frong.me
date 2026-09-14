@@ -9,6 +9,7 @@ export type CmsErrorCode =
   | 'DATABASE_BUSY'
   | 'INVALID_STATE_TRANSITION'
   | 'INVARIANT_VIOLATION'
+  | 'DRAFT_LIMIT_REACHED'
   | 'DATABASE_ERROR'
   | 'SERVICE_UNAVAILABLE'
   | 'BAD_GATEWAY';
@@ -92,6 +93,17 @@ export class CmsStateTransitionError extends CmsError {
 export class CmsInvariantError extends CmsError {
   constructor(message: string, options?: CmsErrorOptions) {
     super(message, 'INVARIANT_VIOLATION', 422, options);
+  }
+}
+
+export class CmsDraftLimitError extends CmsError {
+  constructor(limit: number, options?: CmsErrorOptions) {
+    super(
+      `You already have ${limit} drafts — publish or archive one before starting another`,
+      'DRAFT_LIMIT_REACHED',
+      422,
+      { ...options, details: { limit, ...options?.details } },
+    );
   }
 }
 

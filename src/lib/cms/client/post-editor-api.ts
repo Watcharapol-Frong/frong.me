@@ -21,6 +21,7 @@ export interface PostEditorDraft {
   status: 'draft' | 'published';
   bodyMarkdown: string;
   coverUrl: string;
+  coverCrop: { x: number; y: number; zoom: number } | null;
 }
 
 export interface PostEditorPublishResult {
@@ -96,6 +97,7 @@ export function createPostEditorApi(options?: CmsClientOptions): PostEditorApi {
           excerpt: draft.excerpt || null,
           bodyMarkdown: draft.bodyMarkdown,
           coverImageUrl: draft.coverUrl.trim() || null,
+          coverCrop: draft.coverUrl.trim() ? draft.coverCrop : null,
         },
         categoryIds: current.categoryIds,
         tagIds: draft.tagIds,
@@ -119,6 +121,7 @@ export function createPostEditorApi(options?: CmsClientOptions): PostEditorApi {
         ...(draft.excerpt ? { excerpt: draft.excerpt } : {}),
         ...(draft.bodyMarkdown ? { bodyMarkdown: draft.bodyMarkdown } : {}),
         ...(draft.coverUrl.trim() ? { coverImageUrl: draft.coverUrl.trim() } : {}),
+        ...(draft.coverUrl.trim() && draft.coverCrop ? { coverCrop: draft.coverCrop } : {}),
       },
       options,
     );

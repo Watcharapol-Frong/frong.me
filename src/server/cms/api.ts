@@ -70,6 +70,7 @@ export interface PostListDto {
   updatedAt: number;
   publishedAt: number | null;
   coverImageUrl: string | null;
+  coverCrop: { x: number; y: number; zoom: number } | null;
 }
 
 export function postRowToListDto(row: PostRow): PostListDto {
@@ -85,6 +86,7 @@ export function postRowToListDto(row: PostRow): PostListDto {
     updatedAt: row.updated_at,
     publishedAt: row.published_at,
     coverImageUrl: row.cover_image_url,
+    coverCrop: parseCrop(row.cover_crop, 'post cover crop'),
   };
 }
 
@@ -146,7 +148,7 @@ function taxonomyDto(row: CategoryRow | TagRow) {
   return { id: row.id, slug: row.slug, name: row.name };
 }
 
-function parseCrop(value: string | null): { x: number; y: number; zoom: number } | null {
+function parseCrop(value: string | null, label = 'draft asset crop'): { x: number; y: number; zoom: number } | null {
   if (value === null) return null;
   try {
     const crop = JSON.parse(value) as unknown;
@@ -159,6 +161,6 @@ function parseCrop(value: string | null): { x: number; y: number; zoom: number }
     ) throw new Error('invalid crop fields');
     return { x: candidate.x, y: candidate.y, zoom: candidate.zoom };
   } catch (error) {
-    throw new CmsInvariantError('Stored draft asset crop is invalid', { cause: error });
+    throw new CmsInvariantError(`Stored ${label} is invalid`, { cause: error });
   }
 }

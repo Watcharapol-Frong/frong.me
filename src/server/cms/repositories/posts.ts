@@ -11,8 +11,9 @@ import {
   parseUpdatePostDraftInput,
   parseUpdatePostBundleInput,
 } from '../../../lib/cms/validation.ts';
+import { MAX_DRAFT_POSTS } from '../../../lib/cms/contracts.ts';
 import { type CmsDatabase, requireChanged } from '../db.ts';
-import { CmsConflictError, CmsNotFoundError } from '../errors.ts';
+import { CmsConflictError, CmsDraftLimitError, CmsNotFoundError } from '../errors.ts';
 import { resolveTagIds } from './taxonomy.ts';
 
 const POST_COLUMNS = `
@@ -29,8 +30,13 @@ const POST_COLUMNS = `
   updated_at,
   archived_at,
   published_at,
-  cover_image_url
+  cover_image_url,
+  cover_crop
 `;
+
+function serializeCoverCrop(crop: { x: number; y: number; zoom: number } | null | undefined): string | null {
+  return crop ? JSON.stringify(crop) : null;
+}
 
 export interface ListDraftsOptions {
   lang?: Language;
@@ -40,17 +46,27 @@ export interface ListDraftsOptions {
   search?: string;
 }
 
+async function assertDraftCapacityAvailable(db: CmsDatabase): Promise<void> {
+  const row = await db.first<{ count: number }>(
+    `SELECT COUNT(*) AS count FROM posts WHERE lifecycle = 'draft'`,
+  );
+  if ((row?.count ?? 0) >= MAX_DRAFT_POSTS) {
+    throw new CmsDraftLimitError(MAX_DRAFT_POSTS);
+  }
+}
+
 export async function createPost(
   db: CmsDatabase,
   value: unknown,
   now = Date.now(),
 ): Promise<PostRow> {
   const input: CreatePostInput = parseCreatePostInput(value);
+  await assertDraftCapacityAvailable(db);
   const result = await db.run<PostRow>(
     `INSERT INTO posts (
       id, lang, translation_group_id, slug, title, excerpt, body_markdown,
-      draft_version, lifecycle, created_at, updated_at, cover_image_url
-    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 1, 'draft', ?8, ?8, ?9)
+      draft_version, lifecycle, created_at, updated_at, cover_image_url, cover_crop
+    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 1, 'draft', ?8, ?8, ?9, ?10)
     RETURNING ${POST_COLUMNS}`,
     [
       input.id,
@@ -62,6 +78,7 @@ export async function createPost(
       input.bodyMarkdown ?? '',
       now,
       input.coverImageUrl ?? null,
+      serializeCoverCrop(input.coverCrop),
     ],
   );
   return requiredReturnedRow(result.results[0], 'post', input.id);
@@ -133,10 +150,11 @@ export async function updatePostDraft(
          excerpt = ?5,
          body_markdown = ?6,
          cover_image_url = ?7,
+         cover_crop = ?8,
          draft_version = draft_version + 1,
-         updated_at = ?8
-     WHERE id = ?9
-       AND draft_version = ?10
+         updated_at = ?9
+     WHERE id = ?10
+       AND draft_version = ?11
        AND lifecycle <> 'archived'
      RETURNING ${POST_COLUMNS}`,
     [
@@ -147,6 +165,7 @@ export async function updatePostDraft(
       input.excerpt ?? null,
       input.bodyMarkdown,
       input.coverImageUrl ?? null,
+      serializeCoverCrop(input.coverCrop),
       now,
       postId,
       input.expectedDraftVersion,
@@ -178,8 +197,8 @@ export async function updatePostBundle(
     {
       sql: `UPDATE posts
             SET lang = ?1, translation_group_id = ?2, slug = ?3, title = ?4,
-                excerpt = ?5, body_markdown = ?6, cover_image_url = ?7
-            WHERE id = ?8 AND draft_version = ?9 AND lifecycle <> 'archived'`,
+                excerpt = ?5, body_markdown = ?6, cover_image_url = ?7, cover_crop = ?8
+            WHERE id = ?9 AND draft_version = ?10 AND lifecycle <> 'archived'`,
       params: [
         input.draft.lang,
         input.draft.translationGroupId ?? null,
@@ -188,6 +207,7 @@ export async function updatePostBundle(
         input.draft.excerpt ?? null,
         input.draft.bodyMarkdown,
         input.draft.coverImageUrl ?? null,
+        serializeCoverCrop(input.draft.coverCrop),
         postId,
         version,
       ],
@@ -316,6 +336,7 @@ export async function unpublishPost(
   expectedDraftVersion: number,
   now = Date.now(),
 ): Promise<PostRow> {
+  await assertDraftCapacityAvailable(db);
   const result = await db.run<PostRow>(
     `UPDATE posts
      SET lifecycle = 'draft',

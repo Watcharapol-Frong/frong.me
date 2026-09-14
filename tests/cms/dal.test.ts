@@ -120,6 +120,49 @@ test('cover_image_url persists through create, update, and the bundled update, a
   assert.equal(afterBundleUpdate.cover_image_url, null, 'omitting the cover on a later save clears the stored URL rather than leaving it stale');
 });
 
+test('cover_crop persists through create, update, and the bundled update, and clearing it stores null', async (t) => {
+  const { binding, db } = createCmsDbFixture();
+  t.after(() => binding.close());
+
+  const created = await createPost(db, {
+    id: POST_ID,
+    lang: 'th',
+    slug: 'cover-crop-proof',
+    title: 'Cover crop proof',
+    bodyMarkdown: '# Body',
+    coverImageUrl: 'https://images.unsplash.com/photo-1',
+    coverCrop: { x: 49.16, y: 32.86, zoom: 1.4 },
+  }, NOW);
+  assert.deepEqual(JSON.parse(created.cover_crop!), { x: 49.16, y: 32.86, zoom: 1.4 });
+
+  const afterDraftUpdate = await updatePostDraft(db, POST_ID, {
+    expectedDraftVersion: 1,
+    lang: 'th',
+    slug: 'cover-crop-proof',
+    title: 'Cover crop proof',
+    bodyMarkdown: '# Body',
+    coverImageUrl: 'https://images.unsplash.com/photo-1',
+    coverCrop: { x: 10, y: 90, zoom: 2 },
+  }, NOW + 1);
+  assert.deepEqual(JSON.parse(afterDraftUpdate.cover_crop!), { x: 10, y: 90, zoom: 2 });
+
+  const afterBundleUpdate = await updatePostBundle(db, POST_ID, {
+    draft: {
+      expectedDraftVersion: 2,
+      lang: 'th',
+      slug: 'cover-crop-proof',
+      title: 'Cover crop proof',
+      bodyMarkdown: '# Body',
+      coverImageUrl: 'https://images.unsplash.com/photo-1',
+      coverCrop: null,
+    },
+    categoryIds: [],
+    tagIds: [],
+    sources: [],
+  }, NOW + 2);
+  assert.equal(afterBundleUpdate.cover_crop, null, 'resetting to the default framing on a later save clears the stored crop rather than leaving it stale');
+});
+
 test('resolveTagIds upserts free-typed tag names and reuses the same row on a repeat name', async (t) => {
   const { binding, db } = createCmsDbFixture();
   t.after(() => binding.close());

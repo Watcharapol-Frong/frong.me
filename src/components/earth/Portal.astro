@@ -57,7 +57,7 @@ const { ownerHandle = 'frong98', siteDomain = 'frong.me' } = Astro.props as Prop
       <h2 class="col-title">Drafts</h2>
       <div class="col-header-right">
         <span class="col-count" data-earth-col-count="draft">0</span>
-        <a class="new-post-btn" href="/earth/editor">+ New</a>
+        <a class="new-post-btn" href="/earth/editor" data-earth-new-post>+ New</a>
       </div>
     </div>
 
@@ -320,6 +320,7 @@ const { ownerHandle = 'frong98', siteDomain = 'frong.me' } = Astro.props as Prop
   }
 
   .new-post-btn:hover { opacity: 0.7; }
+  .new-post-btn[aria-disabled='true'] { opacity: 0.35; pointer-events: none; cursor: default; }
 
   .post-list {
     display: flex;
@@ -490,6 +491,7 @@ const { ownerHandle = 'frong98', siteDomain = 'frong.me' } = Astro.props as Prop
 
 <script>
   import { archivePost, listPosts, type PostSummary } from '../../lib/cms/client/api.ts';
+  import { MAX_DRAFT_POSTS } from '../../lib/cms/contracts.ts';
 
   const STREAK_DAYS = 60;
 
@@ -528,6 +530,7 @@ const { ownerHandle = 'frong98', siteDomain = 'frong.me' } = Astro.props as Prop
     const searchInput = root.querySelector<HTMLInputElement>('[data-earth-search]');
     const tagCloud = root.querySelector<HTMLElement>('[data-earth-tag-cloud]');
     const rowTemplate = document.querySelector<HTMLTemplateElement>('[data-earth-row-template]');
+    const newPostBtn = root.querySelector<HTMLAnchorElement>('[data-earth-new-post]');
     const modal = document.querySelector<HTMLElement>('[data-earth-modal="delete"]');
     const modalConfirm = modal?.querySelector<HTMLButtonElement>('[data-earth-modal-confirm]');
 
@@ -670,6 +673,14 @@ const { ownerHandle = 'frong98', siteDomain = 'frong.me' } = Astro.props as Prop
       if (statCounts.draft) statCounts.draft.textContent = String(drafts.length);
       if (statCounts.active) statCounts.active.textContent = String(published.length);
       if (statCounts.words) statCounts.words.textContent = wordCount(allPosts).toLocaleString();
+
+      if (newPostBtn) {
+        const atLimit = drafts.length >= MAX_DRAFT_POSTS;
+        newPostBtn.setAttribute('aria-disabled', String(atLimit));
+        newPostBtn.title = atLimit
+          ? `You already have ${MAX_DRAFT_POSTS} drafts — publish or archive one before starting another`
+          : '';
+      }
     }
 
     /* ---------------- Data ---------------- */
@@ -727,6 +738,10 @@ const { ownerHandle = 'frong98', siteDomain = 'frong.me' } = Astro.props as Prop
     }
 
     /* ---------------- Events ---------------- */
+
+    newPostBtn?.addEventListener('click', (event) => {
+      if (newPostBtn.getAttribute('aria-disabled') === 'true') event.preventDefault();
+    });
 
     searchInput?.addEventListener('input', applyFilter);
 
