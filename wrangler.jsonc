@@ -40,15 +40,15 @@
       "d1_databases": [
         {
           "binding": "DB",
-          "database_name": "portfolio-db-production",
-          "database_id": "portfolio-db-production-id",
+          "database_name": "portfolio-db-prod",
+          "database_id": "e8442532-a929-40d5-8ff4-c05510fad616",
           "migrations_dir": "db/migrations"
         }
       ],
       "r2_buckets": [
         {
           "binding": "MEDIA_BUCKET",
-          "bucket_name": "portfolio-media-production"
+          "bucket_name": "portfolio-media-prod"
         }
       ]
     }

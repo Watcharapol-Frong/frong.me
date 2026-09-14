@@ -36,3 +36,6 @@ pnpm-debug.log*
 # wrangler local secrets — holds dev-only values such as the Access bypass flag
 .dev.vars
 .dev.vars.*
+
+# personal Claude Code settings overrides — not shared with the team
+.claude/settings.local.json
