@@ -19,7 +19,7 @@ const { status = 'draft' } = Astro.props as Props;
 
 <header class="header">
   <div class="header-left">
-    <a href="/earth" class="logo" title="Back to the portal (Ctrl+M)">EARTH</a>
+    <a href="/earth" class="logo" title="Back to the portal (Ctrl+M)">FRONG.ME</a>
     <div class="save-status" data-earth-save-status role="status" aria-live="polite"></div>
   </div>
 
@@ -35,9 +35,9 @@ const { status = 'draft' } = Astro.props as Props;
       type="button"
       class="header-btn header-btn-secondary"
       data-earth-action="save-draft"
-      title="Save draft (Ctrl+S)"
+      title={status === 'active' ? 'Update the published post (Ctrl+S)' : 'Save draft (Ctrl+S)'}
     >
-      Save
+      {status === 'active' ? 'Update' : 'Save'}
     </button>
 
     <button

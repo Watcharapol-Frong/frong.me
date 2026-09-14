@@ -112,6 +112,13 @@ export interface CmsConflict {
   currentDraftVersion?: number;
   /** Version the rejected request claimed. */
   expectedDraftVersion?: number;
+  /**
+   * Lifecycle the server currently holds, when publish/unpublish reports one.
+   * publishPost/unpublishPost only match one specific lifecycle, so a
+   * mismatch here means no draft-version retry can ever succeed — distinct
+   * from a genuine concurrent-edit race, which this field is absent for.
+   */
+  currentLifecycle?: PostLifecycle;
 }
 
 export type CmsResult<T> =
@@ -296,16 +303,25 @@ function optionalCount(details: Record<string, unknown> | undefined, key: string
   return typeof value === 'number' && Number.isInteger(value) ? value : undefined;
 }
 
+function optionalLifecycle(details: Record<string, unknown> | undefined, key: string): PostLifecycle | undefined {
+  const value = details?.[key];
+  return typeof value === 'string' && (LIFECYCLES as readonly string[]).includes(value)
+    ? (value as PostLifecycle)
+    : undefined;
+}
+
 function toConflict(envelope: ErrorEnvelope): CmsConflict {
   const code: CmsConflictCode = isConflictCode(envelope.code) ? envelope.code : 'CONFLICT';
   const currentDraftVersion = optionalCount(envelope.details, 'currentDraftVersion');
   const expectedDraftVersion = optionalCount(envelope.details, 'expectedDraftVersion');
+  const currentLifecycle = optionalLifecycle(envelope.details, 'currentLifecycle');
   return {
     code,
     message: envelope.message,
     ...(envelope.details ? { details: envelope.details } : {}),
     ...(currentDraftVersion === undefined ? {} : { currentDraftVersion }),
     ...(expectedDraftVersion === undefined ? {} : { expectedDraftVersion }),
+    ...(currentLifecycle === undefined ? {} : { currentLifecycle }),
   };
 }
 

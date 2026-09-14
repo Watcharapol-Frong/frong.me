@@ -28,7 +28,14 @@ export const POST: APIRoute = async ({ request, locals, params }) => {
       try {
         const current = await getPostDraft(db, postId);
         return cmsErrorResponse(new CmsConflictError(error.message, error.code, {
-          details: { currentDraftVersion: current.draft_version, expectedDraftVersion: undefined },
+          details: {
+            currentDraftVersion: current.draft_version,
+            // publishPost only ever matches lifecycle = 'draft'; when the row
+            // is already 'active'/'archived' no draft-version retry can ever
+            // succeed, so the client needs this to stop suggesting one.
+            currentLifecycle: current.lifecycle,
+            expectedDraftVersion: undefined,
+          },
         }));
       } catch {
         // Preserve the original conflict when the current row cannot be read.

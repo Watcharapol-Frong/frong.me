@@ -1,4 +1,4 @@
-import type { Language } from '../contracts.ts';
+import type { Language, PostLifecycle } from '../contracts.ts';
 import {
   createPost,
   describeConflict,
@@ -33,6 +33,8 @@ export class PostEditorPublishError extends Error {
   readonly post: PostDetail;
   /** Set when the failure was a 409 that reported the server's current version. */
   readonly currentDraftVersion?: number;
+  /** Set when the 409 also reported the row's current lifecycle (see {@link PostEditorConflictError}). */
+  readonly currentLifecycle?: PostLifecycle;
 
   constructor(message: string, post: PostDetail, options: { cause?: unknown } = {}) {
     super(message, options);
@@ -40,6 +42,9 @@ export class PostEditorPublishError extends Error {
     this.post = post;
     this.currentDraftVersion = options.cause instanceof PostEditorConflictError
       ? options.cause.currentDraftVersion
+      : undefined;
+    this.currentLifecycle = options.cause instanceof PostEditorConflictError
+      ? options.cause.currentLifecycle
       : undefined;
   }
 }
@@ -60,11 +65,23 @@ export class PostEditorPublishError extends Error {
  */
 export class PostEditorConflictError extends Error {
   readonly currentDraftVersion?: number;
+  /**
+   * The row's current lifecycle, when publish/unpublish reported one. Present
+   * only for those two actions, each of which matches exactly one lifecycle
+   * server-side — its presence means the mismatch is a lifecycle guard, not
+   * a stale version, so no retry at any version can succeed.
+   */
+  readonly currentLifecycle?: PostLifecycle;
 
-  constructor(message: string, currentDraftVersion: number | undefined, options: { cause?: unknown } = {}) {
-    super(message, options);
+  constructor(
+    message: string,
+    currentDraftVersion: number | undefined,
+    options: { cause?: unknown; currentLifecycle?: PostLifecycle } = {},
+  ) {
+    super(message, { cause: options.cause });
     this.name = 'PostEditorConflictError';
     this.currentDraftVersion = currentDraftVersion;
+    this.currentLifecycle = options.currentLifecycle;
   }
 }
 
@@ -76,7 +93,9 @@ export interface PostEditorApi {
 }
 
 function conflictError(result: { ok: false; conflict: Parameters<typeof describeConflict>[0] }): PostEditorConflictError {
-  return new PostEditorConflictError(describeConflict(result.conflict), result.conflict.currentDraftVersion);
+  return new PostEditorConflictError(describeConflict(result.conflict), result.conflict.currentDraftVersion, {
+    currentLifecycle: result.conflict.currentLifecycle,
+  });
 }
 
 /**

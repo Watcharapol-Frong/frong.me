@@ -37,12 +37,18 @@ function escapeHtml(input: string): string {
     .replace(/"/g, '&quot;');
 }
 
-/** Unicode-aware slug: keeps letters/digits from any script, hyphenates the rest. */
+/**
+ * Unicode-aware slug: keeps letters/digits from any script, hyphenates the
+ * rest. `\p{M}` (combining marks) must stay alongside `\p{L}`/`\p{N}` here —
+ * Thai vowel signs and tone marks (e.g. the ่ in ปรัชญา) are combining
+ * characters, not letters, so without it they get hyphenated out and split
+ * an intact word into single-consonant fragments (ปรัชญา -> "ปร-ชญา").
+ */
 export function slugifyHeading(text: string): string {
   const normalized = text
     .trim()
     .toLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, '-')
+    .replace(/[^\p{L}\p{N}\p{M}]+/gu, '-')
     .replace(/^-+|-+$/g, '');
   return normalized.length > 0 ? normalized : 'section';
 }
@@ -83,7 +89,15 @@ const HEADING_PATTERN = /^(#{1,6})\s+(.*)$/;
 const ORDERED_ITEM_PATTERN = /^\d+\.\s+(.*)$/;
 const UNORDERED_ITEM_PATTERN = /^[-*]\s+(.*)$/;
 const BLOCKQUOTE_PATTERN = /^>\s?(.*)$/;
-const FENCE_PATTERN = /^```(\w*)\s*$/;
+/**
+ * Opening fence: the language id is the first token, anything after a space
+ * is a free-text label some authors add ("```code block test") and isn't
+ * meant to drive highlighting, so it's ignored rather than rejecting the
+ * whole line as not a fence.
+ */
+const FENCE_OPEN_PATTERN = /^```(\S*)/;
+/** Closing fence: strict, since a bare ``` alone must end the block, not start a new label-less one. */
+const FENCE_CLOSE_PATTERN = /^```\s*$/;
 const HR_PATTERN = /^(-{3,}|\*{3,}|_{3,})$/;
 
 export function renderMarkdown(markdown: string): RenderedMarkdown {
@@ -96,6 +110,15 @@ export function renderMarkdown(markdown: string): RenderedMarkdown {
   let inFence = false;
   let fenceLang = '';
   const fenceLines: string[] = [];
+
+  function flushFence() {
+    html.push(
+      `<pre><code${fenceLang ? ` class="language-${escapeHtml(fenceLang)}"` : ''}>${fenceLines.map(escapeHtml).join('\n')}</code></pre>`,
+    );
+    fenceLines.length = 0;
+    fenceLang = '';
+    inFence = false;
+  }
 
   function closeList() {
     if (listType) {
@@ -114,20 +137,24 @@ export function renderMarkdown(markdown: string): RenderedMarkdown {
 
   for (const rawLine of lines) {
     if (inFence) {
-      if (FENCE_PATTERN.test(rawLine)) {
-        html.push(
-          `<pre><code${fenceLang ? ` class="language-${escapeHtml(fenceLang)}"` : ''}>${fenceLines.map(escapeHtml).join('\n')}</code></pre>`,
-        );
-        fenceLines.length = 0;
-        fenceLang = '';
-        inFence = false;
-      } else {
-        fenceLines.push(rawLine);
+      if (FENCE_CLOSE_PATTERN.test(rawLine)) {
+        flushFence();
+        continue;
       }
+      // A closing ``` typed onto the same line as the last bit of content
+      // (no newline before it) still ends the block, rather than getting
+      // swallowed as literal code and never rendering as a block at all.
+      const glued = rawLine.match(/^(.*\S)```\s*$/);
+      if (glued) {
+        fenceLines.push(glued[1]);
+        flushFence();
+        continue;
+      }
+      fenceLines.push(rawLine);
       continue;
     }
 
-    const fenceStart = rawLine.match(FENCE_PATTERN);
+    const fenceStart = rawLine.match(FENCE_OPEN_PATTERN);
     if (fenceStart) {
       closeList();
       inFence = true;
@@ -201,7 +228,7 @@ export function renderMarkdown(markdown: string): RenderedMarkdown {
   closeList();
   if (inFence) {
     // An unterminated fence still renders rather than swallowing the tail.
-    html.push(`<pre><code>${fenceLines.map(escapeHtml).join('\n')}</code></pre>`);
+    flushFence();
   }
 
   return { html: html.join('\n'), headings };

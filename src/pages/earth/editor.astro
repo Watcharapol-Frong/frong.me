@@ -26,7 +26,7 @@ const postId = Astro.url.searchParams.get('id')?.trim() || undefined;
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex, nofollow, noarchive" />
     <meta name="referrer" content="same-origin" />
-    <title>Editor · Earth</title>
+    <title>Editor · FRONG.ME</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -262,6 +262,15 @@ const postId = Astro.url.searchParams.get('id')?.trim() || undefined;
 
       .cover-upload-error { font-size: 11px; color: #ef4444; margin-top: 6px; }
       .cover-upload-error[hidden] { display: none; }
+
+      .schema-details { margin-top: 4px; }
+      .schema-details summary {
+        font-size: 10px;
+        color: #999;
+        cursor: pointer;
+        user-select: none;
+      }
+      .schema-details summary:hover { color: #666; }
 
       .schema-preview {
         margin-top: 8px;

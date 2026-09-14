@@ -250,6 +250,7 @@ const seed = {
     const publishConfirm = form.querySelector<HTMLElement>('[data-earth-publish-confirm]');
     const unpublishWrap = form.querySelector<HTMLElement>('[data-earth-unpublish-wrap]');
     const unpublishConfirm = form.querySelector<HTMLElement>('[data-earth-unpublish-confirm]');
+    const saveButton = form.querySelector<HTMLButtonElement>('[data-earth-action="save-draft"]');
 
     const counters = {
       words: form.querySelector<HTMLElement>('[data-earth-count="words"]'),
@@ -351,6 +352,13 @@ const seed = {
       if (unpublishWrap) unpublishWrap.hidden = !published;
       if (publishConfirm) publishConfirm.classList.remove('active');
       if (unpublishConfirm) unpublishConfirm.classList.remove('active');
+      // Save on an already-published post updates its live content in place
+      // (no separate republish step) — label it accordingly so the button
+      // doesn't read like it's stashing an unpublished draft.
+      if (saveButton) {
+        saveButton.textContent = published ? 'Update' : 'Save';
+        saveButton.title = published ? 'Update the published post (Ctrl+S)' : 'Save draft (Ctrl+S)';
+      }
     }
 
     /* ---------------- Derived UI ---------------- */
@@ -692,7 +700,8 @@ const seed = {
       clearTimeout(saveTimer);
       saving = true;
       setBusy(true);
-      setStatus(statusOverride === 'published' ? 'Publishing…' : 'Saving…');
+      const wasPublished = currentPost?.lifecycle === 'active';
+      setStatus(statusOverride === 'published' ? 'Publishing…' : wasPublished ? 'Updating…' : 'Saving…');
       try {
         const previousStorageKey = storageKey;
         const result = statusOverride === 'published'
@@ -707,10 +716,18 @@ const seed = {
         localStorage.removeItem(previousStorageKey);
         localStorage.removeItem(storageKey);
         dirty = false;
-        if (fields.status) fields.status.value = statusOverride === 'published' ? 'active' : 'draft';
+        // Read the lifecycle back from the row the server actually returned,
+        // not from which button was clicked: a plain Save on an already-
+        // published post updates its live content in place and leaves it
+        // published (the public routes read `posts` directly, so no republish
+        // step is needed) — inferring 'draft' here from statusOverride alone
+        // would wrongly flip the buttons back to "Publish" after every such
+        // save, inviting a publish attempt that only 409s.
+        if (fields.status) fields.status.value = result.post.lifecycle === 'active' ? 'active' : 'draft';
         refreshPublishControls();
-        setStatus('Saved', 'saved');
-        flashIndicator(`saved ${new Date().toLocaleTimeString(undefined, { hour12: false })}`);
+        const nowPublished = result.post.lifecycle === 'active';
+        setStatus(nowPublished && statusOverride !== 'published' ? 'Updated' : 'Saved', 'saved');
+        flashIndicator(`${nowPublished && statusOverride !== 'published' ? 'updated' : 'saved'} ${new Date().toLocaleTimeString(undefined, { hour12: false })}`);
         if (statusOverride === 'published') showPublished(result.post);
       } catch (error) {
         // A 409 reports the server's real current version. Advancing our copy
@@ -724,10 +741,28 @@ const seed = {
           : error instanceof PostEditorPublishError
             ? error.currentDraftVersion
             : undefined;
+        const conflictLifecycle = error instanceof PostEditorConflictError
+          ? error.currentLifecycle
+          : error instanceof PostEditorPublishError
+            ? error.currentLifecycle
+            : undefined;
         let suffix = '';
         if (conflictVersion !== undefined && currentPost) {
           currentPost = { ...currentPost, draftVersion: conflictVersion };
-          suffix = ' — version refreshed, try again';
+          if (conflictLifecycle !== undefined && conflictLifecycle !== 'draft') {
+            // publishPost only matches lifecycle = 'draft' — this row already
+            // is/was published or archived, so no retry at any version fixes
+            // it. Sync the button state to match instead of inviting another
+            // click that fails the same way.
+            currentPost = { ...currentPost, lifecycle: conflictLifecycle };
+            if (fields.status) fields.status.value = conflictLifecycle === 'active' ? 'active' : 'draft';
+            refreshPublishControls();
+            suffix = conflictLifecycle === 'active'
+              ? ' — it is already published, not resaved'
+              : ' — it is archived, not resaved';
+          } else {
+            suffix = ' — version refreshed, try again';
+          }
         }
         writeBackup(payload);
         dirty = true;
@@ -752,7 +787,19 @@ const seed = {
         let suffix = '';
         if (error instanceof PostEditorConflictError && error.currentDraftVersion !== undefined && currentPost) {
           currentPost = { ...currentPost, draftVersion: error.currentDraftVersion };
-          suffix = ' — version refreshed, try again';
+          const { currentLifecycle } = error;
+          if (currentLifecycle !== undefined && currentLifecycle !== 'active') {
+            // unpublishPost only matches lifecycle = 'active' — this row
+            // already is/was a draft or archived, so no retry fixes it.
+            currentPost = { ...currentPost, lifecycle: currentLifecycle };
+            if (fields.status) fields.status.value = currentLifecycle === 'active' ? 'active' : 'draft';
+            refreshPublishControls();
+            suffix = currentLifecycle === 'draft'
+              ? ' — it is already a draft'
+              : ' — it is archived';
+          } else {
+            suffix = ' — version refreshed, try again';
+          }
         }
         setStatus(`Unpublish failed: ${(error as Error).message}${suffix}`, 'error');
       } finally {

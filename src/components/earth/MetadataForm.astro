@@ -145,7 +145,12 @@ const SHORTCUTS: { keys: string[]; label: string }[] = [
       <input type="checkbox" data-earth-field="jsonLd" checked={initial.jsonLd ?? true} />
       JSON-LD Article schema
     </label>
-    <pre class="schema-preview" data-earth-jsonld-preview hidden></pre>
+    <!-- Collapsed by default: the schema is still embedded in the published
+         page either way, this raw dump is only for authors who want to check it. -->
+    <details class="schema-details">
+      <summary>Preview raw JSON-LD</summary>
+      <pre class="schema-preview" data-earth-jsonld-preview hidden></pre>
+    </details>
   </div>
 
   <div class="markdown-help">
