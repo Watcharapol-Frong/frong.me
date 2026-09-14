@@ -37,5 +37,7 @@ pnpm-debug.log*
 .dev.vars
 .dev.vars.*
 
-# personal Claude Code settings overrides — not shared with the team
+# personal Claude Code local state — settings overrides and synced skills, not shared with the team
 .claude/settings.local.json
+.claude/skills/
+skills-lock.json
