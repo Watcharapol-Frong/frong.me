@@ -3,8 +3,8 @@
  * Earth admin portal — two full-height content columns plus an off-canvas
  * identity sidebar.
  *
- * The identity sidebar (greeting, counts, tag filters, search, Settings) is
- * a fixed slide-out panel, closed by default, toggled by the persistent
+ * The identity sidebar (display name, counts, tag filters, search, Settings)
+ * is a fixed slide-out panel, closed by default, toggled by the persistent
  * button at the top-left corner (state remembered in localStorage). Centre:
  * drafts plus a 30-day writing streak calendar. Right: published posts,
  * which under direct SSR are live the moment they flip.
@@ -34,7 +34,6 @@ const { ownerHandle = 'Frong Watcharapol', siteDomain = 'frong.me' } = Astro.pro
   <aside class="column col-identity">
     <div class="logo">FRONG.ME</div>
 
-    <h1 class="greeting" data-earth-greeting>Good morning</h1>
     <div class="username-tag" data-earth-owner-name>{ownerHandle}</div>
     <a href="/" class="blog-link" target="_blank" rel="noopener">{siteDomain} ↗</a>
 
@@ -303,21 +302,17 @@ const { ownerHandle = 'Frong Watcharapol', siteDomain = 'frong.me' } = Astro.pro
     opacity: 0.5;
   }
 
-  .greeting {
+  /* The display name is user-editable (Settings), so it's no longer a
+     short, predictable handle — guard against a long one overflowing. */
+  .username-tag {
     font-family: 'Crimson Pro', Georgia, serif;
-    font-size: 46px;
+    font-size: 28px;
     font-weight: 600;
-    line-height: 1.1;
+    color: #fff;
     margin: 0 0 16px;
-    letter-spacing: -2px;
-    white-space: nowrap;
     min-width: 0;
     overflow-wrap: break-word;
   }
-
-  /* The display name is user-editable (Settings), so it's no longer a
-     short, predictable handle — guard against a long one overflowing. */
-  .username-tag { font-size: 14px; color: #666; margin-bottom: 8px; min-width: 0; overflow-wrap: break-word; }
 
   .blog-link {
     font-size: 11px;
@@ -716,7 +711,6 @@ const { ownerHandle = 'Frong Watcharapol', siteDomain = 'frong.me' } = Astro.pro
       padding: 32px 24px;
     }
     .col-identity { padding: calc(24px + var(--earth-topbar-h)) 24px 24px; width: 280px; }
-    .greeting { white-space: normal; font-size: 32px; letter-spacing: -1px; }
     .search-container { margin-top: 32px; }
     .streak-fixed { margin-top: 32px; }
     .post-actions { opacity: 1; }
@@ -742,14 +736,6 @@ const { ownerHandle = 'Frong Watcharapol', siteDomain = 'frong.me' } = Astro.pro
 
   const STREAK_DAYS = 30;
 
-  function greeting(): string {
-    const hour = new Date().getHours();
-    if (hour < 5) return 'Still awake';
-    if (hour < 12) return 'Good morning';
-    if (hour < 18) return 'Good afternoon';
-    return 'Good evening';
-  }
-
   function dayKey(epochMs: number): string {
     const date = new Date(epochMs);
     return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
@@ -771,9 +757,6 @@ const { ownerHandle = 'Frong Watcharapol', siteDomain = 'frong.me' } = Astro.pro
   }
 
   function initPortal(root: HTMLElement) {
-    const greetingEl = root.querySelector<HTMLElement>('[data-earth-greeting]');
-    if (greetingEl) greetingEl.textContent = greeting();
-
     /* ---------------- Sidebar (off-canvas) ---------------- */
 
     const identityAside = root.querySelector<HTMLElement>('.col-identity');
