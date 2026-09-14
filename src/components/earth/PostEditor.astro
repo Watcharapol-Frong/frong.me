@@ -166,7 +166,7 @@ const seed = {
 </div>
 
 <script>
-  import { newCmsId, uploadAsset, attachPostAsset, type PostDetail } from '../../lib/cms/client/api.ts';
+  import { newCmsId, uploadAsset, attachPostAsset, getSettings, type PostDetail } from '../../lib/cms/client/api.ts';
   import {
     createPostEditorApi,
     PostEditorConflictError,
@@ -1043,6 +1043,18 @@ const seed = {
           setStatus(`Load failed — local draft kept: ${(error as Error).message}`, 'error');
         } finally {
           setBusy(false);
+        }
+      } else {
+        // Only a starting point for a brand-new post — never overrides an
+        // existing post's own choice, and a restored local backup (below)
+        // still wins if the user already picked something this session.
+        try {
+          const settings = await getSettings();
+          if (fields.font) fields.font.value = settings.defaultFont;
+          const providerSelect = document.querySelector<HTMLSelectElement>('[data-earth-ai-provider]');
+          if (providerSelect) providerSelect.value = settings.defaultAiProvider;
+        } catch {
+          // Non-fatal: the hardcoded defaults already rendered server-side.
         }
       }
       restoreBackup();

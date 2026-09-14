@@ -3,7 +3,7 @@
  * Earth admin portal — three full-height columns.
  *
  * Left: a dark identity rail (greeting, counts, tag filters, search, export,
- * sign-out). Centre: drafts plus a 60-day writing streak calendar. Right:
+ * sign-out). Centre: drafts plus a 30-day writing streak calendar. Right:
  * published posts, which under direct SSR are live the moment they flip.
  *
  * Ships no data server-side (see `src/pages/earth/index.astro`'s header
@@ -17,15 +17,15 @@ export interface PortalProps {
 
 interface Props extends PortalProps {}
 
-const { ownerHandle = 'frong98', siteDomain = 'frong.me' } = Astro.props as Props;
+const { ownerHandle = 'Frong Watcharapol', siteDomain = 'frong.me' } = Astro.props as Props;
 ---
 
 <div class="portal-grid" data-earth-portal>
   <aside class="column col-identity">
-    <div class="logo">EARTH</div>
+    <div class="logo">FRONG.ME</div>
 
     <h1 class="greeting" data-earth-greeting>Good morning</h1>
-    <div class="username-tag">@{ownerHandle}</div>
+    <div class="username-tag" data-earth-owner-name>{ownerHandle}</div>
     <a href="/" class="blog-link" target="_blank" rel="noopener">{siteDomain} ↗</a>
 
     <div class="stats-box">
@@ -46,9 +46,7 @@ const { ownerHandle = 'frong98', siteDomain = 'frong.me' } = Astro.props as Prop
     </div>
 
     <div class="identity-links">
-      <button type="button" class="logout-link" data-earth-export="json">Export (JSON)</button>
-      <button type="button" class="logout-link" data-earth-export="markdown">Export (Markdown)</button>
-      <a class="logout-link logout-link--sign-out" href="/cdn-cgi/access/logout">Sign Out</a>
+      <button type="button" class="logout-link" data-earth-action="open-settings">⚙ Settings</button>
     </div>
   </aside>
 
@@ -100,6 +98,70 @@ const { ownerHandle = 'frong98', siteDomain = 'frong.me' } = Astro.props as Prop
     <div class="modal-actions">
       <button class="modal-btn modal-btn-cancel" data-earth-modal-close>Wait</button>
       <button class="modal-btn modal-btn-confirm" data-earth-modal-confirm>Archive</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" data-earth-modal="settings">
+  <div class="modal modal--wide modal--settings">
+    <h2 class="modal-title">Settings</h2>
+
+    <section class="settings-section">
+      <h3 class="settings-section-title">Profile</h3>
+      <div class="form-group">
+        <label class="form-label" for="settings-owner-name">Display name</label>
+        <input class="form-input" id="settings-owner-name" data-earth-settings-field="ownerName" type="text" maxlength="200" />
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="settings-owner-handle">Handle</label>
+        <input class="form-input" id="settings-owner-handle" data-earth-settings-field="ownerHandle" type="text" maxlength="100" />
+      </div>
+    </section>
+
+    <section class="settings-section">
+      <h3 class="settings-section-title">Editor defaults</h3>
+      <div class="form-group">
+        <label class="form-label" for="settings-default-font">Default font for new posts</label>
+        <select class="form-input form-select" id="settings-default-font" data-earth-settings-field="defaultFont">
+          <option value="google-sans">Google Sans</option>
+          <option value="crimson-pro">Crimson Pro</option>
+          <option value="jetbrains-mono">JetBrains Mono</option>
+          <option value="ibm-plex-sans-thai">IBM Plex Sans Thai</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="settings-default-provider">Default AI provider</label>
+        <select class="form-input form-select" id="settings-default-provider" data-earth-settings-field="defaultAiProvider">
+          <option value="gemini">Gemini</option>
+          <option value="cloudflare">Workers AI</option>
+          <option value="openrouter">OpenRouter</option>
+        </select>
+      </div>
+    </section>
+
+    <section class="settings-section">
+      <h3 class="settings-section-title">Session</h3>
+      <div class="settings-session-row">
+        <span>Signed in as</span>
+        <span class="settings-session-email" data-earth-settings-email>local dev (Access bypass)</span>
+      </div>
+      <a class="settings-signout" href="/cdn-cgi/access/logout">Sign out ↗</a>
+    </section>
+
+    <section class="settings-section">
+      <h3 class="settings-section-title">Data</h3>
+      <p class="settings-hint">Exports every draft and published post, including full content.</p>
+      <div class="settings-export-row">
+        <button type="button" class="modal-btn modal-btn-cancel" data-earth-export="json">Export (JSON)</button>
+        <button type="button" class="modal-btn modal-btn-cancel" data-earth-export="markdown">Export (Markdown)</button>
+      </div>
+    </section>
+
+    <p class="settings-save-status" data-earth-settings-status hidden></p>
+
+    <div class="modal-actions">
+      <button class="modal-btn modal-btn-cancel" data-earth-modal-close>Close</button>
+      <button class="modal-btn modal-btn-confirm" data-earth-settings-save>Save</button>
     </div>
   </div>
 </div>
@@ -474,6 +536,96 @@ const { ownerHandle = 'frong98', siteDomain = 'frong.me' } = Astro.props as Prop
   .modal-btn-confirm { background: #000; color: #fff; }
   .modal-btn-cancel { background: #f5f5f5; color: #999; }
 
+  /* ---------------- Settings modal ---------------- */
+
+  .modal--wide { max-width: 480px; }
+  .modal--settings { text-align: left; max-height: 85vh; overflow-y: auto; }
+  .modal--settings .modal-title { text-align: center; }
+
+  .settings-section { margin-bottom: 28px; }
+  .settings-section:last-of-type { margin-bottom: 20px; }
+
+  .settings-section-title {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #999;
+    margin: 0 0 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #f0f0f0;
+  }
+
+  .modal--settings .form-group { margin-bottom: 14px; }
+  .modal--settings .form-group:last-child { margin-bottom: 0; }
+
+  .modal--settings .form-label {
+    display: block;
+    font-size: 10px;
+    color: #999;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+
+  .modal--settings .form-input {
+    width: 100%;
+    background: #fff;
+    border: 1px solid #eee;
+    padding: 10px;
+    color: #000;
+    font-family: inherit;
+    font-size: 13px;
+    transition: border-color 0.2s;
+  }
+
+  .modal--settings .form-input:focus { outline: none; border-color: #000; }
+
+  .modal--settings .form-select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23999'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 28px;
+    cursor: pointer;
+  }
+
+  .settings-session-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    color: #666;
+    margin-bottom: 12px;
+  }
+
+  .settings-session-email { color: #000; font-weight: 600; }
+
+  .settings-signout {
+    display: inline-block;
+    font-size: 11px;
+    color: #c00;
+    text-decoration: none;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .settings-signout:hover { text-decoration: underline; }
+
+  .settings-hint { font-size: 12px; color: #999; margin: 0 0 12px; line-height: 1.5; }
+
+  .settings-export-row { display: flex; gap: 12px; }
+  .settings-export-row .modal-btn { flex: 1; }
+
+  .settings-save-status {
+    font-size: 12px;
+    text-align: center;
+    margin: 0 0 12px;
+    color: #22c55e;
+  }
+
+  .settings-save-status[data-tone='error'] { color: #ef4444; }
+
   @media (max-width: 1000px) {
     .portal-grid { grid-template-columns: 1fr; height: auto; }
     .column {
@@ -490,10 +642,19 @@ const { ownerHandle = 'frong98', siteDomain = 'frong.me' } = Astro.props as Prop
 </style>
 
 <script>
-  import { archivePost, listPosts, type PostSummary } from '../../lib/cms/client/api.ts';
+  import {
+    archivePost,
+    listPosts,
+    getPost,
+    getSettings,
+    updateSettings,
+    getSession,
+    type PostSummary,
+    type SiteSettings,
+  } from '../../lib/cms/client/api.ts';
   import { MAX_DRAFT_POSTS } from '../../lib/cms/contracts.ts';
 
-  const STREAK_DAYS = 60;
+  const STREAK_DAYS = 30;
 
   function greeting(): string {
     const hour = new Date().getHours();
@@ -533,6 +694,18 @@ const { ownerHandle = 'frong98', siteDomain = 'frong.me' } = Astro.props as Prop
     const newPostBtn = root.querySelector<HTMLAnchorElement>('[data-earth-new-post]');
     const modal = document.querySelector<HTMLElement>('[data-earth-modal="delete"]');
     const modalConfirm = modal?.querySelector<HTMLButtonElement>('[data-earth-modal-confirm]');
+    const ownerNameEl = root.querySelector<HTMLElement>('[data-earth-owner-name]');
+
+    const settingsModal = document.querySelector<HTMLElement>('[data-earth-modal="settings"]');
+    const settingsFields = {
+      ownerName: settingsModal?.querySelector<HTMLInputElement>('[data-earth-settings-field="ownerName"]'),
+      ownerHandle: settingsModal?.querySelector<HTMLInputElement>('[data-earth-settings-field="ownerHandle"]'),
+      defaultFont: settingsModal?.querySelector<HTMLSelectElement>('[data-earth-settings-field="defaultFont"]'),
+      defaultAiProvider: settingsModal?.querySelector<HTMLSelectElement>('[data-earth-settings-field="defaultAiProvider"]'),
+    };
+    const settingsEmailEl = settingsModal?.querySelector<HTMLElement>('[data-earth-settings-email]');
+    const settingsStatusEl = settingsModal?.querySelector<HTMLElement>('[data-earth-settings-status]');
+    const settingsSaveBtn = settingsModal?.querySelector<HTMLButtonElement>('[data-earth-settings-save]');
 
     const lists = {
       draft: root.querySelector<HTMLElement>('[data-earth-list="draft"]'),
@@ -550,6 +723,7 @@ const { ownerHandle = 'frong98', siteDomain = 'frong.me' } = Astro.props as Prop
 
     let allPosts: PostSummary[] = [];
     let pendingArchive: PostSummary | null = null;
+    let currentSettings: SiteSettings | null = null;
 
     /* ---------------- Rendering ---------------- */
 
@@ -683,9 +857,73 @@ const { ownerHandle = 'frong98', siteDomain = 'frong.me' } = Astro.props as Prop
       }
     }
 
+    /* ---------------- Settings ---------------- */
+
+    function applySettingsToForm(settings: SiteSettings) {
+      currentSettings = settings;
+      if (ownerNameEl) ownerNameEl.textContent = settings.ownerName;
+      if (settingsFields.ownerName) settingsFields.ownerName.value = settings.ownerName;
+      if (settingsFields.ownerHandle) settingsFields.ownerHandle.value = settings.ownerHandle;
+      if (settingsFields.defaultFont) settingsFields.defaultFont.value = settings.defaultFont;
+      if (settingsFields.defaultAiProvider) settingsFields.defaultAiProvider.value = settings.defaultAiProvider;
+    }
+
+    async function loadSettings() {
+      try {
+        applySettingsToForm(await getSettings());
+      } catch (error) {
+        console.error('[earth-portal] failed to load settings', error);
+      }
+      try {
+        const { email } = await getSession();
+        if (settingsEmailEl) settingsEmailEl.textContent = email ?? 'local dev (Access bypass)';
+      } catch (error) {
+        console.error('[earth-portal] failed to load session', error);
+      }
+    }
+
+    function openSettingsModal() {
+      settingsModal?.setAttribute('data-visible', 'true');
+    }
+
+    function closeSettingsModal() {
+      settingsModal?.removeAttribute('data-visible');
+      if (settingsStatusEl) settingsStatusEl.hidden = true;
+    }
+
+    function setSettingsStatus(text: string, tone: 'ok' | 'error' = 'ok') {
+      if (!settingsStatusEl) return;
+      settingsStatusEl.textContent = text;
+      settingsStatusEl.hidden = false;
+      settingsStatusEl.dataset.tone = tone === 'error' ? 'error' : '';
+    }
+
+    async function saveSettings() {
+      if (!settingsSaveBtn) return;
+      settingsSaveBtn.disabled = true;
+      settingsSaveBtn.textContent = 'Saving…';
+      try {
+        const updated = await updateSettings({
+          ownerName: settingsFields.ownerName?.value.trim() || undefined,
+          ownerHandle: settingsFields.ownerHandle?.value.trim() || undefined,
+          defaultFont: settingsFields.defaultFont?.value,
+          defaultAiProvider: settingsFields.defaultAiProvider?.value,
+        });
+        applySettingsToForm(updated);
+        setSettingsStatus('Saved');
+      } catch (error) {
+        console.error('[earth-portal] failed to save settings', error);
+        setSettingsStatus((error as Error).message || 'Save failed', 'error');
+      } finally {
+        settingsSaveBtn.disabled = false;
+        settingsSaveBtn.textContent = 'Save';
+      }
+    }
+
     /* ---------------- Data ---------------- */
 
     async function load() {
+      void loadSettings();
       try {
         const response = await listPosts();
         allPosts = response.posts.filter((post) => post.lifecycle !== 'archived');
@@ -754,12 +992,18 @@ const { ownerHandle = 'frong98', siteDomain = 'frong.me' } = Astro.props as Prop
     });
 
     root.addEventListener('click', (event) => {
-      const trigger = (event.target as HTMLElement).closest<HTMLElement>('[data-slot="archive"]');
-      if (!trigger) return;
-      const row = trigger.closest<HTMLElement>('.post-item');
-      const postId = row?.dataset.earthPostId;
-      pendingArchive = allPosts.find((post) => post.id === postId) ?? null;
-      if (pendingArchive) modal?.setAttribute('data-visible', 'true');
+      const target = event.target as HTMLElement;
+      const archiveTrigger = target.closest<HTMLElement>('[data-slot="archive"]');
+      if (archiveTrigger) {
+        const row = archiveTrigger.closest<HTMLElement>('.post-item');
+        const postId = row?.dataset.earthPostId;
+        pendingArchive = allPosts.find((post) => post.id === postId) ?? null;
+        if (pendingArchive) modal?.setAttribute('data-visible', 'true');
+        return;
+      }
+      if (target.closest('[data-earth-action="open-settings"]')) {
+        openSettingsModal();
+      }
     });
 
     modal?.addEventListener('click', (event) => {
@@ -769,30 +1013,53 @@ const { ownerHandle = 'frong98', siteDomain = 'frong.me' } = Astro.props as Prop
     });
     modalConfirm?.addEventListener('click', () => void confirmArchive());
 
+    settingsModal?.addEventListener('click', (event) => {
+      if (event.target === settingsModal || (event.target as HTMLElement).closest('[data-earth-modal-close]')) {
+        closeSettingsModal();
+      }
+    });
+    settingsSaveBtn?.addEventListener('click', () => void saveSettings());
+
     document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape') closeModal();
+      if (event.key === 'Escape') {
+        closeModal();
+        closeSettingsModal();
+      }
       if ((event.key === '/' || event.key === 'k') && (event.metaKey || event.ctrlKey)) {
         event.preventDefault();
         searchInput?.focus();
       }
     });
 
-    root.querySelectorAll<HTMLButtonElement>('[data-earth-export]').forEach((button) => {
-      button.addEventListener('click', () => {
+    document.querySelectorAll<HTMLButtonElement>('[data-earth-export]').forEach((button) => {
+      button.addEventListener('click', async () => {
         const format = button.dataset.earthExport;
-        const filename = `frong-me-posts.${format === 'markdown' ? 'md' : 'json'}`;
-        const content = format === 'markdown'
-          ? allPosts.map((post) => `# ${post.title}\n\n- slug: ${post.slug}\n- lang: ${post.lang}\n- status: ${post.lifecycle}\n- tags: ${post.tagNames.join(', ')}\n`).join('\n---\n\n')
-          : JSON.stringify(allPosts, null, 2);
-        const blob = new Blob([content], { type: format === 'markdown' ? 'text/markdown' : 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = filename;
-        document.body.append(link);
-        link.click();
-        link.remove();
-        URL.revokeObjectURL(url);
+        const originalLabel = button.textContent;
+        button.disabled = true;
+        button.textContent = 'Preparing…';
+        try {
+          // Full content, not just the list summaries — one detail fetch per post.
+          const fullPosts = await Promise.all(allPosts.map((post) => getPost(post.id)));
+          const filename = `frong-me-posts.${format === 'markdown' ? 'md' : 'json'}`;
+          const content = format === 'markdown'
+            ? fullPosts.map((post) => `# ${post.title}\n\n- slug: ${post.slug}\n- lang: ${post.lang}\n- status: ${post.lifecycle}\n- tags: ${post.tagNames.join(', ')}\n\n${post.bodyMarkdown}\n`).join('\n---\n\n')
+            : JSON.stringify(fullPosts, null, 2);
+          const blob = new Blob([content], { type: format === 'markdown' ? 'text/markdown' : 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = filename;
+          document.body.append(link);
+          link.click();
+          link.remove();
+          URL.revokeObjectURL(url);
+        } catch (error) {
+          console.error('[earth-portal] export failed', error);
+          setSettingsStatus('Export failed — see console', 'error');
+        } finally {
+          button.disabled = false;
+          button.textContent = originalLabel;
+        }
       });
     });
 

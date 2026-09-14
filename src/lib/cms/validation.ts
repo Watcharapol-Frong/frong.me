@@ -9,6 +9,9 @@ import {
   type TaxonomySnapshot,
   type UpdatePostDraftInput,
   type UpdatePostBundleInput,
+  type UpdateSiteSettingsInput,
+  SETTINGS_FONTS,
+  SETTINGS_AI_PROVIDERS,
 } from './contracts.ts';
 
 export class CmsValidationError extends Error {
@@ -424,5 +427,23 @@ export function parsePostListQuery(searchParams: URLSearchParams): PostListQuery
     ...(langValue ? { lang: langValue } : {}),
     ...(lifecycleValue ? { lifecycle: lifecycleValue } : {}),
     ...(search ? { search } : {}),
+  };
+}
+
+export function parseUpdateSiteSettingsInput(value: unknown): UpdateSiteSettingsInput {
+  const row = object(value, 'settings', ['ownerName', 'ownerHandle', 'defaultFont', 'defaultAiProvider']);
+  const ownerName = optionalString(row.ownerName, 'settings.ownerName', 200);
+  const ownerHandle = optionalString(row.ownerHandle, 'settings.ownerHandle', 100);
+  if (row.defaultFont !== undefined && !SETTINGS_FONTS.includes(row.defaultFont as never)) {
+    throw new CmsValidationError('settings.defaultFont', `must be one of ${SETTINGS_FONTS.join(', ')}`);
+  }
+  if (row.defaultAiProvider !== undefined && !SETTINGS_AI_PROVIDERS.includes(row.defaultAiProvider as never)) {
+    throw new CmsValidationError('settings.defaultAiProvider', `must be one of ${SETTINGS_AI_PROVIDERS.join(', ')}`);
+  }
+  return {
+    ...(ownerName === undefined ? {} : { ownerName }),
+    ...(ownerHandle === undefined ? {} : { ownerHandle }),
+    ...(row.defaultFont === undefined ? {} : { defaultFont: row.defaultFont as UpdateSiteSettingsInput['defaultFont'] }),
+    ...(row.defaultAiProvider === undefined ? {} : { defaultAiProvider: row.defaultAiProvider as UpdateSiteSettingsInput['defaultAiProvider'] }),
   };
 }

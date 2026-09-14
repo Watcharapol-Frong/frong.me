@@ -201,3 +201,17 @@ export interface AttachPostAssetInput {
   position?: number;
   expectedDraftVersion: number;
 }
+
+export const SETTINGS_FONTS = ['google-sans', 'crimson-pro', 'jetbrains-mono', 'ibm-plex-sans-thai'] as const;
+export type SettingsFont = (typeof SETTINGS_FONTS)[number];
+
+export const SETTINGS_AI_PROVIDERS = ['gemini', 'cloudflare', 'openrouter'] as const;
+export type SettingsAiProvider = (typeof SETTINGS_AI_PROVIDERS)[number];
+
+/** Partial update — only supplied fields change. */
+export interface UpdateSiteSettingsInput {
+  ownerName?: string;
+  ownerHandle?: string;
+  defaultFont?: SettingsFont;
+  defaultAiProvider?: SettingsAiProvider;
+}

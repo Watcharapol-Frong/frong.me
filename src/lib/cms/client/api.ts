@@ -772,3 +772,52 @@ export async function uploadAsset(
     sha256: str(root.sha256, 'response.sha256'),
   };
 }
+
+/* ------------------------------------------------------------------ */
+/* Site settings + session                                            */
+/* ------------------------------------------------------------------ */
+
+export interface SiteSettings {
+  ownerName: string;
+  ownerHandle: string;
+  defaultFont: string;
+  defaultAiProvider: string;
+}
+
+export interface UpdateSiteSettingsRequest {
+  ownerName?: string;
+  ownerHandle?: string;
+  defaultFont?: string;
+  defaultAiProvider?: string;
+}
+
+function parseSiteSettings(value: unknown): SiteSettings {
+  const root = obj(value, 'settings');
+  return {
+    ownerName: str(root.ownerName, 'settings.ownerName'),
+    ownerHandle: str(root.ownerHandle, 'settings.ownerHandle'),
+    defaultFont: str(root.defaultFont, 'settings.defaultFont'),
+    defaultAiProvider: str(root.defaultAiProvider, 'settings.defaultAiProvider'),
+  };
+}
+
+/** `GET /earth/api/settings`. */
+export async function getSettings(options?: CmsClientOptions): Promise<SiteSettings> {
+  return send('/settings', { method: 'GET' }, parseSiteSettings, options);
+}
+
+/** `PUT /earth/api/settings`. Partial update — only supplied fields change. */
+export async function updateSettings(
+  request: UpdateSiteSettingsRequest,
+  options?: CmsClientOptions,
+): Promise<SiteSettings> {
+  return send('/settings', { method: 'PUT', body: JSON.stringify(request) }, parseSiteSettings, options);
+}
+
+/** `GET /earth/api/session`. `email` is `null` in local dev (Access bypass, no real JWT). */
+export async function getSession(options?: CmsClientOptions): Promise<{ email: string | null }> {
+  return send('/session', { method: 'GET' }, (value) => {
+    const root = obj(value, 'session');
+    return { email: nullableStr(root.email ?? null, 'session.email') };
+  }, options);
+}
