@@ -16,35 +16,37 @@ This document records resource and secret names, ownership boundaries, and confi
 | Private media R2 | Separate private bucket required | Name to decide | Main-site Wrangler config/Cloudflare dashboard | Not present |
 | Public media R2/domain | Separate public bucket/domain required | `portfolio-images` proposed; actual locator unknown | Main-site Wrangler config/Cloudflare dashboard | Not present |
 | Cloudflare Access | Staging application/audience required | `/earth` and `/earth/*`; team domain/AUD unknown | Cloudflare Zero Trust | Worker-side JWT/owner/Origin behavior proven locally; remote Access application unavailable |
-| GitHub repository | Same repository with protected `cms-staging` environment | `Watcharapol-Frong/frong.me`, default branch `main` | GitHub repository settings and `.github/workflows/cms-staging-deploy.yml` | Workflow and payload validated locally; real dispatch/token permissions unverified |
+| GitHub repository | `Watcharapol-Frong/frong.me`, default branch `main`; CI only (`cms-ci.yml` runs tests on push/PR) | Same | GitHub repository settings | GitHub is not connected to Cloudflare — no Workers Builds/Pages Git integration and no deploy-capable Actions workflow. Removed `.github/workflows/cms-staging-deploy.yml` on 2026-09-14; it depended on Cloudflare credentials as GitHub Actions secrets that were never actually configured. Deploys are run locally (`npm run deploy:staging`, see below) |
 | Backup destination | Separate private test destination required | Off-production-account or encrypted offline destination required | Backup runbook created in Phase 1 | Not selected |
 
 Do not reuse staging databases, buckets, Access audience values, or deployment secrets in production. Cloudflare secrets are environment-specific and must be configured separately.
 
 ## SSOT: canonical environment variable names
 
-Updated: 2026-09-12 UTC
+Updated: 2026-09-14 UTC
 
-These are the canonical (SSOT) names for all project environment configuration. `.env.example` mirrors this table. Scripts and CI workflows read SSOT names first; legacy names are temporary fallbacks only and must not be used in new code or new GitHub Environment configuration.
+These are the canonical (SSOT) names for all project environment configuration. `.env.example` mirrors this table. Scripts read SSOT names first; legacy names are temporary fallbacks only and must not be used in new code.
 
-### Secrets (GitHub `cms-staging` Environment Secrets / Cloudflare Worker secrets)
+Deploys are local-only: GitHub is not connected to Cloudflare (no Workers Builds/Pages Git integration, no deploy-capable Actions workflow — see the GitHub repository row above). Everything below is supplied as local shell/`.env` environment variables to whoever runs `npm run deploy:staging` (or `wrangler` directly), not as GitHub Actions secrets.
 
-| SSOT name | Used by | Environment scope | Purpose | Legacy fallback |
-|---|---|---|---|---|
-| `CLOUDFLARE_API_TOKEN` | Staging deploy workflow (`cms-staging-deploy.yml`) | GitHub `cms-staging` secret | Deploy the staging main-site Worker via `wrangler deploy` | `CF_API_TOKEN`, `CF_DEPLOY_TOKEN` |
-| `CF_ACCESS_CLIENT_ID` | `scripts/build/verify-access-staging.mjs` (1C-03) and the deploy workflow's release confirm/fail callbacks (P1-04) | GitHub `cms-staging` secret; Cloudflare Access Service Token scoped to the staging Access application | Machine identity to reach `/earth/*` so Access mints the JWT assertion | `STAGING_CF_ACCESS_CLIENT_ID` |
-| `CF_ACCESS_CLIENT_SECRET` | Same as above | GitHub `cms-staging` secret | Second half of the Access Service Token pair | `STAGING_CF_ACCESS_CLIENT_SECRET` |
-| `RELEASE_CALLBACK_SECRET` | `/earth/api/releases/[id]/confirm` and `/fail` routes; the deploy workflow | GitHub `cms-staging` secret AND Cloudflare Worker secret (both required) | Independent defense-in-depth check in the callback routes so a leaked/misscoped Access token alone cannot forge a deployment outcome | — |
-
-### Variables (GitHub `cms-staging` Environment Variables / Worker vars — non-secret)
+### Secrets (local environment variables / Cloudflare Worker secrets — never commit values)
 
 | SSOT name | Used by | Environment scope | Purpose | Legacy fallback |
 |---|---|---|---|---|
-| `CLOUDFLARE_ACCOUNT_ID` | Build/CI, `scripts/build/export-live-snapshot.mjs`, `scripts/db/verify-staging.mjs` | GitHub `cms-staging` variable (preferred) or secret | Identify the Cloudflare account | `CF_ACCOUNT_ID` |
-| `CF_D1_DATABASE_ID` | Deploy workflow pre-flight (`verify-bindings.mjs`), D1 HTTP verification | GitHub `cms-staging` variable | Identify the environment's D1 database (`portfolio-db-staging`) | `STAGING_D1_DATABASE_ID` |
-| `CF_R2_BUCKET_NAME` | Deploy workflow pre-flight (`verify-bindings.mjs`) | GitHub `cms-staging` variable | Identify the environment's public media R2 bucket | `STAGING_R2_BUCKET_NAME` |
-| `CF_ACCESS_TEAM_DOMAIN` | Main-site Worker, `verify-bindings.mjs` | GitHub `cms-staging` variable or secret | JWT issuer / JWKS location | — |
-| `CF_ACCESS_AUD` | Main-site Worker, `verify-bindings.mjs` | GitHub `cms-staging` variable or secret | Validate the `aud` claim | — |
+| `CLOUDFLARE_API_TOKEN` | `scripts/build/deploy-staging.mjs` (local) | Local shell env | Deploy the staging main-site Worker via `wrangler deploy` | `CF_API_TOKEN`, `CF_DEPLOY_TOKEN` |
+| `CF_ACCESS_CLIENT_ID` | `scripts/build/verify-access-staging.mjs` (1C-03) | Local shell env; Cloudflare Access Service Token scoped to the staging Access application | Machine identity to reach `/earth/*` so Access mints the JWT assertion | `STAGING_CF_ACCESS_CLIENT_ID` |
+| `CF_ACCESS_CLIENT_SECRET` | Same as above | Local shell env | Second half of the Access Service Token pair | `STAGING_CF_ACCESS_CLIENT_SECRET` |
+| `RELEASE_CALLBACK_SECRET` | `/earth/api/releases/[id]/confirm` and `/fail` routes (Cloudflare Worker secret only) | Cloudflare Worker secret | Independent defense-in-depth check in the callback routes so a leaked/misscoped Access token alone cannot forge a deployment outcome. **Currently has no caller**: these routes existed for the deploy workflow's post-deploy callback (P1-04a), which was removed 2026-09-14 along with the workflow. Left in place — not part of this cleanup — but note it before relying on it | — |
+
+### Variables (local environment variables / Worker vars — non-secret)
+
+| SSOT name | Used by | Environment scope | Purpose | Legacy fallback |
+|---|---|---|---|---|
+| `CLOUDFLARE_ACCOUNT_ID` | `scripts/build/deploy-staging.mjs`, `scripts/build/export-live-snapshot.mjs`, `scripts/db/verify-staging.mjs` | Local shell env | Identify the Cloudflare account | `CF_ACCOUNT_ID` |
+| `CF_D1_DATABASE_ID` | Deploy pre-flight (`verify-bindings.mjs`), D1 HTTP verification | Local shell env | Identify the environment's D1 database (`portfolio-db-staging`) | `STAGING_D1_DATABASE_ID` |
+| `CF_R2_BUCKET_NAME` | Deploy pre-flight (`verify-bindings.mjs`) | Local shell env | Identify the environment's public media R2 bucket | `STAGING_R2_BUCKET_NAME` |
+| `CF_ACCESS_TEAM_DOMAIN` | Main-site Worker (Cloudflare Worker secret/var), `verify-bindings.mjs` (local shell env) | Both, see "Used by" | JWT issuer / JWKS location | — |
+| `CF_ACCESS_AUD` | Main-site Worker (Cloudflare Worker secret/var), `verify-bindings.mjs` (local shell env) | Both, see "Used by" | Validate the `aud` claim | — |
 
 ### Supporting configuration (unchanged names)
 
@@ -67,6 +69,8 @@ These are the canonical (SSOT) names for all project environment configuration. 
 4. Never record secret values in this document, `.env.example`, or committed configuration.
 
 ## Bindings and secrets
+
+Historical detail predating the 2026-09-14 removal of the GitHub Actions deploy workflow — the SSOT tables above are current for Cloudflare API/Access/D1/R2/`RELEASE_CALLBACK_SECRET` names. Where this section says "GitHub `cms-staging` environment secret/variable" as the storage location, read that as "local shell env" instead; no such GitHub Environment configuration is required or in use.
 
 | Name | Used by | Storage location | Minimum purpose | Current status |
 |---|---|---|---|---|
@@ -95,12 +99,13 @@ Use `.dev.vars` for local Worker secrets and never commit it. `ai-worker/.dev.va
 
 ## Required access for CMS staging and future production
 
-1. A protected GitHub `cms-staging` environment containing the variables and secrets listed in [`architecture-spike.md`](architecture-spike.md).
-2. Valid GitHub authorization to send `repository_dispatch`. The current shell token is invalid; no token value belongs in documentation or committed configuration. Use the current repository name `Watcharapol-Frong/frong.me`: git pushes to the old `portfolio` path still follow GitHub's redirect, but the REST API answers `301 Moved Permanently` and does not follow it for you, so a dispatch sent to the old path fails.
-3. Isolated staging Worker, D1, and Access resources with owners and dashboard locators. Do not reuse production resource IDs.
-4. Separate D1 Read and Worker deploy credentials with only the permissions their workflow steps require.
-5. Named owners and dashboard locators for future production D1, R2, Access, and backup storage before those phases use them.
-6. A Cloudflare Access Service Auth policy on the staging `/earth` application that accepts the `CF_ACCESS_CLIENT_ID`/`CF_ACCESS_CLIENT_SECRET` Service Token used by 1C-03's verification script and the P1-04 deploy-workflow release callback, plus a generated `RELEASE_CALLBACK_SECRET` stored as both a GitHub `cms-staging` secret and a Cloudflare Worker secret. Neither of these is code work; both are dashboard/CLI configuration against the real staging resources and cannot be completed from this repository.
+Deploys are local-only (`npm run deploy:staging`) — GitHub is not connected to Cloudflare, so none of this requires a GitHub Environment.
+
+1. Cloudflare credentials (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`) available as local shell/`.env` variables to whoever runs the deploy.
+2. Isolated staging Worker, D1, and Access resources with owners and dashboard locators. Do not reuse production resource IDs.
+3. Separate D1 Read and Worker deploy credentials with only the permissions each needs.
+4. Named owners and dashboard locators for future production D1, R2, Access, and backup storage before those phases use them.
+5. A Cloudflare Access Service Auth policy on the staging `/earth` application that accepts the `CF_ACCESS_CLIENT_ID`/`CF_ACCESS_CLIENT_SECRET` Service Token used by 1C-03's verification script. `RELEASE_CALLBACK_SECRET` (Cloudflare Worker secret) is still referenced by `/earth/api/releases/[id]/{confirm,fail}` but currently has no caller now that the deploy workflow is gone — provision it only if that callback path is still wanted. None of this is code work; it is dashboard/CLI configuration against the real staging resources and cannot be completed from this repository.
 
 ## CMS database commands
 
