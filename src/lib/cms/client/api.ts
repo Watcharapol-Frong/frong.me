@@ -1,15 +1,14 @@
 /**
  * Browser client for the Earth admin API.
  *
- * This module is the only place the admin UI is allowed to talk to
- * `/earth/api/*`. Components stay transport-agnostic (see the header comments
- * in `src/components/cms/*.tsx`), the shell wires their callbacks to the
- * functions here, and every request/response shape is stated once in this file.
+ * Shared browser transport and contracts for the Earth admin API.
+ * Editor orchestration lives in post-editor-api.ts; author views live in
+ * src/components/earth/.
  *
  * Two rules shape the design:
  *
- * 1. **409 is data, not an exception.** Optimistic draft versions and the
- *    single-active-release index make conflicts a normal outcome of concurrent
+ * 1. **409 is data, not an exception.** Optimistic draft versions
+ *    make conflicts a normal outcome of concurrent
  *    editing, so mutations return `CmsResult<T>` and a conflict arrives as a
  *    structured {@link CmsConflict}. Every other failure throws
  *    {@link CmsApiError}.
@@ -195,8 +194,6 @@ export interface PostSummary {
    * two shapes from colliding in one parser. Defaults to `[]`.
    */
   tagNames: string[];
-  /** Draft edits exist that no release has picked up yet. Derived by the server. */
-  hasUnpublishedChanges?: boolean;
 }
 
 export interface PostSourceDto {
@@ -383,8 +380,7 @@ async function sendAllowingConflict<T>(
     response = await doFetch(endpoint(path, options), {
       ...init,
       headers,
-      // Access identity travels on the cookie; the browser also supplies the
-      // exact `Origin` the Worker middleware compares against `CMS_SITE_ORIGIN`.
+      // Keep the Access session cookie on same-origin requests.
       credentials: 'same-origin',
       cache: 'no-store',
       redirect: 'manual',
@@ -524,9 +520,6 @@ function parsePostSummary(value: unknown, field: string): PostSummary {
     coverImageUrl: nullableStr(row.coverImageUrl ?? null, `${field}.coverImageUrl`),
     coverCrop: nullableCrop(row.coverCrop, `${field}.coverCrop`),
     tagNames: list(row.tagNames ?? [], `${field}.tagNames`, str),
-    ...(typeof row.hasUnpublishedChanges === 'boolean'
-      ? { hasUnpublishedChanges: row.hasUnpublishedChanges }
-      : {}),
   };
 }
 

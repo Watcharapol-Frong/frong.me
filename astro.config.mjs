@@ -1,20 +1,11 @@
 // @ts-check
 import { fileURLToPath } from 'node:url';
-import { loadEnv } from 'vite';
 import { defineConfig } from 'astro/config';
 
 import react from '@astrojs/react';
 import cloudflare from '@astrojs/cloudflare';
 import tailwindcss from '@tailwindcss/vite';
 import sitemap from '@astrojs/sitemap';
-import sanity from '@sanity/astro';
-
-const { PUBLIC_SANITY_PROJECT_ID, PUBLIC_SANITY_DATASET } = loadEnv(
-  process.env.NODE_ENV ?? 'development',
-  process.cwd(),
-  ''
-);
-const hasLegacySanity = Boolean(PUBLIC_SANITY_PROJECT_ID);
 
 // https://astro.build/config
 export default defineConfig({
@@ -33,14 +24,6 @@ export default defineConfig({
     sitemap({
       filter: (page) => !page.includes('/earth'),
     }),
-    ...(hasLegacySanity
-      ? [sanity({
-          projectId: PUBLIC_SANITY_PROJECT_ID,
-          dataset: PUBLIC_SANITY_DATASET || 'production',
-          useCdn: false,
-          studioBasePath: '/admin',
-        })]
-      : []),
   ],
 
   image: {

@@ -14,7 +14,7 @@ import {
   type AiReviewReport,
   type AiTask,
   type AiWorkerEnvironment,
-} from './types/ai.ts';
+} from '../../types/ai.ts';
 import { CmsBadRequestError, CmsError } from './errors.ts';
 import type { CmsDatabase } from './db.ts';
 import { getAiProviderConfigForUse } from './repositories/ai-provider-configs.ts';

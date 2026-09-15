@@ -318,6 +318,4 @@ export interface AiWorkerEnvironment {
   GEMINI_API_KEY?: string;
   /** OpenRouter API Key */
   OPENROUTER_API_KEY?: string;
-  /** Legacy shared secret for standalone AI Worker (optional) */
-  AI_WORKER_SECRET?: string;
 }

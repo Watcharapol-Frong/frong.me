@@ -1,40 +1,45 @@
-## Development
+# Contributor instructions
 
-When starting the dev server, use background mode:
+Applies to the whole repository.
 
-```
-astro dev --background
-```
+## Start here
 
-Manage the background server with `astro dev stop`, `astro dev status`, and `astro dev logs`.
+Read [README.md](README.md), [architecture](docs/architecture.md),
+[CONTRIBUTING.md](CONTRIBUTING.md) and [current handoff](docs/plan.md).
+Use current code/docs rather than obsolete phase/session records.
 
-Run `npx tsc --noEmit` as a required check. For a credential-free verification build, use `CLOUDFLARE_VITE_FORCE_LOCAL=true npm run build`; Sanity variables are optional. This disables remote binding connections during verification without removing deployment bindings.
+## Change discipline
 
-## CMS work
+- Write maintained engineering docs, new comments and change descriptions in
+  English. Preserve Thai/English user content.
+- Keep changes focused and preserve unrelated edits.
+- Keep one CMS and embedded AI path. Follow architecture placement rules.
+  Do not add forwarding modules or restore retired systems.
+- Add regression coverage; never weaken security/tests for runtime restrictions.
+- Update `docs/plan.md` and affected docs at the end of implementation.
 
-Read [`docs/plan.md`](docs/plan.md) before starting: it holds the current task ID, acceptance gates, the inventory of Phase 1 code already in the repository, and the session handoff. Update it at the end of every session.
+## Verification
 
-Run the CMS checks with:
-
-```
+```sh
 npm run test:cms
-npx wrangler d1 migrations apply DB --local
-node scripts/db/verify-staging.mjs --wrangler --local
+npx tsc --noEmit
+CLOUDFLARE_VITE_FORCE_LOCAL=true npm run build
+git diff --check
 ```
 
-`wrangler.jsonc` binds `DB` to the staging database `portfolio-db-staging`. Never run migrations, seeds, or mutations with `--remote` without an explicit, reviewed reason. Record command output as evidence in the plan, and never put secret values in documentation or committed configuration.
+For database work, also apply migrations locally and run
+`node scripts/db/verify-staging.mjs --wrangler --local`.
+Use background development: `npm run dev -- --background`. Manage with
+`npm run astro -- dev status`, `npm run astro -- dev logs`,
+and `npm run astro -- dev stop`.
 
-## Documentation
+## Safety
 
-Project documentation is written in English and indexed at [`docs/README.md`](docs/README.md).
+A merge does not deploy. Do not deploy, run remote migrations/seeds, delete
+services, revoke credentials or destroy data without explicit approval.
+Never edit applied migrations. Default D1 bindings target staging; production
+is a separate named environment in `wrangler.jsonc`.
 
-Full Astro documentation: https://docs.astro.build
-
-Consult these guides before working on related tasks:
-
-- [Adding pages, dynamic routes, or middleware](https://docs.astro.build/en/guides/routing/)
-- [Working with Astro components](https://docs.astro.build/en/basics/astro-components/)
-- [Using React, Vue, Svelte, or other framework components](https://docs.astro.build/en/guides/framework-components/)
-- [Adding or managing content](https://docs.astro.build/en/guides/content-collections/)
-- [Adding styles or using Tailwind](https://docs.astro.build/en/guides/styling/)
-- [Supporting multiple languages](https://docs.astro.build/en/guides/internationalization/)
+Keep secrets and real data out of tests, logs and docs. `archive/` is historical
+data only, never application input. Follow [operations](docs/cms/environment-map.md)
+and [the retirement record](docs/legacy-retirement.md) for authorized closeout.
