@@ -13,9 +13,17 @@
   --font-sans: "Inter", system-ui, sans-serif;
   --font-google-sans: "Google Sans", system-ui, sans-serif;
 
-  --font-size-display: clamp(3rem, 8vw, 7rem);
-  --font-size-headline: clamp(2rem, 5vw, 4rem);
-  --font-size-subheadline: clamp(1.25rem, 2vw, 1.75rem);
+  /* Tailwind v4 reads font-size utilities from the `--text-*` namespace, not
+     `--font-size-*` — the old names never generated a `text-display` etc.
+     utility at all; every h1 using them silently fell back to the browser
+     default size. */
+  --text-display: clamp(3rem, 8vw, 7rem);
+  --text-headline: clamp(2rem, 5vw, 4rem);
+  --text-subheadline: clamp(1.25rem, 2vw, 1.75rem);
+  /* Article page title only — a notch above the prose h1 (2.25rem/36px by
+     Tailwind Typography's default scale) so it reads as the title without
+     towering over the article's own headings the way `--text-headline` did. */
+  --text-article-title: clamp(2.25rem, 3vw, 2.75rem);
 
   --breakpoint-3xl: 1920px;
 
