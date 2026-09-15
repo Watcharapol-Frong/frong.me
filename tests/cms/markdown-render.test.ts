@@ -33,6 +33,12 @@ test('bold, italic, inline code, and links render correctly', () => {
   assert.match(html, /<a href="https:\/\/example\.com" target="_blank" rel="noopener noreferrer">link<\/a>/);
 });
 
+test('strikethrough and highlight render correctly (the editor\'s bubble menu emits both)', () => {
+  const { html } = renderMarkdown('This is ~~struck~~ and this is ==highlighted==.');
+  assert.match(html, /<del>struck<\/del>/);
+  assert.match(html, /<mark>highlighted<\/mark>/);
+});
+
 test('never emits raw HTML from the source — everything is escaped first', () => {
   const { html } = renderMarkdown('<script>alert(1)</script> and an "quoted" & ampersand.');
   assert.ok(!html.includes('<script>'), 'a literal <script> tag must never survive into the output');

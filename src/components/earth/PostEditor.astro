@@ -83,16 +83,19 @@ const seed = {
     />
 
     <main class="editor-panel">
-      <input
-        type="text"
-        class="title-input"
-        data-earth-field="title"
-        value={seed.title}
-        placeholder="Title"
-        maxlength="120"
-        autocomplete="off"
-        required
-      />
+      <div class="zen-title-wrap" data-earth-zen-title-wrap>
+        <input
+          type="text"
+          class="title-input"
+          data-earth-field="title"
+          value={seed.title}
+          placeholder="Title"
+          maxlength="120"
+          autocomplete="off"
+          required
+        />
+        <p class="zen-excerpt" data-earth-zen-excerpt hidden></p>
+      </div>
       <ContentEditor initial={seed.body} coverUrl={seed.coverUrl} />
     </main>
 
@@ -117,6 +120,18 @@ const seed = {
       <input type="file" id="earth-body-image" accept="image/jpeg,image/png,image/webp" hidden data-earth-body-image-file />
     </div>
     <div class="upload-error" data-earth-upload-error hidden></div>
+    <div class="modal-divider"><span>or</span></div>
+    <div class="modal-row">
+      <input
+        type="url"
+        class="form-input"
+        data-earth-image-url
+        placeholder="Paste an image link…"
+        autocomplete="off"
+      />
+      <button type="button" class="modal-btn modal-btn-confirm" data-earth-action="insert-image-url">Insert</button>
+    </div>
+    <div class="upload-error" data-earth-image-url-error hidden></div>
     <div class="modal-hint">Press Esc to close</div>
   </div>
 </div>
@@ -173,7 +188,6 @@ const seed = {
     PostEditorPublishError,
     type PostEditorDraft,
   } from '../../lib/cms/client/post-editor-api.ts';
-  import { renderMarkdown } from '../../lib/cms/markdown/render.ts';
 
   const MAX_TAGS = 2;
   const EMOJI = [
@@ -251,6 +265,9 @@ const seed = {
     const unpublishWrap = form.querySelector<HTMLElement>('[data-earth-unpublish-wrap]');
     const unpublishConfirm = form.querySelector<HTMLElement>('[data-earth-unpublish-confirm]');
     const saveButton = form.querySelector<HTMLButtonElement>('[data-earth-action="save-draft"]');
+    const zenToggleButton = form.querySelector<HTMLButtonElement>('[data-earth-action="toggle-zen"]');
+    const zenTitleWrap = form.querySelector<HTMLElement>('[data-earth-zen-title-wrap]');
+    const zenExcerpt = form.querySelector<HTMLElement>('[data-earth-zen-excerpt]');
 
     const counters = {
       words: form.querySelector<HTMLElement>('[data-earth-count="words"]'),
@@ -270,6 +287,8 @@ const seed = {
     const uploadError = document.querySelector<HTMLElement>('[data-earth-upload-error]');
     const videoInput = document.querySelector<HTMLInputElement>('[data-earth-video-url]');
     const videoError = document.querySelector<HTMLElement>('[data-earth-video-error]');
+    const imageUrlInput = document.querySelector<HTMLInputElement>('[data-earth-image-url]');
+    const imageUrlError = document.querySelector<HTMLElement>('[data-earth-image-url-error]');
 
     /* ---------------- Payload ---------------- */
 
@@ -537,12 +556,11 @@ const seed = {
     }
 
     async function handleBodyImage(file: File) {
-      if (!fields.body) return;
       if (uploadError) uploadError.hidden = true;
       try {
         const uploaded = await uploadAsset(file, 'photo');
         const alt = file.name.replace(/\.[^.]+$/, '') || 'image';
-        insertAtCursor(`\n![${alt}](${uploaded.url})\n`);
+        getBodyEditor()?.insertImage(uploaded.url, alt);
         closeModal(modals.image);
         flashIndicator('image inserted');
       } catch (error) {
@@ -551,6 +569,37 @@ const seed = {
           uploadError.hidden = false;
         }
       }
+    }
+
+    function openImageModal() {
+      if (uploadError) uploadError.hidden = true;
+      if (imageUrlError) imageUrlError.hidden = true;
+      if (imageUrlInput) imageUrlInput.value = '';
+      openModal(modals.image);
+    }
+
+    function openVideoModal() {
+      if (videoError) videoError.hidden = true;
+      if (videoInput) videoInput.value = '';
+      openModal(modals.video);
+      setTimeout(() => videoInput?.focus(), 50);
+    }
+
+    /** The image modal's "or paste a link" fallback — same insert as an upload, no R2 round-trip. */
+    function insertImageUrl() {
+      if (imageUrlError) imageUrlError.hidden = true;
+      const url = imageUrlInput?.value.trim() ?? '';
+      if (!/^https?:\/\//i.test(url)) {
+        if (imageUrlError) {
+          imageUrlError.textContent = url ? 'That does not look like a URL.' : 'Paste a link first.';
+          imageUrlError.hidden = false;
+        }
+        return;
+      }
+      getBodyEditor()?.insertImage(url);
+      if (imageUrlInput) imageUrlInput.value = '';
+      closeModal(modals.image);
+      flashIndicator('image inserted');
     }
 
     /** Links an uploaded cover to the post so the reader route resolves it from R2. */
@@ -575,30 +624,51 @@ const seed = {
       }
     }
 
-    /* ---------------- Text insertion ---------------- */
-
-    function insertAtCursor(text: string) {
-      const textarea = fields.body;
-      if (!textarea) return;
-      const start = textarea.selectionStart;
-      const end = textarea.selectionEnd;
-      textarea.value = textarea.value.slice(0, start) + text + textarea.value.slice(end);
-      const caret = start + text.length;
-      textarea.setSelectionRange(caret, caret);
-      textarea.focus();
-      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    /**
+     * ---------------- Rich body editor bridge ----------------
+     * The body field is now a WYSIWYG island (`RichBodyEditor.tsx`, a
+     * separate Astro/React island — no shared module scope with this
+     * script), not a plain textarea this script can manipulate by
+     * `.value`/`.selectionStart` directly. It attaches an imperative
+     * bridge object to its wrapper element once React/TipTap finish
+     * mounting; `fields.body` itself stays a *hidden* textarea it mirrors
+     * markdown into, which is why every read-only use of `fields.body.value`
+     * elsewhere in this file (save payload, word count, Preview, autosave)
+     * still works completely unchanged.
+     */
+    interface BodyEditorBridgeLike {
+      getMarkdown(): string;
+      setMarkdown(markdown: string): void;
+      focus(): void;
+      isFocused(): boolean;
+      toggleBold(): void;
+      insertImage(url: string, alt?: string): void;
+      insertYoutube(videoId: string): void;
+      getSelectedText(): string;
+      replaceSelection(markdown: string): void;
+      appendMarkdown(markdown: string): void;
     }
 
-    function wrapSelection(marker: string, placeholder: string) {
-      const textarea = fields.body;
-      if (!textarea) return;
-      const { selectionStart: start, selectionEnd: end, value } = textarea;
-      const selected = value.slice(start, end) || placeholder;
-      textarea.value = value.slice(0, start) + marker + selected + marker + value.slice(end);
-      textarea.setSelectionRange(start + marker.length, start + marker.length + selected.length);
-      textarea.focus();
-      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    function getBodyEditor(): BodyEditorBridgeLike | null {
+      const el = form.querySelector<HTMLElement & { bodyEditor?: BodyEditorBridgeLike }>('[data-earth-body-editor]');
+      return el?.bodyEditor ?? null;
     }
+
+    /** Resolves once RichBodyEditor.tsx has mounted — needed before boot() can safely load content into it. */
+    function waitForBodyEditor(): Promise<BodyEditorBridgeLike> {
+      return new Promise((resolve) => {
+        const existing = getBodyEditor();
+        if (existing) {
+          resolve(existing);
+          return;
+        }
+        document.addEventListener('earth:body-editor-ready', () => {
+          const editor = getBodyEditor();
+          if (editor) resolve(editor);
+        }, { once: true });
+      });
+    }
+
 
     /* ---------------- Modals ---------------- */
 
@@ -628,7 +698,7 @@ const seed = {
           item.className = 'emoji-item';
           item.textContent = emoji;
           item.addEventListener('click', () => {
-            insertAtCursor(emoji);
+            getBodyEditor()?.replaceSelection(emoji);
             emojiPicker.hidden = true;
           });
           emojiPicker.append(item);
@@ -648,7 +718,7 @@ const seed = {
       if (fields.slug) fields.slug.value = post.slug;
       if (fields.excerpt) fields.excerpt.value = post.excerpt ?? '';
       if (fields.tags) fields.tags.value = post.tagNames.slice(0, MAX_TAGS).join(', ');
-      if (fields.body) fields.body.value = post.bodyMarkdown;
+      getBodyEditor()?.setMarkdown(post.bodyMarkdown);
       if (fields.status) fields.status.value = post.lifecycle === 'active' ? 'active' : 'draft';
       if (fields.coverUrl) fields.coverUrl.value = post.coverImageUrl ?? '';
       showCover(fields.coverUrl?.value ?? '');
@@ -676,7 +746,7 @@ const seed = {
       if (fields.tags && Array.isArray(backup.tagIds)) {
         fields.tags.value = backup.tagIds.slice(0, MAX_TAGS).join(', ');
       }
-      if (fields.body) fields.body.value = backup.bodyMarkdown;
+      getBodyEditor()?.setMarkdown(backup.bodyMarkdown);
       if (fields.coverUrl && backup.coverUrl) fields.coverUrl.value = backup.coverUrl;
       showCover(fields.coverUrl?.value ?? '');
       setCoverCrop(backup.coverCrop ?? null);
@@ -823,39 +893,57 @@ const seed = {
       openModal(modals.published);
     }
 
-    /* ---------------- Preview in a new tab ---------------- */
-
-    function openPreview() {
-      const { html } = renderMarkdown(fields.body?.value ?? '');
-      const payload = {
-        title: fields.title?.value || 'Untitled',
-        excerpt: fields.excerpt?.value ?? '',
-        cover: fields.coverUrl?.value ?? '',
-        coverCrop: isDefaultCoverCrop(coverCrop) ? null : coverCrop,
-        tags: (fields.tags?.value ?? '').split(',').map((tag) => tag.trim()).filter(Boolean),
-        font: fields.font?.value || 'google-sans',
-        articleHtml: html,
-      };
-
-      // A blob: URL document breaks YouTube's embedded player (Error 153),
-      // and writing the page via document.write into a window.open('', ...)
-      // popup proved unreliable across real browsers (some leave the tab
-      // blank). Handing the draft to a real, same-origin page instead avoids
-      // both: sessionStorage is shared with same-origin auxiliary tabs as
-      // long as `noopener` isn't used, so /earth/preview reads it back and
-      // renders it itself through an ordinary navigation.
-      sessionStorage.setItem('earth:preview', JSON.stringify(payload));
-      window.open('/earth/preview', 'earth-preview');
-    }
-
     /* ---------------- Zen mode ---------------- */
 
     let zenActive = false;
+
+    /**
+     * Zen mode's whole point is standing in for the removed Preview, so its
+     * layout order matches the published article page: cover image, then
+     * title, then excerpt, then the article body — not the normal editing
+     * order (title first, for fast access while drafting). Reordering the
+     * actual DOM (rather than CSS `order`) keeps this simple: `coverContainer`
+     * and `zenTitleWrap` are siblings inside `scroll`, so moving the wrapper
+     * node is enough, and it carries the title input's live value/focus with
+     * it since nothing is destroyed or recreated.
+     */
+    function applyZenLayout(active: boolean) {
+      if (!zenTitleWrap || !scroll) return;
+      if (active) {
+        if (coverContainer) coverContainer.insertAdjacentElement('afterend', zenTitleWrap);
+        else scroll.prepend(zenTitleWrap);
+        if (zenExcerpt) {
+          const text = fields.excerpt?.value.trim() ?? '';
+          zenExcerpt.textContent = text;
+          zenExcerpt.hidden = !text;
+        }
+      } else {
+        scroll.parentElement?.insertBefore(zenTitleWrap, scroll);
+        if (zenExcerpt) zenExcerpt.hidden = true;
+      }
+    }
+
     function toggleZen(force?: boolean) {
       zenActive = force ?? !zenActive;
       layout?.setAttribute('data-earth-zen', String(zenActive));
       document.body.classList.toggle('zen-mode', zenActive);
+      applyZenLayout(zenActive);
+      if (zenToggleButton) {
+        zenToggleButton.textContent = zenActive ? 'Editor' : 'Zen';
+        zenToggleButton.title = zenActive
+          ? 'Back to normal editing (Ctrl+/)'
+          : 'Zen mode — distraction-free, article-like view (Ctrl+/)';
+      }
     }
+
+    // Keep the zen excerpt readout live while the author edits it with zen
+    // mode already open, instead of only updating on the next toggle.
+    fields.excerpt?.addEventListener('input', () => {
+      if (!zenActive || !zenExcerpt) return;
+      const text = fields.excerpt?.value.trim() ?? '';
+      zenExcerpt.textContent = text;
+      zenExcerpt.hidden = !text;
+    });
 
     /* ---------------- Events ---------------- */
 
@@ -873,7 +961,9 @@ const seed = {
         showCover(fields.coverUrl?.value ?? '');
         setCoverCrop(null);
       }
-      if (target === fields.body) autoGrow();
+      // The body field is now a hidden textarea RichBodyEditor.tsx mirrors
+      // markdown into on every rich-editor update — its own "/" menu lives
+      // entirely inside that island (see SlashCommand in RichBodyEditor.tsx).
       updateCounters();
       updateJsonLd();
       scheduleAutosave();
@@ -896,8 +986,8 @@ const seed = {
         case 'save-draft':
           void persist('draft');
           break;
-        case 'preview':
-          openPreview();
+        case 'toggle-zen':
+          toggleZen();
           break;
         case 'publish-toggle':
           publishConfirm?.classList.add('active');
@@ -1002,6 +1092,13 @@ const seed = {
       if (file?.type.startsWith('image/')) void handleBodyImage(file);
     });
 
+    imageUrlInput?.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        insertImageUrl();
+      }
+    });
+
     /* Modal chrome */
     document.querySelectorAll<HTMLElement>('[data-earth-modal]').forEach((modal) => {
       modal.addEventListener('click', (event) => {
@@ -1018,9 +1115,10 @@ const seed = {
             }
             return;
           }
-          insertAtCursor(`\n\n@[youtube](${id})\n\n`);
+          getBodyEditor()?.insertYoutube(id);
           closeModal(modals.video);
         }
+        if (action === 'insert-image-url') insertImageUrl();
         if (action === 'copy-url') {
           const link = document.querySelector<HTMLAnchorElement>('[data-earth-published-url]');
           if (link) void navigator.clipboard.writeText(new URL(link.getAttribute('href') ?? '/', window.location.origin).href);
@@ -1045,25 +1143,21 @@ const seed = {
       if (key === 's') {
         event.preventDefault();
         void persist('draft');
-      } else if (key === 'p') {
-        event.preventDefault();
-        openPreview();
-      } else if (key === 'b' && document.activeElement === fields.body) {
-        event.preventDefault();
-        wrapSelection('**', 'bold text');
+        // No 'p'/preview branch: Preview was removed — Ctrl+/ (Zen) is now
+        // the only "see it close to how it reads" view.
+        // No 'b' branch either: StarterKit's Bold extension already binds
+        // Ctrl+B natively while the rich body editor has focus — handling it
+        // here too would toggle bold twice (net no-op) since this listener
+        // also sees the same keydown as it bubbles up to document.
       } else if (key === 'e') {
         event.preventDefault();
         toggleEmojiPicker();
       } else if (key === 'i') {
         event.preventDefault();
-        if (uploadError) uploadError.hidden = true;
-        openModal(modals.image);
+        openImageModal();
       } else if (key === 'y' && event.shiftKey) {
         event.preventDefault();
-        if (videoError) videoError.hidden = true;
-        if (videoInput) videoInput.value = '';
-        openModal(modals.video);
-        setTimeout(() => videoInput?.focus(), 50);
+        openVideoModal();
       } else if (key === 'm') {
         event.preventDefault();
         window.location.href = '/earth';
@@ -1080,6 +1174,10 @@ const seed = {
     /* ---------------- Boot ---------------- */
 
     async function boot() {
+      // Fetched/backup content is loaded into the rich editor below — it
+      // must exist first (React/TipTap mount asynchronously, on a
+      // different island than this script).
+      await waitForBodyEditor();
       if (initialPostId !== 'new') {
         setBusy(true);
         setStatus('Loading…');
@@ -1112,6 +1210,12 @@ const seed = {
       showCover(fields.coverUrl?.value ?? '');
       autoGrow();
     }
+
+    // The rich body editor (a separate island) dispatches these when its
+    // own "/image" / "/youtube" slash commands run, since it has no direct
+    // reference to the modals defined in this component's markup.
+    document.addEventListener('earth:open-image-modal', openImageModal);
+    document.addEventListener('earth:open-video-modal', openVideoModal);
 
     void boot();
   }

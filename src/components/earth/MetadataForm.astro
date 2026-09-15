@@ -49,7 +49,6 @@ const MARKDOWN_HELP = [
 
 const SHORTCUTS: { keys: string[]; label: string }[] = [
   { keys: ['Ctrl', 'S'], label: 'Save draft' },
-  { keys: ['Ctrl', 'P'], label: 'Preview' },
   { keys: ['Ctrl', 'B'], label: 'Bold' },
   { keys: ['Ctrl', 'E'], label: 'Emoji' },
   { keys: ['Ctrl', 'I'], label: 'Images' },
@@ -64,7 +63,11 @@ const SHORTCUTS: { keys: string[]; label: string }[] = [
 
   <div class="form-group">
     <label class="form-label" for="earth-slug">
-      Slug <span class="form-label-hint" data-earth-slug-mode>auto</span>
+      <span>Slug</span>
+      <span class="form-label-right">
+        <span class="form-label-hint" data-earth-slug-mode>auto</span>
+        <button type="button" class="ai-inline-btn" data-earth-ai-inline="auto-slug">✨ AI</button>
+      </span>
     </label>
     <input
       id="earth-slug"
@@ -116,7 +119,10 @@ const SHORTCUTS: { keys: string[]; label: string }[] = [
   </div>
 
   <div class="form-group">
-    <label class="form-label" for="earth-excerpt">Excerpt</label>
+    <label class="form-label" for="earth-excerpt">
+      <span>Excerpt</span>
+      <button type="button" class="ai-inline-btn" data-earth-ai-inline="auto-excerpt">✨ AI</button>
+    </label>
     <textarea
       id="earth-excerpt"
       class="form-input"
@@ -127,7 +133,10 @@ const SHORTCUTS: { keys: string[]; label: string }[] = [
   </div>
 
   <div class="form-group">
-    <label class="form-label" for="earth-tags">Tags</label>
+    <label class="form-label" for="earth-tags">
+      <span>Tags</span>
+      <button type="button" class="ai-inline-btn" data-earth-ai-inline="auto-tags">✨ AI</button>
+    </label>
     <input
       id="earth-tags"
       type="text"

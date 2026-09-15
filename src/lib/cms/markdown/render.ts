@@ -74,6 +74,8 @@ function renderInline(escapedLine: string): string {
       `<a href="${safeUrl(url)}"${/^https?:\/\//i.test(url) ? ' target="_blank" rel="noopener noreferrer"' : ''}>${text}</a>`)
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
     .replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>')
+    .replace(/~~([^~]+)~~/g, '<del>$1</del>')
+    .replace(/==([^=]+)==/g, '<mark>$1</mark>')
     .replace(/`([^`]+)`/g, '<code>$1</code>');
 }
 

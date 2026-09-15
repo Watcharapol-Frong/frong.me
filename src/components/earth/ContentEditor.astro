@@ -1,12 +1,17 @@
 ---
 /**
- * The writing surface: the cover preview above a single auto-growing Markdown
- * textarea. No split preview — Preview opens a new tab (Ctrl+P) so the
- * writing column keeps the full width of the page.
+ * The writing surface: the cover preview above a WYSIWYG body editor
+ * (`RichBodyEditor`, TipTap) — images and YouTube embeds render inline as
+ * you type instead of as raw Markdown text. No split preview — Preview
+ * opens a new tab (Ctrl+P) so the writing column keeps the full width.
  *
- * Markup only — behaviour is wired by the delegated script in
- * `PostEditor.astro`, styling lives in `src/pages/earth/editor.astro`.
+ * Markup mostly static; body editing is a React island (see
+ * `RichBodyEditor.tsx`'s own header comment for the Markdown bridge), the
+ * rest is wired by the delegated script in `PostEditor.astro`, styling
+ * lives in `src/pages/earth/editor.astro`.
  */
+import RichBodyEditor from './RichBodyEditor.tsx';
+
 export interface ContentEditorProps {
   initial?: string;
   coverUrl?: string;
@@ -29,12 +34,11 @@ const { initial = '', coverUrl = '' } = Astro.props as Props;
     <div class="cover-drag-hint" data-earth-cover-drag-hint>Drag to reposition</div>
   </figure>
 
-  <textarea
-    class="body-input"
-    data-earth-field="body"
-    placeholder="Start writing…  (Ctrl+I to add an image, Ctrl+E for emoji)"
-    spellcheck="true"
-  >{initial}</textarea>
+  <RichBodyEditor
+    client:load
+    initial={initial}
+    placeholder="Start writing…  (Ctrl+I to add an image, Ctrl+E for emoji, / for commands)"
+  />
 
   <div class="drop-indicator" data-earth-drop-indicator hidden>Drop the image to upload it…</div>
 </div>

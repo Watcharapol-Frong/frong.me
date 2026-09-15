@@ -163,21 +163,28 @@ const postId = Astro.url.searchParams.get('id')?.trim() || undefined;
 
       .main-layout { display: flex; flex: 1; min-height: 0; }
 
-      .sidebar,
-      .ai-panel {
+      .sidebar {
         width: 22%;
+        min-width: 260px;
+        max-width: 320px;
         background: #fafafa;
         padding: 24px;
         overflow-y: auto;
         flex-shrink: 0;
+        border-right: 1px solid #eee;
         transition: opacity 0.3s;
       }
 
-      .sidebar { min-width: 260px; max-width: 320px; border-right: 1px solid #eee; }
-      .ai-panel { min-width: 240px; max-width: 300px; border-left: 1px solid #eee; }
-
       .editor-panel {
         flex: 1;
+        /* Capped and centered at roughly the width it already had with the
+           AI panel open (~806px including padding) — closing that panel now
+           gives the writing column its width back (see .ai-panel's own
+           comment), but stretching all the way to the freed edge made it
+           read as too wide; margin:auto on a flex item's main-axis sides
+           centers it within the row's leftover space once max-width caps it. */
+        max-width: 800px;
+        margin: 0 auto;
         padding: 32px 40px;
         min-width: 0;
         display: flex;
@@ -185,8 +192,129 @@ const postId = Astro.url.searchParams.get('id')?.trim() || undefined;
         overflow: hidden;
       }
 
+      /* display:none, not just opacity — an invisible-but-still-occupying
+         sidebar would keep .editor-panel's auto-margins centering against
+         the *remaining* space next to it instead of the full page, leaving
+         the content visibly off-center in zen mode. */
       body.zen-mode .sidebar,
-      body.zen-mode .ai-panel { opacity: 0; pointer-events: none; }
+      body.zen-mode .ai-panel,
+      body.zen-mode .ai-panel-toggle { display: none; }
+
+      /* Zen mode replaced the old "Preview" (a separate rendered tab) — it's
+         now the closest thing to seeing the finished article while writing,
+         so its typography leans toward how the published page actually
+         looks rather than the comfortable-for-editing defaults above. Scoped
+         to zen only: normal editing keeps its own sizing. */
+      body.zen-mode .title-input {
+        font-size: clamp(2.25rem, 3vw, 2.75rem); /* matches the public article page's own title token */
+        font-weight: 700;
+        margin-bottom: 12px;
+      }
+
+      /* Hidden outside zen mode (and whenever there's no excerpt text) —
+         see `.zen-excerpt[hidden]` below; not zen-scoped itself since the
+         element only exists to be toggled, never shown by default. */
+      .zen-excerpt {
+        font-size: 19px;
+        line-height: 1.6;
+        color: #666;
+        margin: 0 0 32px;
+      }
+
+      .zen-excerpt[hidden] { display: none; }
+
+      body.zen-mode .body-input .ProseMirror {
+        font-size: 19px;
+        line-height: 1.85;
+      }
+
+      body.zen-mode .body-input .ProseMirror h1 { font-size: 2em; }
+      body.zen-mode .body-input .ProseMirror h2 { font-size: 1.6em; }
+      body.zen-mode .body-input .ProseMirror h3 { font-size: 1.25em; }
+
+      /* ---------------- AI Assistant: collapsible flex column ----------------
+         A real flex sibling like .sidebar (not an overlay) — closed by
+         default so it gives its width back to the writing column, opened by
+         the floating "AI Assistant" button, closed again by its own footer
+         button rather than a second click on that same floating button
+         (which disappears while the panel is open). */
+
+      .ai-panel {
+        width: 22%;
+        min-width: 260px;
+        max-width: 320px;
+        background: #fafafa;
+        border-left: 1px solid #eee;
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        transition: opacity 0.3s;
+      }
+
+      .ai-panel[data-open='false'] { display: none; }
+
+      .ai-panel-scroll { flex: 1; overflow-y: auto; padding: 24px; }
+
+      .ai-panel-collapse {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 10px;
+        border: none;
+        border-top: 1px solid #eee;
+        background: none;
+        color: #999;
+        font-family: inherit;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        cursor: pointer;
+      }
+
+      .ai-panel-collapse:hover { color: #000; background: #f0f0f0; }
+      .ai-panel-collapse svg { width: 14px; height: 14px; }
+
+      /* A slim pill flush against the right edge, like a hardware side
+         button embedded in the screen frame — rounded only on the side
+         facing the content, flush where it meets the edge. Fixed near the
+         top (clear of the 64px header, not so far down it reads detached),
+         not centered, so it stays where the eye naturally lands. */
+      .ai-panel-toggle {
+        position: fixed;
+        top: 25%;
+        right: 0;
+        width: 36px;
+        padding: 16px 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        background: #1f1f1f;
+        color: #fff;
+        border: none;
+        border-radius: 18px 0 0 18px;
+        cursor: pointer;
+        z-index: 900;
+        box-shadow: -4px 4px 16px rgba(0, 0, 0, 0.2);
+        transition: opacity 0.2s;
+      }
+
+      .ai-panel-toggle:hover { opacity: 0.85; }
+      .ai-panel-toggle[hidden] { display: none; }
+      .ai-panel-toggle-icon { font-size: 15px; line-height: 1; }
+
+      .ai-panel-toggle-label {
+        writing-mode: vertical-rl;
+        transform: rotate(180deg);
+        font-family: inherit;
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        white-space: nowrap;
+      }
 
       /* ---------------- Sidebar form ---------------- */
 
@@ -207,6 +335,28 @@ const postId = Astro.url.searchParams.get('id')?.trim() || undefined;
       .form-label-row { justify-content: flex-start; text-transform: none; letter-spacing: 0; font-size: 11px; cursor: pointer; }
       .form-label-hint { font-weight: 400; color: #bbb; text-transform: none; letter-spacing: 0; }
       .form-label-link { color: #888; }
+
+      .form-label-right { display: flex; align-items: center; gap: 8px; }
+
+      .ai-inline-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        background: none;
+        border: none;
+        padding: 0;
+        font-family: inherit;
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: none;
+        letter-spacing: 0;
+        color: #aaa;
+        cursor: pointer;
+        transition: color 0.15s;
+      }
+
+      .ai-inline-btn:hover { color: #000; }
+      .ai-inline-btn:disabled { color: #ddd; cursor: default; }
 
       .form-input {
         width: 100%;
@@ -439,22 +589,102 @@ const postId = Astro.url.searchParams.get('id')?.trim() || undefined;
 
       .cover-container:hover .cover-drag-hint { opacity: 1; }
 
-      .body-input {
+      /* .body-input is now EditorContent's wrapper div, not the editable
+         element itself — the actual contenteditable is TipTap's own
+         `.ProseMirror` div nested inside it, so typography/padding/color
+         target that instead. */
+      .rich-body-editor { width: 100%; }
+
+      .body-input .ProseMirror {
         font-family: 'Google Sans', system-ui, sans-serif;
         font-size: 18px;
         line-height: 1.9;
         min-height: calc(100vh - 260px);
-        resize: none;
-        border: none;
-        background: transparent;
-        width: 100%;
-        overflow: hidden;
         padding-bottom: 40vh;
         color: #000;
       }
 
-      .body-input:focus { outline: none; }
-      .body-input::placeholder { color: #ddd; }
+      .body-input .ProseMirror:focus { outline: none; }
+
+      /* Placeholder extension's own convention: an empty first paragraph
+         gets `is-editor-empty` + `data-placeholder`, styled via ::before
+         rather than the native ::placeholder (which only applies to real
+         <input>/<textarea> elements). */
+      .body-input .ProseMirror p.is-editor-empty:first-child::before {
+        content: attr(data-placeholder);
+        color: #ddd;
+        float: left;
+        height: 0;
+        pointer-events: none;
+      }
+
+      .body-input .ProseMirror img { max-width: 100%; border-radius: 8px; }
+      .body-input .ProseMirror blockquote { border-left: 3px solid #eee; padding-left: 16px; color: #666; }
+      .body-input .ProseMirror pre {
+        background: #f6f8fa;
+        padding: 1.5em;
+        border-radius: 8px;
+        overflow-x: auto;
+      }
+      .body-input .ProseMirror pre code { background: none; padding: 0; font-family: 'JetBrains Mono', monospace; }
+      .body-input .ProseMirror code { font-family: 'JetBrains Mono', monospace; font-size: 0.9em; background: #f0f0f0; padding: 0.15em 0.4em; border-radius: 4px; }
+      .body-input .ProseMirror hr { border: none; border-top: 1px solid #eee; margin: 2em 0; }
+      .body-input .ProseMirror mark { background: #ffe066; color: #000; border-radius: 2px; padding: 0.05em 0; }
+
+      /* ---------------- Selection toolbar (bubble menu) ----------------
+         A small Notion-style floating bar over the current text selection —
+         `@tiptap/react`'s BubbleMenu positions/shows it; only its contents
+         are styled here. Global (not scoped) because the menu mounts as
+         part of the React tree, which Astro's per-component CSS scoping
+         does not reach. */
+      .rich-bubble-menu {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        background: #1a1a1a;
+        border-radius: 6px;
+        padding: 4px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+        z-index: 1500;
+      }
+
+      .rich-bubble-btn {
+        min-width: 28px;
+        height: 28px;
+        padding: 0 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: none;
+        background: none;
+        color: #ddd;
+        font-size: 13px;
+        font-family: inherit;
+        cursor: pointer;
+        border-radius: 4px;
+      }
+
+      .rich-bubble-btn:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
+      .rich-bubble-btn[data-active='true'] { background: #fff; color: #000; }
+      .rich-bubble-highlight-icon { text-decoration: underline; text-decoration-color: #ffe066; text-decoration-thickness: 3px; }
+
+      .rich-bubble-divider { width: 1px; height: 18px; background: rgba(255, 255, 255, 0.15); margin: 0 2px; flex-shrink: 0; }
+      .body-input .ProseMirror .video-embed {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        margin: 1.5em 0;
+        border-radius: 8px;
+        overflow: hidden;
+        background: #000;
+      }
+      .body-input .ProseMirror .video-embed iframe {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        border: 0;
+      }
 
       .drop-indicator {
         position: absolute;
@@ -503,6 +733,83 @@ const postId = Astro.url.searchParams.get('id')?.trim() || undefined;
 
       .emoji-item:hover { background: #f5f5f5; }
 
+      /* Notion-style "/" command menu. Positioned via inline top/left set
+         from JS (caret coordinates in the textarea), not centered like the
+         emoji picker, so it stays anchored to where you're typing. */
+      .slash-menu {
+        position: fixed;
+        width: 240px;
+        max-height: 280px;
+        overflow-y: auto;
+        background: #fff;
+        border: 1px solid #eee;
+        border-radius: 10px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+        padding: 6px;
+        z-index: 2000;
+      }
+
+      .slash-menu[hidden] { display: none; }
+
+      .slash-empty {
+        padding: 10px 8px;
+        font-size: 12px;
+        color: #999;
+      }
+
+      .slash-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        text-align: left;
+        background: none;
+        border: none;
+        border-radius: 6px;
+        padding: 7px 8px;
+        cursor: pointer;
+        font-family: inherit;
+      }
+
+      .slash-item:hover,
+      .slash-item[data-selected="true"] {
+        background: #f5f5f5;
+      }
+
+      .slash-item-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 26px;
+        height: 26px;
+        flex-shrink: 0;
+        border-radius: 6px;
+        border: 1px solid #eee;
+        font-size: 13px;
+        font-weight: 600;
+        color: #666;
+      }
+
+      .slash-item-text {
+        min-width: 0;
+      }
+
+      .slash-item-label {
+        font-size: 13px;
+        color: #111;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .slash-item-hint {
+        font-size: 11px;
+        color: #999;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
       /* ---------------- AI panel ---------------- */
 
       .ai-header {
@@ -515,7 +822,24 @@ const postId = Astro.url.searchParams.get('id')?.trim() || undefined;
         border-bottom: 1px solid #eee;
       }
 
-      .ai-provider { margin-bottom: 16px; }
+      .ai-provider { margin-bottom: 16px; display: flex; flex-direction: column; gap: 6px; }
+
+      /* justify-content: space-between (not flex-start) — the "↓ Model"
+         button should sit flush against the row's right edge, aligned with
+         the provider <select>'s own dropdown arrow above it, not floating
+         right after the model name with empty space beyond it. */
+      .ai-model-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+      /* Fixed width, not just gap, so the "↓ Model" button lands at the same
+         x position regardless of how long the current model's short name is
+         (e.g. "3.5 Pro" vs "Mistral Small 3.1") — it must never drift right. */
+      .ai-model-current {
+        font-size: 11px;
+        color: #666;
+        min-width: 130px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
       .ai-section { margin-bottom: 12px; }
 
       .ai-toggle {
@@ -752,6 +1076,29 @@ const postId = Astro.url.searchParams.get('id')?.trim() || undefined;
 
       .upload-error[hidden] { display: none; }
 
+      .modal-divider {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 20px 0;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #bbb;
+      }
+
+      .modal-divider::before,
+      .modal-divider::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: #eee;
+      }
+
+      .modal-row { display: flex; gap: 8px; align-items: stretch; text-align: left; }
+      .modal-row .form-input { flex: 1; }
+      .modal-row .modal-btn { flex: none; width: auto; padding: 0 20px; }
+
       .publish-success-icon {
         width: 64px;
         height: 64px;
@@ -811,12 +1158,14 @@ const postId = Astro.url.searchParams.get('id')?.trim() || undefined;
         body { height: auto; overflow: auto; }
         .editor-root { height: auto; }
         .main-layout { flex-direction: column; }
-        .sidebar, .ai-panel {
+        .sidebar {
           width: 100%;
           max-width: none;
           border: none;
           border-bottom: 1px solid #eee;
         }
+        .ai-panel { width: 100%; max-width: none; border: none; border-bottom: 1px solid #eee; }
+        .ai-panel-toggle { top: auto; bottom: 16px; }
         .editor-panel { padding: 24px; overflow: visible; }
         .header { flex-wrap: wrap; height: auto; padding: 12px 16px; gap: 12px; }
         .word-count-header { display: none; }

@@ -1,7 +1,10 @@
 ---
 /**
- * Editor header: wordmark, live save status, counters, and the Save / Preview
- * / Publish / Unpublish actions. Publish and Unpublish each slide out an
+ * Editor header: wordmark, live save status, counters, and the Save / Zen
+ * / Publish / Unpublish actions. Zen replaced the old "Preview" (opened a
+ * new tab) — it's now the article-like distraction-free view instead, so
+ * there's no separate render step to keep in sync. Publish and Unpublish
+ * each slide out an
  * inline "Sure? Yes / No" rather than opening a dialog, so a destructive flip
  * always takes two deliberate clicks without stealing focus from the draft.
  *
@@ -43,10 +46,10 @@ const { status = 'draft' } = Astro.props as Props;
     <button
       type="button"
       class="header-btn header-btn-secondary"
-      data-earth-action="preview"
-      title="Preview in a new tab (Ctrl+P)"
+      data-earth-action="toggle-zen"
+      title="Zen mode — distraction-free, article-like view (Ctrl+/)"
     >
-      Preview
+      Zen
     </button>
 
     <span class="publish-confirm-wrap" data-earth-publish-wrap hidden={status === 'active'}>
