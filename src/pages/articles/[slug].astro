@@ -75,18 +75,12 @@ const tags = taxonomy.tags.map((tag) => tag.slug);
 
 const { html: bodyHtml, headings } = renderMarkdown(post.body_markdown);
 
-const otherArticles = otherPosts.filter((candidate) => candidate.id !== post.id);
-const scored = await Promise.all(
-  otherArticles.map(async (candidate) => {
-    const candidateTaxonomy = await getPostTaxonomy(db, candidate.id);
-    const overlap = candidateTaxonomy.tags.filter((tag) => tags.includes(tag.slug)).length;
-    return { post: candidate, overlap };
-  }),
-);
-const relatedArticles = scored
-  .sort((a, b) => b.overlap - a.overlap || b.post.updated_at - a.post.updated_at)
-  .slice(0, 3)
-  .map((entry) => entry.post);
+// `otherPosts` is published_at DESC (see listPublishedPosts), current post
+// included, so its neighbors in that array are its chronological neighbors:
+// the next entry is older, the previous entry is newer.
+const currentIndex = otherPosts.findIndex((candidate) => candidate.id === post.id);
+const olderPost = currentIndex >= 0 ? otherPosts[currentIndex + 1] : undefined;
+const newerPost = currentIndex > 0 ? otherPosts[currentIndex - 1] : undefined;
 
 const publishedAtIso = new Date(post.published_at ?? post.created_at).toISOString();
 ---
@@ -95,7 +89,7 @@ const publishedAtIso = new Date(post.published_at ?? post.created_at).toISOStrin
   <main class="min-h-screen bg-background page-transition">
     <Navbar client:load />
 
-    <section class="pt-28 pb-8 px-6">
+    <section class="pt-28 pb-24 px-6">
       <div class="max-w-2xl mx-auto">
         {coverUrl && (
           <div class="w-full aspect-[1.91/1] overflow-hidden rounded-[10px] bg-muted mb-14 fade-in-up">
@@ -159,24 +153,31 @@ const publishedAtIso = new Date(post.published_at ?? post.created_at).toISOStrin
           </section>
         )}
 
-        {relatedArticles.length > 0 && (
-          <section class="mt-12 pt-8 border-t border-border">
-            <h2 class="text-xs uppercase tracking-widest text-muted-foreground mb-4">
-              Related articles
-            </h2>
-            <ul class="space-y-2">
-              {relatedArticles.map((related) => (
-                <li>
-                  <a
-                    href={`/articles/${related.slug}`}
-                    class="text-sm underline hover:opacity-70 transition-opacity"
-                  >
-                    {related.title}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </section>
+        {(olderPost || newerPost) && (
+          <nav class="mt-12 pt-8 border-t border-border flex flex-col sm:flex-row gap-6 sm:gap-4 justify-between" aria-label="Article navigation">
+            {olderPost ? (
+              <a
+                href={`/articles/${olderPost.slug}`}
+                class="group flex-1 flex flex-col gap-1 hover:opacity-70 transition-opacity"
+              >
+                <span class="text-xs uppercase tracking-widest text-muted-foreground">&larr; Older</span>
+                <span class="text-sm font-medium underline underline-offset-2 decoration-border group-hover:decoration-foreground">
+                  {olderPost.title}
+                </span>
+              </a>
+            ) : <span class="flex-1" />}
+            {newerPost ? (
+              <a
+                href={`/articles/${newerPost.slug}`}
+                class="group flex-1 flex flex-col gap-1 sm:items-end sm:text-right hover:opacity-70 transition-opacity"
+              >
+                <span class="text-xs uppercase tracking-widest text-muted-foreground">Newer &rarr;</span>
+                <span class="text-sm font-medium underline underline-offset-2 decoration-border group-hover:decoration-foreground">
+                  {newerPost.title}
+                </span>
+              </a>
+            ) : <span class="flex-1" />}
+          </nav>
         )}
       </div>
     </section>
