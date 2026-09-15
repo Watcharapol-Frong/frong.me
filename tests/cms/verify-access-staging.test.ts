@@ -6,12 +6,26 @@ import {
   parseCliArgs,
   normalizeHost,
   createMockAccessServer,
-  createCallbackProbe,
   AccessVerificationError,
   DEFAULT_STAGING_HOST,
 } from '../../scripts/build/verify-access-staging.mjs';
 
 describe('scripts/build/verify-access-staging.mjs', () => {
+  it('rejects retired mutation flags instead of silently ignoring them', () => {
+    assert.throws(() => parseCliArgs(['--callback', 'confirm']), AccessVerificationError);
+    assert.throws(() => parseCliArgs(['--release-id', 'old-release']), AccessVerificationError);
+  });
+
+  it('dry-run ignores configured remote hosts and uses a local mock', async () => {
+    const result = await verifyAccessStaging({
+      dryRun: true,
+      env: { CMS_STAGING_HOST: 'https://do-not-contact.invalid' },
+      log: () => {},
+    });
+    assert.equal(result.success, true);
+    assert.match(result.host, /^http:\/\/127\.0\.0\.1:/);
+  });
+
   it('parses CLI arguments correctly', () => {
     const args = [
       '--host', 'https://custom-staging.frong.me',
@@ -20,11 +34,6 @@ describe('scripts/build/verify-access-staging.mjs', () => {
       '--client-secret', 'test-secret',
       '--jwt', 'test-jwt',
       '--public-path', '/articles/test-article',
-      '--callback', 'confirm',
-      '--release-id', 'release_test_001',
-      '--attempt-id', 'attempt_test_001',
-      '--provider-deployment-id', 'deployment-test-001',
-      '--workflow-run-id', '123456',
     ];
     const options = parseCliArgs(args);
     assert.equal(options.host, 'https://custom-staging.frong.me');
@@ -33,11 +42,6 @@ describe('scripts/build/verify-access-staging.mjs', () => {
     assert.equal(options.clientSecret, 'test-secret');
     assert.equal(options.jwtAssertion, 'test-jwt');
     assert.equal(options.publicPath, '/articles/test-article');
-    assert.equal(options.callbackMode, 'confirm');
-    assert.equal(options.releaseId, 'release_test_001');
-    assert.equal(options.attemptId, 'attempt_test_001');
-    assert.equal(options.providerDeploymentId, 'deployment-test-001');
-    assert.equal(options.workflowRunId, '123456');
   });
 
   it('normalizes host URLs properly', () => {
@@ -48,7 +52,7 @@ describe('scripts/build/verify-access-staging.mjs', () => {
     assert.equal(normalizeHost('https://cms-staging.frong.me'), 'https://cms-staging.frong.me');
   });
 
-  it('completes all 4 cases in --dry-run mode against mock server', async () => {
+  it('completes all 3 cases in --dry-run mode against mock server', async () => {
     const logs: string[] = [];
     const result = await verifyAccessStaging({
       dryRun: true,
@@ -59,54 +63,14 @@ describe('scripts/build/verify-access-staging.mjs', () => {
     assert.equal(result.dryRun, true);
     assert.equal(result.results.case1.earth.status, 302);
     assert.equal(result.results.case1.api.status, 401);
-    assert.equal(result.results.case1.callbacks.confirm.status, 401);
-    assert.equal(result.results.case1.callbacks.fail.status, 401);
     assert.equal(result.results.case2.earth.status, 200);
     assert.equal(result.results.case2.api.status, 200);
     assert.equal(result.results.case3.publicRoute.status, 200);
-    assert.equal(result.results.case4.confirm.releaseStatus, 'live');
-    assert.equal(result.results.case4.fail.releaseStatus, 'failed');
 
     assert.ok(logs.some((l) => l.includes('Case 1: Unauthenticated Admin/API Access')));
     assert.ok(logs.some((l) => l.includes('Case 2: Authenticated via Access Service Token / Assertion')));
     assert.ok(logs.some((l) => l.includes('Case 3: Public Route Bypass')));
-    assert.ok(logs.some((l) => l.includes('Case 4: Authenticated Release Callback')));
     assert.ok(logs.some((l) => l.includes('All Zero Trust staging access verifications PASSED successfully')));
-  });
-
-  it('prepares backend-compatible callback payloads and terminal-state assertions', () => {
-    const confirm = createCallbackProbe({
-      outcome: 'confirm',
-      releaseId: 'release_test_001',
-      attemptId: 'attempt_test_001',
-      callbackSecret: 'secret',
-      providerDeploymentId: 'deployment-test-001',
-      workflowRunId: '123456',
-    });
-    assert.equal(confirm.path, '/earth/api/releases/release_test_001/confirm');
-    assert.deepEqual(confirm.payload, {
-      attemptId: 'attempt_test_001',
-      providerDeploymentId: 'deployment-test-001',
-      workflowRunId: '123456',
-    });
-    assert.equal(confirm.assert({
-      liveReleaseId: 'release_test_001',
-      release: { id: 'release_test_001', status: 'live' },
-    }), true);
-    assert.equal(confirm.assert({ release: { id: 'release_test_001', status: 'building' } }), false);
-
-    const fail = createCallbackProbe({
-      outcome: 'fail',
-      releaseId: 'release_test_001',
-      attemptId: 'attempt_test_001',
-      callbackSecret: 'secret',
-      errorMessage: 'wrangler deploy exited 1',
-    });
-    assert.deepEqual(fail.payload, {
-      attemptId: 'attempt_test_001',
-      errorMessage: 'wrangler deploy exited 1',
-    });
-    assert.equal(fail.assert({ release: { id: 'release_test_001', status: 'failed' } }), true);
   });
 
   it('fails Case 1 if /earth is accessible without authentication (returns 200)', async () => {
@@ -191,18 +155,6 @@ describe('scripts/build/verify-access-staging.mjs', () => {
         assert.equal(err.caseName, 'missing-credentials');
         return true;
       }
-    );
-  });
-
-  it('refuses an unsafe live probe of both terminal callback outcomes', async () => {
-    await assert.rejects(
-      () => verifyAccessStaging({
-        dryRun: false,
-        callbackMode: 'all',
-        env: {},
-        log: () => {},
-      }),
-      (err: any) => err instanceof AccessVerificationError && err.caseName === 'callback-config'
     );
   });
 
@@ -307,11 +259,6 @@ describe('scripts/build/verify-access-staging.mjs', () => {
       if (url === '/earth' || url === '/earth/api/posts') {
         const hasAuth = req.headers['cf-access-client-id'] === 'valid-id';
         res.writeHead(hasAuth ? 200 : 401);
-        res.end();
-        return;
-      }
-      if (url.startsWith('/earth/api/releases/')) {
-        res.writeHead(401);
         res.end();
         return;
       }

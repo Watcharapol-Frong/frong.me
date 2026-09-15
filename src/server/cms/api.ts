@@ -19,7 +19,6 @@ export interface CmsApiLocals {
 export interface CmsApiEnvironment {
   DB?: D1DatabaseBinding;
   MEDIA_BUCKET?: R2BucketBinding;
-  MEDIA_PUBLIC_BASE_URL?: string;
   GEMINI_API_KEY?: string;
 }
 
