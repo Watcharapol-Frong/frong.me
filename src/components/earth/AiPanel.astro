@@ -22,14 +22,6 @@ const SECTIONS: { id: string; task: string; icon: string; label: string; action:
     hint: 'Reads the body. Click a suggestion to use it as the title.',
   },
   {
-    id: 'excerpt',
-    task: 'auto-excerpt',
-    icon: '📝',
-    label: 'Auto Excerpt',
-    action: 'Generate excerpt',
-    hint: 'Writes a ≤160-character summary. Click it to fill the Excerpt field.',
-  },
-  {
     id: 'outline',
     task: 'generate-outline',
     icon: '📋',
@@ -64,15 +56,30 @@ const SECTIONS: { id: string; task: string; icon: string; label: string; action:
 ];
 ---
 
+<button
+  type="button"
+  class="ai-panel-toggle"
+  data-earth-ai-panel-toggle
+  aria-label="Show AI Assistant"
+  aria-expanded="false"
+>
+  <span class="ai-panel-toggle-icon">✨</span>
+  <span class="ai-panel-toggle-label">AI Assistant</span>
+</button>
+
 <aside class="ai-panel" data-earth-ai-panel data-earth-sidebar="right">
+<div class="ai-panel-scroll">
   <div class="ai-header">AI Assistant</div>
 
   <div class="ai-provider">
-    <select class="form-input form-select" data-earth-ai-provider aria-label="AI provider">
-      <option value="gemini">Gemini</option>
-      <option value="cloudflare">Workers AI</option>
-      <option value="openrouter">OpenRouter</option>
-    </select>
+    <select class="form-input form-select" data-earth-ai-provider aria-label="AI provider"></select>
+    <div class="ai-model-row">
+      <span class="ai-model-current" data-earth-ai-model-label></span>
+      <button type="button" class="inspire-btn" data-earth-ai-model-toggle aria-haspopup="true" aria-expanded="false">
+        ↓ Model
+      </button>
+    </div>
+    <div class="slash-menu" data-earth-ai-model-menu hidden></div>
   </div>
 
   {SECTIONS.map((section) => (
@@ -105,10 +112,32 @@ const SECTIONS: { id: string; task: string; icon: string; label: string; action:
       </div>
     </section>
   ))}
+</div>
+
+  <button type="button" class="ai-panel-collapse" data-earth-ai-panel-collapse aria-label="Hide AI Assistant">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
+    <span>Hide</span>
+  </button>
 </aside>
 
 <script>
+  import { AI_PROVIDERS, AI_PROVIDER_MODELS, DEFAULT_AI_MODELS } from '../../types/ai.ts';
   import type { AiGenerateSuccessResponse, AiProvider, AiResearchIdea, AiReviewReport } from '../../types/ai.ts';
+  import { getAiProviderConfigs } from '../../lib/cms/client/api.ts';
+
+  const AI_PROVIDER_LABELS: Record<AiProvider, string> = {
+    cloudflare: 'Workers AI',
+    gemini: 'Gemini',
+    openrouter: 'OpenRouter',
+  };
+
+  interface PickerModel {
+    id: string;
+    label: string;
+    short: string;
+  }
 
   function el<K extends keyof HTMLElementTagNameMap>(
     tag: K,
@@ -129,14 +158,175 @@ const SECTIONS: { id: string; task: string; icon: string; label: string; action:
       .filter(Boolean);
   }
 
+  /** Mirrors PostEditor.astro's own bridge type — see RichBodyEditor.tsx's header comment. */
+  interface BodyEditorBridgeLike {
+    getMarkdown(): string;
+    setMarkdown(markdown: string): void;
+    focus(): void;
+    isFocused(): boolean;
+    toggleBold(): void;
+    insertImage(url: string, alt?: string): void;
+    insertYoutube(videoId: string): void;
+    getSelection(): { from: number; to: number; text: string };
+    replaceRange(from: number, to: number, markdown: string): void;
+    replaceSelection(markdown: string): void;
+    appendMarkdown(markdown: string): void;
+  }
+
   function initAiPanel(panel: HTMLElement) {
     const form = panel.closest('form') ?? document.querySelector<HTMLFormElement>('[data-earth-editor]');
     const bodyField = form?.querySelector<HTMLTextAreaElement>('[data-earth-field="body"]');
+
+    function getBodyEditor(): BodyEditorBridgeLike | null {
+      const bodyEl = form?.querySelector<HTMLElement & { bodyEditor?: BodyEditorBridgeLike }>('[data-earth-body-editor]');
+      return bodyEl?.bodyEditor ?? null;
+    }
     const titleField = form?.querySelector<HTMLInputElement>('[data-earth-field="title"]');
     const excerptField = form?.querySelector<HTMLTextAreaElement>('[data-earth-field="excerpt"]');
+    const slugField = form?.querySelector<HTMLInputElement>('[data-earth-field="slug"]');
     const tagsField = form?.querySelector<HTMLInputElement>('[data-earth-field="tags"]');
     const providerSelect = panel.querySelector<HTMLSelectElement>('[data-earth-ai-provider]');
+    const modelLabel = panel.querySelector<HTMLElement>('[data-earth-ai-model-label]');
+    const modelToggle = panel.querySelector<HTMLButtonElement>('[data-earth-ai-model-toggle]');
+    const modelMenu = panel.querySelector<HTMLElement>('[data-earth-ai-model-menu]');
     const topicInput = panel.querySelector<HTMLInputElement>('[data-earth-ai-topic]');
+
+    /* ---------------- Model picker: text + popup, not a native <select> ---------------- */
+    /*
+     * Sourced from each provider's BYOK config (Settings → AI Provider): only
+     * providers the author actually configured show up, with the 1-5 models
+     * they chose. Until they've configured anything, this falls back to the
+     * curated static list so the panel still works out of the box.
+     */
+
+    let modelsByProvider = new Map<AiProvider, PickerModel[]>(
+      AI_PROVIDERS.map((provider) => [provider, AI_PROVIDER_MODELS[provider]]),
+    );
+    let currentModel = DEFAULT_AI_MODELS[(providerSelect?.value ?? 'gemini') as AiProvider];
+
+    function currentProvider(): AiProvider {
+      return (providerSelect?.value ?? 'gemini') as AiProvider;
+    }
+
+    function modelsForCurrentProvider(): PickerModel[] {
+      return modelsByProvider.get(currentProvider()) ?? [];
+    }
+
+    function renderModelLabel() {
+      if (!modelLabel) return;
+      const match = modelsForCurrentProvider().find((model) => model.id === currentModel);
+      modelLabel.textContent = match?.short ?? currentModel;
+    }
+
+    function closeModelMenu() {
+      if (modelMenu) modelMenu.hidden = true;
+      modelToggle?.setAttribute('aria-expanded', 'false');
+    }
+
+    function openModelMenu() {
+      if (!modelMenu || !modelToggle) return;
+      modelMenu.innerHTML = '';
+      for (const model of modelsForCurrentProvider()) {
+        const item = document.createElement('button');
+        item.type = 'button';
+        item.className = 'slash-item';
+        if (model.id === currentModel) item.dataset.selected = 'true';
+        const text = document.createElement('span');
+        text.className = 'slash-item-text';
+        const labelEl = document.createElement('span');
+        labelEl.className = 'slash-item-label';
+        labelEl.textContent = model.label;
+        text.append(labelEl);
+        item.append(text);
+        item.addEventListener('click', () => {
+          currentModel = model.id;
+          renderModelLabel();
+          closeModelMenu();
+        });
+        modelMenu.appendChild(item);
+      }
+      const rect = modelToggle.getBoundingClientRect();
+      modelMenu.style.visibility = 'hidden';
+      modelMenu.hidden = false;
+      const menuRect = modelMenu.getBoundingClientRect();
+      const openUpward = window.innerHeight - rect.bottom < menuRect.height && rect.top > menuRect.height;
+      modelMenu.style.top = openUpward ? `${rect.top - menuRect.height - 4}px` : `${rect.bottom + 4}px`;
+      modelMenu.style.left = `${Math.min(rect.left, window.innerWidth - menuRect.width - 8)}px`;
+      modelMenu.style.visibility = '';
+      modelToggle.setAttribute('aria-expanded', 'true');
+    }
+
+    modelToggle?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      if (modelMenu?.hidden === false) closeModelMenu();
+      else openModelMenu();
+    });
+    document.addEventListener('click', (event) => {
+      if (modelMenu?.hidden === false && !modelMenu.contains(event.target as Node)) closeModelMenu();
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') closeModelMenu();
+    });
+
+    function selectFirstModelForProvider() {
+      currentModel = modelsForCurrentProvider()[0]?.id ?? DEFAULT_AI_MODELS[currentProvider()];
+      renderModelLabel();
+    }
+
+    providerSelect?.addEventListener('change', () => {
+      selectFirstModelForProvider();
+      closeModelMenu();
+    });
+
+    /** Populates the provider <select> from BYOK config, configured providers only. */
+    async function loadProviderPicker() {
+      let configuredProviders: AiProvider[] = [];
+      try {
+        const configs = await getAiProviderConfigs();
+        for (const config of configs) {
+          if (config.models.length === 0) continue;
+          configuredProviders.push(config.provider);
+          modelsByProvider.set(
+            config.provider,
+            config.models.map((model) => ({ id: model.id, label: model.label, short: model.short })),
+          );
+        }
+      } catch (error) {
+        console.error('[earth-ai-panel] failed to load AI provider configs', error);
+      }
+
+      // Nothing configured yet (fresh install) — fall back to every provider
+      // with its curated static list so the panel keeps working.
+      const providers = configuredProviders.length > 0 ? configuredProviders : [...AI_PROVIDERS];
+
+      if (providerSelect) {
+        const previous = providerSelect.value;
+        providerSelect.innerHTML = '';
+        for (const provider of providers) {
+          const option = document.createElement('option');
+          option.value = provider;
+          option.textContent = AI_PROVIDER_LABELS[provider];
+          providerSelect.appendChild(option);
+        }
+        providerSelect.value = providers.includes(previous as AiProvider) ? previous : providers[0];
+      }
+      selectFirstModelForProvider();
+    }
+
+    void loadProviderPicker();
+    renderModelLabel();
+
+    /** Turns free-form AI text into a slug matching the field's own [a-z0-9-]+ pattern. */
+    function slugify(text: string): string {
+      return text
+        .toLowerCase()
+        .normalize('NFKD')
+        .replace(/[̀-ͯ]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 60)
+        .replace(/-+$/g, '');
+    }
 
     /** Tells the editor's own script that a field changed under it. */
     function notifyChanged(field: HTMLInputElement | HTMLTextAreaElement | null | undefined) {
@@ -151,6 +341,7 @@ const SECTIONS: { id: string; task: string; icon: string; label: string; action:
         body: JSON.stringify({
           task,
           provider: (providerSelect?.value ?? 'gemini') as AiProvider,
+          model: currentModel || undefined,
           title: titleField?.value ?? '',
           description: excerptField?.value ?? '',
           bodyText: bodyField?.value ?? '',
@@ -223,8 +414,7 @@ const SECTIONS: { id: string; task: string; icon: string; label: string; action:
       }
     }
 
-    function renderInlineDraft(text: string, selectionStart: number, selectionEnd: number, hadSelection: boolean) {
-      if (!bodyField) return;
+    function renderInlineDraft(text: string, selectionFrom: number, selectionTo: number, hadSelection: boolean) {
       const box = el('div', 'ai-diff');
       const preview = el('pre', 'ai-diff-text', text);
       const actions = el('div', 'ai-diff-actions');
@@ -232,11 +422,13 @@ const SECTIONS: { id: string; task: string; icon: string; label: string; action:
       const accept = el('button', 'ai-btn ai-btn-accept', 'Accept');
       accept.type = 'button';
       accept.addEventListener('click', () => {
-        const before = bodyField.value.slice(0, hadSelection ? selectionStart : bodyField.value.length);
-        const after = hadSelection ? bodyField.value.slice(selectionEnd) : '';
-        const glue = hadSelection || before === '' || before.endsWith('\n\n') ? '' : '\n\n';
-        bodyField.value = `${before}${glue}${text}${after}`;
-        notifyChanged(bodyField);
+        const editor = getBodyEditor();
+        if (!editor) return;
+        // Positions are ProseMirror doc positions, captured before the AI
+        // call went out — replaces exactly the text that was selected then,
+        // or appends to the end when nothing was selected.
+        if (hadSelection) editor.replaceRange(selectionFrom, selectionTo, text);
+        else editor.appendMarkdown(text);
         setOutput('inline_draft', el('p', 'ai-note', 'Applied to the body.'));
       });
 
@@ -307,11 +499,11 @@ const SECTIONS: { id: string; task: string; icon: string; label: string; action:
       if (label) label.textContent = 'Thinking…';
       setOutput(task, el('div', 'ai-loading', 'Thinking…'));
 
-      // Captured before the await: focus moves to the button, but the textarea
-      // keeps its selection, and the body may be edited while the call is out.
-      const selectionStart = bodyField?.selectionStart ?? 0;
-      const selectionEnd = bodyField?.selectionEnd ?? 0;
-      const selectedText = bodyField?.value.slice(selectionStart, selectionEnd) ?? '';
+      // Captured before the await: focus moves to the button, but this keeps
+      // the doc positions the rich editor's selection was at, and the body
+      // may be edited while the call is out.
+      const capturedSelection = getBodyEditor()?.getSelection() ?? { from: 0, to: 0, text: '' };
+      const selectedText = capturedSelection.text;
 
       try {
         if (task === 'title-suggestions') {
@@ -321,21 +513,11 @@ const SECTIONS: { id: string; task: string; icon: string; label: string; action:
             titleField.value = value;
             notifyChanged(titleField);
           });
-        } else if (task === 'auto-excerpt') {
-          const text = await callAi(task) as string;
-          renderChoices(task, [text.trim()], (value) => {
-            if (!excerptField) return;
-            excerptField.value = value.slice(0, 160);
-            notifyChanged(excerptField);
-          });
         } else if (task === 'generate-outline') {
           const text = await callAi(task) as string;
           const headings = listLines(text);
           renderChoices(task, [headings.map((line) => `## ${line}`).join('\n\n')], (value) => {
-            if (!bodyField) return;
-            const glue = bodyField.value.trim() === '' ? '' : '\n\n';
-            bodyField.value = `${bodyField.value}${glue}${value}\n`;
-            notifyChanged(bodyField);
+            getBodyEditor()?.appendMarkdown(`${value}\n`);
           });
         } else if (task === 'research') {
           const ideas = await callAi(task, {
@@ -344,7 +526,7 @@ const SECTIONS: { id: string; task: string; icon: string; label: string; action:
           renderResearch(ideas);
         } else if (task === 'inline_draft') {
           const text = await callAi(task, { selectedText: selectedText || undefined }) as string;
-          renderInlineDraft(text, selectionStart, selectionEnd, selectedText.length > 0);
+          renderInlineDraft(text, capturedSelection.from, capturedSelection.to, selectedText.length > 0);
         } else if (task === 'review') {
           const report = await callAi(task, {
             tags: (tagsField?.value ?? '').split(',').map((tag) => tag.trim()).filter(Boolean),
@@ -358,6 +540,80 @@ const SECTIONS: { id: string; task: string; icon: string; label: string; action:
         if (label) label.textContent = original;
       }
     }
+
+    /**
+     * Minimal "✨ AI" text buttons next to the Slug/Excerpt/Tags labels
+     * (outside this panel, in `MetadataForm`) — one shot, no accordion, no
+     * click-a-chip step: generate and apply straight to the field.
+     */
+    async function runInline(task: string, button: HTMLButtonElement) {
+      const original = button.textContent ?? '';
+      button.disabled = true;
+      button.textContent = '…';
+      try {
+        const text = (await callAi(task)) as string;
+        const value = text.trim();
+        if (!value) throw new Error('The model returned nothing usable.');
+        if (task === 'auto-excerpt' && excerptField) {
+          excerptField.value = value.slice(0, 160);
+          notifyChanged(excerptField);
+        } else if (task === 'auto-slug' && slugField) {
+          slugField.value = slugify(value);
+          notifyChanged(slugField);
+        } else if (task === 'auto-tags' && tagsField) {
+          tagsField.value = listLines(value).slice(0, 2).join(', ');
+          notifyChanged(tagsField);
+        }
+        button.textContent = '✓';
+      } catch {
+        button.textContent = '✕';
+      } finally {
+        setTimeout(() => {
+          button.textContent = original;
+          button.disabled = false;
+        }, 1200);
+      }
+    }
+
+    form?.addEventListener('click', (event) => {
+      const inlineButton = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-earth-ai-inline]');
+      if (inlineButton?.dataset.earthAiInline) void runInline(inlineButton.dataset.earthAiInline, inlineButton);
+    });
+
+    /**
+     * Collapsible toggle — closed by default (remembered per-browser). A
+     * floating "AI Assistant" button near the top-right opens it as a real
+     * flex sibling that pushes the writing column back, exactly like it
+     * behaves permanently open; that button hides itself while open, handing
+     * off to a "Hide" button pinned to the panel's own footer to close it.
+     */
+    const panelToggle = document.querySelector<HTMLButtonElement>('[data-earth-ai-panel-toggle]');
+    const panelCollapse = panel.querySelector<HTMLButtonElement>('[data-earth-ai-panel-collapse]');
+    const STORAGE_KEY = 'earth:ai-panel-open';
+
+    function setPanelOpen(open: boolean) {
+      panel.setAttribute('data-open', String(open));
+      if (panelToggle) {
+        panelToggle.hidden = open;
+        panelToggle.setAttribute('aria-expanded', String(open));
+      }
+      try {
+        localStorage.setItem(STORAGE_KEY, open ? '1' : '0');
+      } catch {
+        // Private browsing / storage disabled: state just won't persist across reloads.
+      }
+    }
+
+    panelToggle?.addEventListener('click', () => setPanelOpen(true));
+    panelCollapse?.addEventListener('click', () => setPanelOpen(false));
+
+    let startsOpen = false;
+    try {
+      startsOpen = localStorage.getItem(STORAGE_KEY) === '1';
+    } catch {
+      // Default closed when storage is unavailable.
+    }
+    setPanelOpen(startsOpen);
 
     /* ---------------- Accordion + run wiring ---------------- */
 

@@ -49,6 +49,13 @@ import type {
  * bundle. Never turn this into a value import.
  */
 import type { CmsErrorCode } from '../../../server/cms/errors.ts';
+import type {
+  AiConfiguredModel,
+  AiDiscoveredModel,
+  AiProvider,
+  AiProviderConfig,
+  UpdateAiProviderConfigInput,
+} from '../../../types/ai.ts';
 
 export const EARTH_API_BASE = '/earth/api';
 
@@ -836,4 +843,75 @@ export async function getSession(options?: CmsClientOptions): Promise<{ email: s
     const root = obj(value, 'session');
     return { email: nullableStr(root.email ?? null, 'session.email') };
   }, options);
+}
+
+/* ------------------------------------------------------------------ */
+/* AI provider configs (BYOK)                                          */
+/* ------------------------------------------------------------------ */
+
+function parseAiConfiguredModel(value: unknown, field: string): AiConfiguredModel {
+  const root = obj(value, field);
+  return {
+    id: str(root.id, `${field}.id`),
+    label: str(root.label, `${field}.label`),
+    short: str(root.short, `${field}.short`),
+    vendor: str(root.vendor, `${field}.vendor`),
+    capability: root.capability === 'text-image' ? 'text-image' : 'text',
+  };
+}
+
+function parseAiProviderConfig(value: unknown, field: string): AiProviderConfig {
+  const root = obj(value, field);
+  const models = root.models;
+  if (!Array.isArray(models)) throw new ResponseShapeError(`${field}.models`, 'must be an array');
+  return {
+    provider: str(root.provider, `${field}.provider`) as AiProvider,
+    hasApiKey: root.hasApiKey === true,
+    models: models.map((entry, index) => parseAiConfiguredModel(entry, `${field}.models[${index}]`)),
+  };
+}
+
+/** `GET /earth/api/ai/providers` — every provider's BYOK config, key masked as `hasApiKey`. */
+export async function getAiProviderConfigs(options?: CmsClientOptions): Promise<AiProviderConfig[]> {
+  return send('/ai/providers', { method: 'GET' }, (value) => {
+    if (!Array.isArray(value)) throw new ResponseShapeError('response', 'must be an array');
+    return value.map((entry, index) => parseAiProviderConfig(entry, `response[${index}]`));
+  }, options);
+}
+
+/** `PUT /earth/api/ai/providers/:provider`. `apiKey: undefined` leaves the stored key unchanged. */
+export async function updateAiProviderConfig(
+  provider: AiProvider,
+  request: UpdateAiProviderConfigInput,
+  options?: CmsClientOptions,
+): Promise<AiProviderConfig> {
+  return send(
+    `/ai/providers/${encodeURIComponent(provider)}`,
+    { method: 'PUT', body: JSON.stringify(request) },
+    (value) => parseAiProviderConfig(value, 'response'),
+    options,
+  );
+}
+
+/**
+ * `POST /earth/api/ai/providers/:provider/discover` — lists a provider's live
+ * models. Pass `apiKey` to test a key that hasn't been saved yet; omit it to
+ * use whatever key is already stored for that provider.
+ */
+export async function discoverAiProviderModels(
+  provider: AiProvider,
+  apiKey?: string,
+  options?: CmsClientOptions,
+): Promise<AiDiscoveredModel[]> {
+  return send(
+    `/ai/providers/${encodeURIComponent(provider)}/discover`,
+    { method: 'POST', body: JSON.stringify(apiKey ? { apiKey } : {}) },
+    (value) => {
+      const root = obj(value, 'response');
+      const models = root.models;
+      if (!Array.isArray(models)) throw new ResponseShapeError('response.models', 'must be an array');
+      return models.map((entry, index) => parseAiConfiguredModel(entry, `response.models[${index}]`));
+    },
+    options,
+  );
 }

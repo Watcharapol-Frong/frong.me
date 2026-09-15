@@ -113,64 +113,91 @@ const { ownerHandle = 'Frong Watcharapol', siteDomain = 'frong.me' } = Astro.pro
 
 <div class="modal-overlay" data-earth-modal="settings">
   <div class="modal modal--wide modal--settings">
-    <h2 class="modal-title">Settings</h2>
+    <div class="settings-layout">
+      <nav class="settings-nav" data-earth-settings-nav>
+        <button type="button" class="settings-nav-item" data-earth-settings-tab="profile" aria-current="true">Profile</button>
+        <button type="button" class="settings-nav-item" data-earth-settings-tab="ai">AI Provider</button>
+        <button type="button" class="settings-nav-item" data-earth-settings-tab="general">Settings</button>
+      </nav>
 
-    <section class="settings-section">
-      <h3 class="settings-section-title">Profile</h3>
-      <div class="form-group">
-        <label class="form-label" for="settings-owner-name">Display name</label>
-        <input class="form-input" id="settings-owner-name" data-earth-settings-field="ownerName" type="text" maxlength="200" />
-      </div>
-      <div class="form-group">
-        <label class="form-label" for="settings-owner-handle">Handle</label>
-        <input class="form-input" id="settings-owner-handle" data-earth-settings-field="ownerHandle" type="text" maxlength="100" />
-      </div>
-    </section>
+      <div class="settings-content">
+      <div class="settings-pages-scroll">
+        <section class="settings-page" data-earth-settings-page="profile">
+          <h2 class="modal-title settings-page-title">Profile</h2>
 
-    <section class="settings-section">
-      <h3 class="settings-section-title">Editor defaults</h3>
-      <div class="form-group">
-        <label class="form-label" for="settings-default-font">Default font for new posts</label>
-        <select class="form-input form-select" id="settings-default-font" data-earth-settings-field="defaultFont">
-          <option value="google-sans">Google Sans</option>
-          <option value="crimson-pro">Crimson Pro</option>
-          <option value="jetbrains-mono">JetBrains Mono</option>
-          <option value="ibm-plex-sans-thai">IBM Plex Sans Thai</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label" for="settings-default-provider">Default AI provider</label>
-        <select class="form-input form-select" id="settings-default-provider" data-earth-settings-field="defaultAiProvider">
-          <option value="gemini">Gemini</option>
-          <option value="cloudflare">Workers AI</option>
-          <option value="openrouter">OpenRouter</option>
-        </select>
-      </div>
-    </section>
+          <section class="settings-section">
+            <div class="form-group">
+              <label class="form-label" for="settings-owner-name">Display name</label>
+              <input class="form-input" id="settings-owner-name" data-earth-settings-field="ownerName" type="text" maxlength="200" />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="settings-owner-handle">Handle</label>
+              <input class="form-input" id="settings-owner-handle" data-earth-settings-field="ownerHandle" type="text" maxlength="100" />
+            </div>
+          </section>
 
-    <section class="settings-section">
-      <h3 class="settings-section-title">Session</h3>
-      <div class="settings-session-row">
-        <span>Signed in as</span>
-        <span class="settings-session-email" data-earth-settings-email>local dev (Access bypass)</span>
+          <section class="settings-section">
+            <h3 class="settings-section-title">Session</h3>
+            <div class="settings-session-row">
+              <span>Signed in as</span>
+              <span class="settings-session-email" data-earth-settings-email>local dev (Access bypass)</span>
+            </div>
+            <a class="settings-signout" href="/cdn-cgi/access/logout">Sign out ↗</a>
+          </section>
+        </section>
+
+        <section class="settings-page" data-earth-settings-page="ai" hidden>
+          <h2 class="modal-title settings-page-title">AI Provider</h2>
+          <p class="settings-hint">
+            Bring your own key: paste a provider's API key, fetch its real
+            available models, and choose 1-5 to make available in the editor.
+            Every AI feature there uses whatever you pick here.
+          </p>
+          <div class="ai-provider-cards" data-earth-ai-provider-cards></div>
+        </section>
+
+        <section class="settings-page" data-earth-settings-page="general" hidden>
+          <h2 class="modal-title settings-page-title">Settings</h2>
+
+          <section class="settings-section">
+            <h3 class="settings-section-title">Editor defaults</h3>
+            <div class="form-group">
+              <label class="form-label" for="settings-default-font">Default font for new posts</label>
+              <select class="form-input form-select" id="settings-default-font" data-earth-settings-field="defaultFont">
+                <option value="google-sans">Google Sans</option>
+                <option value="crimson-pro">Crimson Pro</option>
+                <option value="jetbrains-mono">JetBrains Mono</option>
+                <option value="ibm-plex-sans-thai">IBM Plex Sans Thai</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="settings-default-provider">Default AI provider</label>
+              <select class="form-input form-select" id="settings-default-provider" data-earth-settings-field="defaultAiProvider">
+                <option value="gemini">Gemini</option>
+                <option value="cloudflare">Workers AI</option>
+                <option value="openrouter">OpenRouter</option>
+              </select>
+            </div>
+          </section>
+
+          <section class="settings-section">
+            <h3 class="settings-section-title">Data</h3>
+            <p class="settings-hint">Exports every draft and published post, including full content.</p>
+            <div class="settings-export-row">
+              <button type="button" class="modal-btn modal-btn-cancel" data-earth-export="json">Export (JSON)</button>
+              <button type="button" class="modal-btn modal-btn-cancel" data-earth-export="markdown">Export (Markdown)</button>
+            </div>
+          </section>
+        </section>
       </div>
-      <a class="settings-signout" href="/cdn-cgi/access/logout">Sign out ↗</a>
-    </section>
 
-    <section class="settings-section">
-      <h3 class="settings-section-title">Data</h3>
-      <p class="settings-hint">Exports every draft and published post, including full content.</p>
-      <div class="settings-export-row">
-        <button type="button" class="modal-btn modal-btn-cancel" data-earth-export="json">Export (JSON)</button>
-        <button type="button" class="modal-btn modal-btn-cancel" data-earth-export="markdown">Export (Markdown)</button>
+        <p class="settings-save-status" data-earth-settings-status hidden></p>
+
+        <div class="modal-actions" data-earth-settings-footer-actions>
+          <button class="modal-btn modal-btn-cancel" data-earth-modal-close>Close</button>
+          <button class="modal-btn modal-btn-confirm" data-earth-settings-save>Save</button>
+        </div>
       </div>
-    </section>
-
-    <p class="settings-save-status" data-earth-settings-status hidden></p>
-
-    <div class="modal-actions">
-      <button class="modal-btn modal-btn-cancel" data-earth-modal-close>Close</button>
-      <button class="modal-btn modal-btn-confirm" data-earth-settings-save>Save</button>
     </div>
   </div>
 </div>
@@ -612,9 +639,52 @@ const { ownerHandle = 'Frong Watcharapol', siteDomain = 'frong.me' } = Astro.pro
 
   /* ---------------- Settings modal ---------------- */
 
-  .modal--wide { max-width: 480px; }
-  .modal--settings { text-align: left; max-height: 85vh; overflow-y: auto; }
-  .modal--settings .modal-title { text-align: center; }
+  .modal--wide { max-width: 680px; }
+  .modal--settings { text-align: left; max-height: 85vh; padding: 0; overflow: hidden; }
+  .modal--settings .modal-title { text-align: left; }
+
+  .settings-layout { display: flex; height: 85vh; max-height: 640px; }
+
+  .settings-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 160px;
+    flex-shrink: 0;
+    background: #fafafa;
+    border-right: 1px solid #eee;
+    padding: 16px 10px;
+  }
+
+  .settings-nav-item {
+    text-align: left;
+    background: none;
+    border: none;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    color: #999;
+    padding: 10px 12px;
+    cursor: pointer;
+    border-radius: 4px;
+  }
+
+  .settings-nav-item:hover { background: #f0f0f0; color: #333; }
+  .settings-nav-item[aria-current='true'] { background: #000; color: #fff; }
+
+  .settings-content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 32px 32px 24px;
+    overflow: hidden;
+  }
+
+  .settings-pages-scroll { flex: 1; overflow-y: auto; margin-bottom: 16px; }
+
+  .settings-page-title { margin-bottom: 20px; }
 
   .settings-section { margin-bottom: 28px; }
   .settings-section:last-of-type { margin-bottom: 20px; }
@@ -700,6 +770,253 @@ const { ownerHandle = 'Frong Watcharapol', siteDomain = 'frong.me' } = Astro.pro
 
   .settings-save-status[data-tone='error'] { color: #ef4444; }
 
+  /* `.modal-actions{display:flex}` outranks the UA `[hidden]` default, so the
+     footer needs its own explicit override to actually disappear. */
+  .modal-actions[hidden] { display: none; }
+
+  /* ---------------- AI Provider tab ---------------- */
+
+  .ai-provider-cards { display: flex; flex-direction: column; gap: 16px; }
+
+  .ai-provider-card { border: 1px solid #eee; padding: 18px 20px; }
+
+  .ai-provider-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  .ai-provider-card-title { font-size: 14px; font-weight: 700; margin: 0; }
+
+  .ai-provider-card-badge {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: #22c55e;
+    background: #f0fdf4;
+    padding: 3px 8px;
+    border-radius: 999px;
+  }
+
+  .ai-provider-card-row { display: flex; gap: 8px; align-items: flex-end; margin-bottom: 12px; }
+  .ai-provider-card-row .form-group { flex: 1; margin-bottom: 0; }
+
+  .ai-provider-card-hint { font-size: 11px; color: #999; margin: -4px 0 12px; line-height: 1.5; }
+  .ai-provider-card-hint[data-tone='error'] { color: #ef4444; }
+
+  /* Collapsed model summary: chips for what's picked, one button to open the
+     full picker — keeps the card short no matter how many models a provider
+     has, instead of a long checklist sitting open on the page at all times. */
+  .ai-model-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+
+  .ai-model-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #333;
+    background: #f5f5f5;
+    padding: 5px 6px 5px 10px;
+    border-radius: 999px;
+    max-width: 220px;
+  }
+
+  .ai-model-chip-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .ai-model-chip-remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border: none;
+    background: none;
+    color: #999;
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1;
+    padding: 0;
+    border-radius: 999px;
+  }
+
+  .ai-model-chip-remove:hover { background: #e5e5e5; color: #333; }
+
+  .ai-model-chips-empty { font-size: 12px; color: #bbb; }
+
+  .ai-provider-choose-btn {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: #333;
+    background: #fff;
+    border: 1px dashed #ccc;
+    padding: 6px 12px;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+
+  .ai-provider-choose-btn:hover { border-color: #999; }
+
+  .ai-provider-card-actions { display: flex; justify-content: flex-end; gap: 8px; }
+  .ai-provider-card-actions .modal-btn { flex: none; padding: 8px 16px; }
+
+  /* ---------------- AI model picker popup (opened from a card's "Choose models") ---------------- */
+
+  .ai-model-popup-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.35);
+    z-index: 2100;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .ai-model-popup-overlay[data-open='true'] { display: flex; }
+
+  .ai-model-popup {
+    background: #fff;
+    width: 92%;
+    max-width: 420px;
+    max-height: 85vh;
+    min-height: 320px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  }
+
+  .ai-model-popup-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 18px;
+    border-bottom: 1px solid #f0f0f0;
+  }
+
+  .ai-model-popup-title { font-size: 14px; font-weight: 700; margin: 0; }
+
+  .ai-model-popup-fetch {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    background: #f5f5f5;
+    border: none;
+    padding: 6px 10px;
+    cursor: pointer;
+    color: #333;
+  }
+
+  .ai-model-popup-close {
+    border: none;
+    background: none;
+    font-size: 14px;
+    color: #999;
+    cursor: pointer;
+    padding: 4px;
+  }
+
+  .ai-model-popup-vendors {
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 6px;
+    padding: 12px 18px 0;
+    /* A provider like OpenRouter can have 50+ vendors — without a cap here,
+       the chip row grows to fill nearly the whole popup and squeezes the
+       actual model checklist down to 2-3 visible rows. Capped and scrollable
+       on its own instead, so the checklist always keeps most of the space. */
+    max-height: 88px;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+
+  .ai-model-vendor-chip {
+    font-size: 11px;
+    font-weight: 600;
+    color: #666;
+    background: #f5f5f5;
+    border: 1px solid transparent;
+    padding: 5px 10px;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+
+  .ai-model-vendor-chip[data-active='true'] { background: #000; color: #fff; }
+
+  .ai-model-popup-hint { font-size: 11px; color: #999; padding: 10px 18px 0; margin: 0; line-height: 1.5; }
+  .ai-model-popup-hint[data-tone='error'] { color: #ef4444; }
+  .ai-model-popup-hint[data-tone='max'] {
+    color: #92400e;
+    background: #fffbeb;
+    margin: 10px 18px 0;
+    padding: 8px 10px;
+    border-radius: 4px;
+  }
+
+  .ai-model-popup-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .ai-provider-model-empty { font-size: 12px; color: #bbb; padding: 12px 8px; }
+
+  .ai-model-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #333;
+    padding: 7px 8px;
+    cursor: pointer;
+  }
+
+  .ai-model-checkbox:hover { background: #fafafa; }
+  .ai-model-checkbox input:disabled + .ai-model-checkbox-text { color: #ccc; }
+
+  .ai-model-checkbox-text {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ai-model-capability {
+    flex-shrink: 0;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    color: #999;
+    background: #f5f5f5;
+    padding: 2px 7px;
+    border-radius: 999px;
+  }
+
+  .ai-model-popup-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 18px;
+    border-top: 1px solid #f0f0f0;
+  }
+
+  .ai-model-popup-count { font-size: 11px; color: #999; }
+
   @media (max-width: 1000px) {
     .portal-grid { grid-template-columns: 1fr; height: auto; }
     /* :not(.col-identity) — the sidebar is a fixed overlay, not a flowing
@@ -719,6 +1036,20 @@ const { ownerHandle = 'Frong Watcharapol', siteDomain = 'frong.me' } = Astro.pro
   @media (max-width: 420px) {
     .col-identity { width: 100%; max-width: 100%; }
   }
+
+  @media (max-width: 640px) {
+    .modal--wide { max-width: 94vw; }
+    .settings-layout { flex-direction: column; height: 90vh; max-height: none; }
+    .settings-nav {
+      flex-direction: row;
+      width: 100%;
+      overflow-x: auto;
+      border-right: none;
+      border-bottom: 1px solid #eee;
+      padding: 10px 12px;
+    }
+    .settings-content { padding: 20px 20px 16px; }
+  }
 </style>
 
 <script>
@@ -729,10 +1060,43 @@ const { ownerHandle = 'Frong Watcharapol', siteDomain = 'frong.me' } = Astro.pro
     getSettings,
     updateSettings,
     getSession,
+    getAiProviderConfigs,
+    updateAiProviderConfig,
+    discoverAiProviderModels,
     type PostSummary,
     type SiteSettings,
   } from '../../lib/cms/client/api.ts';
   import { MAX_DRAFT_POSTS } from '../../lib/cms/contracts.ts';
+  import {
+    AI_PROVIDERS,
+    AI_PROVIDER_MODELS,
+    AI_PROVIDER_CONFIG_LIMITS,
+    capabilityLabel,
+    vendorLabel,
+    type AiProvider,
+    type AiProviderConfig,
+    type AiConfiguredModel,
+    type AiDiscoveredModel,
+  } from '../../types/ai.ts';
+
+  const AI_PROVIDER_LABELS: Record<AiProvider, string> = {
+    cloudflare: 'Workers AI',
+    gemini: 'Gemini',
+    openrouter: 'OpenRouter',
+  };
+
+  /** Cloudflare runs on the Worker's own AI binding — no key, no live discovery. */
+  const AI_PROVIDER_NEEDS_KEY: Record<AiProvider, boolean> = {
+    cloudflare: false,
+    gemini: true,
+    openrouter: true,
+  };
+
+  // OpenRouter alone can span 50+ vendors — showing every one as a filter
+  // chip is overwhelming, so only the most-represented ones (by model count
+  // in the current fetch) get their own chip; the rest collapse into "Other".
+  const MAX_VENDOR_CHIPS = 9;
+  const OTHER_VENDOR_KEY = '__other__';
 
   const STREAK_DAYS = 30;
 
@@ -800,6 +1164,10 @@ const { ownerHandle = 'Frong Watcharapol', siteDomain = 'frong.me' } = Astro.pro
     const settingsEmailEl = settingsModal?.querySelector<HTMLElement>('[data-earth-settings-email]');
     const settingsStatusEl = settingsModal?.querySelector<HTMLElement>('[data-earth-settings-status]');
     const settingsSaveBtn = settingsModal?.querySelector<HTMLButtonElement>('[data-earth-settings-save]');
+    const settingsFooterActions = settingsModal?.querySelector<HTMLElement>('[data-earth-settings-footer-actions]');
+    const settingsTabButtons = settingsModal?.querySelectorAll<HTMLButtonElement>('[data-earth-settings-tab]');
+    const settingsPages = settingsModal?.querySelectorAll<HTMLElement>('[data-earth-settings-page]');
+    const aiProviderCardsEl = settingsModal?.querySelector<HTMLElement>('[data-earth-ai-provider-cards]');
 
     const lists = {
       draft: root.querySelector<HTMLElement>('[data-earth-list="draft"]'),
@@ -983,6 +1351,7 @@ const { ownerHandle = 'Frong Watcharapol', siteDomain = 'frong.me' } = Astro.pro
     function closeSettingsModal() {
       settingsModal?.removeAttribute('data-visible');
       if (settingsStatusEl) settingsStatusEl.hidden = true;
+      closeModelPopup();
     }
 
     function setSettingsStatus(text: string, tone: 'ok' | 'error' = 'ok') {
@@ -1012,6 +1381,492 @@ const { ownerHandle = 'Frong Watcharapol', siteDomain = 'frong.me' } = Astro.pro
         settingsSaveBtn.disabled = false;
         settingsSaveBtn.textContent = 'Save';
       }
+    }
+
+    /* ---------------- Settings: tabs ---------------- */
+
+    function setSettingsTab(tab: string) {
+      settingsTabButtons?.forEach((btn) => {
+        btn.setAttribute('aria-current', String(btn.dataset.earthSettingsTab === tab));
+      });
+      settingsPages?.forEach((page) => {
+        page.hidden = page.dataset.earthSettingsPage !== tab;
+      });
+      // The footer Save button only writes the site-settings resource
+      // (Profile + Settings tabs) — the AI Provider tab saves each provider
+      // card independently, since each is its own row in ai_provider_configs.
+      if (settingsFooterActions) settingsFooterActions.hidden = tab === 'ai';
+      if (tab === 'ai') void loadAiProviderConfigsOnce();
+    }
+
+    settingsTabButtons?.forEach((btn) => {
+      btn.addEventListener('click', () => setSettingsTab(btn.dataset.earthSettingsTab || 'profile'));
+    });
+
+    /* ---------------- Settings: AI Provider (BYOK) ---------------- */
+
+    let aiProviderConfigs: AiProviderConfig[] = [];
+    let aiProviderConfigsLoaded = false;
+
+    function findAiProviderConfig(provider: AiProvider): AiProviderConfig | undefined {
+      return aiProviderConfigs.find((config) => config.provider === provider);
+    }
+
+    /** One row in the model-picker popup's checklist: short name + right-aligned capability tag. */
+    function renderModelChecklist(
+      container: HTMLElement,
+      models: AiDiscoveredModel[],
+      selectedIds: Set<string>,
+      onChange?: () => void,
+      onMaxChange?: (atMax: boolean) => void,
+    ) {
+      container.innerHTML = '';
+      if (models.length === 0) {
+        const empty = document.createElement('p');
+        empty.className = 'ai-provider-model-empty';
+        empty.textContent = 'No models yet — fetch to see what this provider offers.';
+        container.append(empty);
+        return;
+      }
+      // Already-chosen models sort to the top, so they stay visible without
+      // scrolling a long catalogue — otherwise, once 5 are picked, every
+      // other row disables and it's not obvious *why* without hunting for
+      // which 5 are already checked.
+      const sorted = [...models].sort((a, b) => Number(selectedIds.has(b.id)) - Number(selectedIds.has(a.id)));
+      const checkboxes: HTMLInputElement[] = [];
+      const updateDisabled = () => {
+        const atMax = selectedIds.size >= AI_PROVIDER_CONFIG_LIMITS.MAX_MODELS;
+        checkboxes.forEach((checkbox) => {
+          checkbox.disabled = atMax && !selectedIds.has(checkbox.value);
+        });
+        onMaxChange?.(atMax);
+      };
+      sorted.forEach((model) => {
+        const row = document.createElement('label');
+        row.className = 'ai-model-checkbox';
+        row.title = model.label;
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.value = model.id;
+        input.checked = selectedIds.has(model.id);
+        input.addEventListener('change', () => {
+          if (input.checked) selectedIds.add(model.id);
+          else selectedIds.delete(model.id);
+          updateDisabled();
+          onChange?.();
+        });
+        const text = document.createElement('span');
+        text.className = 'ai-model-checkbox-text';
+        text.textContent = model.short;
+        const tag = document.createElement('span');
+        tag.className = 'ai-model-capability';
+        tag.textContent = capabilityLabel(model.capability);
+        row.append(input, text, tag);
+        container.append(row);
+        checkboxes.push(input);
+      });
+      updateDisabled();
+    }
+
+    /** The card's collapsed summary: a chip per chosen model (with quick-remove) plus the "Choose models" affordance. */
+    function renderModelChips(container: HTMLElement, selected: AiDiscoveredModel[], onRemove: (id: string) => void) {
+      container.innerHTML = '';
+      if (selected.length === 0) {
+        const empty = document.createElement('span');
+        empty.className = 'ai-model-chips-empty';
+        empty.textContent = 'No models selected yet';
+        container.append(empty);
+        return;
+      }
+      selected.forEach((model) => {
+        const chip = document.createElement('span');
+        chip.className = 'ai-model-chip';
+        const label = document.createElement('span');
+        label.className = 'ai-model-chip-label';
+        label.textContent = model.short;
+        label.title = model.label;
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'ai-model-chip-remove';
+        remove.textContent = '✕';
+        remove.setAttribute('aria-label', `Remove ${model.short}`);
+        remove.addEventListener('click', () => onRemove(model.id));
+        chip.append(label, remove);
+        container.append(chip);
+      });
+    }
+
+    /* ---------------- Model picker popup (shared singleton, opened from any provider card) ---------------- */
+
+    interface ModelPopupState {
+      provider: AiProvider;
+      needsKey: boolean;
+      available: AiDiscoveredModel[];
+      selectedIds: Set<string>;
+      activeVendors: Set<string>;
+      keyInput: HTMLInputElement | null;
+      onAvailableChange: (models: AiDiscoveredModel[]) => void;
+      onClose: () => void;
+    }
+
+    let modelPopupState: ModelPopupState | null = null;
+    let modelPopupEl: HTMLElement | null = null;
+
+    function ensureModelPopupEl(): HTMLElement {
+      if (modelPopupEl) return modelPopupEl;
+
+      const overlay = document.createElement('div');
+      overlay.className = 'ai-model-popup-overlay';
+      const popup = document.createElement('div');
+      popup.className = 'ai-model-popup';
+
+      const head = document.createElement('div');
+      head.className = 'ai-model-popup-head';
+      const title = document.createElement('h3');
+      title.className = 'ai-model-popup-title';
+      title.dataset.role = 'title';
+      const headActions = document.createElement('div');
+      headActions.style.display = 'flex';
+      headActions.style.gap = '8px';
+      headActions.style.alignItems = 'center';
+      const fetchBtn = document.createElement('button');
+      fetchBtn.type = 'button';
+      fetchBtn.className = 'ai-model-popup-fetch';
+      fetchBtn.textContent = 'Fetch models';
+      fetchBtn.dataset.role = 'fetch';
+      const closeBtn = document.createElement('button');
+      closeBtn.type = 'button';
+      closeBtn.className = 'ai-model-popup-close';
+      closeBtn.textContent = '✕';
+      closeBtn.setAttribute('aria-label', 'Close');
+      headActions.append(fetchBtn, closeBtn);
+      head.append(title, headActions);
+
+      const vendors = document.createElement('div');
+      vendors.className = 'ai-model-popup-vendors';
+      vendors.dataset.role = 'vendors';
+
+      const hint = document.createElement('p');
+      hint.className = 'ai-model-popup-hint';
+      hint.dataset.role = 'hint';
+      hint.hidden = true;
+
+      const maxHint = document.createElement('p');
+      maxHint.className = 'ai-model-popup-hint';
+      maxHint.dataset.role = 'max-hint';
+      maxHint.dataset.tone = 'max';
+      maxHint.textContent = `Already at ${AI_PROVIDER_CONFIG_LIMITS.MAX_MODELS} — the picks below are already-chosen models, pinned to the top. Remove one to add another.`;
+      maxHint.hidden = true;
+
+      const list = document.createElement('div');
+      list.className = 'ai-model-popup-list';
+      list.dataset.role = 'list';
+
+      const footer = document.createElement('div');
+      footer.className = 'ai-model-popup-footer';
+      const count = document.createElement('span');
+      count.className = 'ai-model-popup-count';
+      count.dataset.role = 'count';
+      const doneBtn = document.createElement('button');
+      doneBtn.type = 'button';
+      doneBtn.className = 'modal-btn modal-btn-confirm';
+      doneBtn.style.flex = 'none';
+      doneBtn.style.padding = '8px 16px';
+      doneBtn.textContent = 'Done';
+      footer.append(count, doneBtn);
+
+      popup.append(head, vendors, hint, maxHint, list, footer);
+      overlay.append(popup);
+      document.body.append(overlay);
+
+      overlay.addEventListener('click', (event) => {
+        if (event.target === overlay) closeModelPopup();
+      });
+      closeBtn.addEventListener('click', () => closeModelPopup());
+      doneBtn.addEventListener('click', () => closeModelPopup());
+      fetchBtn.addEventListener('click', () => void runPopupFetch());
+
+      modelPopupEl = overlay;
+      return overlay;
+    }
+
+    function updatePopupCount() {
+      if (!modelPopupState) return;
+      const popup = ensureModelPopupEl();
+      const countEl = popup.querySelector<HTMLElement>('[data-role="count"]');
+      if (countEl) countEl.textContent = `${modelPopupState.selectedIds.size}/${AI_PROVIDER_CONFIG_LIMITS.MAX_MODELS} selected`;
+    }
+
+    function renderModelPopupBody() {
+      if (!modelPopupState) return;
+      const popup = ensureModelPopupEl();
+      const { available, selectedIds, activeVendors } = modelPopupState;
+
+      const vendorCounts = new Map<string, number>();
+      for (const model of available) vendorCounts.set(model.vendor, (vendorCounts.get(model.vendor) ?? 0) + 1);
+      // Most-represented vendors first, so "top 9" means what it says rather
+      // than an arbitrary alphabetical cutoff.
+      const byCountDesc = [...vendorCounts.entries()].sort((a, b) => b[1] - a[1]);
+      const topVendors = byCountDesc.slice(0, MAX_VENDOR_CHIPS).map(([vendor]) => vendor);
+      const otherVendors = new Set(byCountDesc.slice(MAX_VENDOR_CHIPS).map(([vendor]) => vendor));
+      const otherCount = [...otherVendors].reduce((sum, vendor) => sum + (vendorCounts.get(vendor) ?? 0), 0);
+
+      const vendorsEl = popup.querySelector<HTMLElement>('[data-role="vendors"]');
+      if (vendorsEl) {
+        vendorsEl.innerHTML = '';
+        // A vendor filter only earns its place once there's more than one
+        // vendor to narrow down — Gemini (single-vendor) and a
+        // freshly-opened, not-yet-fetched card never show it.
+        vendorsEl.hidden = vendorCounts.size <= 1;
+        topVendors.forEach((vendor) => {
+          const chip = document.createElement('button');
+          chip.type = 'button';
+          chip.className = 'ai-model-vendor-chip';
+          chip.textContent = `${vendorLabel(vendor)} (${vendorCounts.get(vendor)})`;
+          chip.dataset.active = String(activeVendors.has(vendor));
+          chip.addEventListener('click', () => {
+            if (activeVendors.has(vendor)) activeVendors.delete(vendor);
+            else activeVendors.add(vendor);
+            renderModelPopupBody();
+          });
+          vendorsEl.append(chip);
+        });
+        if (otherCount > 0) {
+          const chip = document.createElement('button');
+          chip.type = 'button';
+          chip.className = 'ai-model-vendor-chip';
+          chip.textContent = `Other (${otherCount})`;
+          chip.dataset.active = String(activeVendors.has(OTHER_VENDOR_KEY));
+          chip.addEventListener('click', () => {
+            if (activeVendors.has(OTHER_VENDOR_KEY)) activeVendors.delete(OTHER_VENDOR_KEY);
+            else activeVendors.add(OTHER_VENDOR_KEY);
+            renderModelPopupBody();
+          });
+          vendorsEl.append(chip);
+        }
+      }
+
+      const filtered = activeVendors.size === 0 ? available : available.filter((model) => (
+        activeVendors.has(model.vendor) || (activeVendors.has(OTHER_VENDOR_KEY) && otherVendors.has(model.vendor))
+      ));
+      const listEl = popup.querySelector<HTMLElement>('[data-role="list"]');
+      const maxHintEl = popup.querySelector<HTMLElement>('[data-role="max-hint"]');
+      if (listEl) {
+        renderModelChecklist(listEl, filtered, selectedIds, updatePopupCount, (atMax) => {
+          if (maxHintEl) maxHintEl.hidden = !atMax;
+        });
+      }
+      updatePopupCount();
+    }
+
+    async function runPopupFetch() {
+      if (!modelPopupState || !modelPopupState.needsKey) return;
+      const state = modelPopupState;
+      const popup = ensureModelPopupEl();
+      const fetchBtn = popup.querySelector<HTMLButtonElement>('[data-role="fetch"]');
+      const hint = popup.querySelector<HTMLElement>('[data-role="hint"]');
+      if (!fetchBtn || !hint) return;
+      fetchBtn.disabled = true;
+      fetchBtn.textContent = 'Fetching…';
+      hint.hidden = true;
+      try {
+        const models = await discoverAiProviderModels(state.provider, state.keyInput?.value.trim() || undefined);
+        state.available = models;
+        state.onAvailableChange(models);
+        for (const id of [...state.selectedIds]) {
+          if (!models.some((model) => model.id === id)) state.selectedIds.delete(id);
+        }
+        state.activeVendors.clear();
+        renderModelPopupBody();
+      } catch (error) {
+        console.error(`[earth-portal] failed to fetch ${state.provider} models`, error);
+        hint.textContent = (error as Error).message || 'Failed to fetch models';
+        hint.dataset.tone = 'error';
+        hint.hidden = false;
+      } finally {
+        fetchBtn.disabled = false;
+        fetchBtn.textContent = 'Fetch models';
+      }
+    }
+
+    function openModelPopup(state: ModelPopupState) {
+      modelPopupState = state;
+      const popup = ensureModelPopupEl();
+      const titleEl = popup.querySelector<HTMLElement>('[data-role="title"]');
+      if (titleEl) titleEl.textContent = `${AI_PROVIDER_LABELS[state.provider]} models`;
+      const fetchBtn = popup.querySelector<HTMLButtonElement>('[data-role="fetch"]');
+      if (fetchBtn) fetchBtn.hidden = !state.needsKey;
+      const hint = popup.querySelector<HTMLElement>('[data-role="hint"]');
+      if (hint) hint.hidden = true;
+      popup.setAttribute('data-open', 'true');
+      renderModelPopupBody();
+    }
+
+    function closeModelPopup() {
+      if (!modelPopupEl || !modelPopupState) return;
+      modelPopupEl.removeAttribute('data-open');
+      const state = modelPopupState;
+      modelPopupState = null;
+      state.onClose();
+    }
+
+    function buildAiProviderCard(provider: AiProvider): HTMLElement {
+      const config = findAiProviderConfig(provider);
+      const needsKey = AI_PROVIDER_NEEDS_KEY[provider];
+
+      const card = document.createElement('div');
+      card.className = 'ai-provider-card';
+      card.dataset.earthAiProviderCard = provider;
+
+      const head = document.createElement('div');
+      head.className = 'ai-provider-card-head';
+      const title = document.createElement('h4');
+      title.className = 'ai-provider-card-title';
+      title.textContent = AI_PROVIDER_LABELS[provider];
+      head.append(title);
+      if (needsKey && config?.hasApiKey) {
+        const badge = document.createElement('span');
+        badge.className = 'ai-provider-card-badge';
+        badge.textContent = 'Key saved';
+        head.append(badge);
+      }
+      card.append(head);
+
+      let keyInput: HTMLInputElement | null = null;
+      if (needsKey) {
+        const row = document.createElement('div');
+        row.className = 'ai-provider-card-row';
+        const group = document.createElement('div');
+        group.className = 'form-group';
+        const label = document.createElement('label');
+        label.className = 'form-label';
+        label.textContent = 'API key';
+        const input = document.createElement('input');
+        input.className = 'form-input';
+        input.type = 'password';
+        input.autocomplete = 'off';
+        input.placeholder = config?.hasApiKey
+          ? 'Saved — paste a new key to replace it'
+          : `Paste your ${AI_PROVIDER_LABELS[provider]} API key`;
+        group.append(label, input);
+        row.append(group);
+        card.append(row);
+        keyInput = input;
+      }
+
+      const hint = document.createElement('p');
+      hint.className = 'ai-provider-card-hint';
+      hint.hidden = true;
+      card.append(hint);
+
+      const chips = document.createElement('div');
+      chips.className = 'ai-model-chips';
+      card.append(chips);
+
+      const chooseBtn = document.createElement('button');
+      chooseBtn.type = 'button';
+      chooseBtn.className = 'ai-provider-choose-btn';
+      chooseBtn.textContent = 'Choose models';
+
+      // Cloudflare has no "Fetch" step to ever repopulate anything beyond
+      // what's already checked, so its full curated list is always what the
+      // popup offers. Gemini/OpenRouter are the opposite: nothing is known
+      // until a live fetch, so only the previously-saved picks are available
+      // at first — "Fetch models" inside the popup populates the rest.
+      const curated: AiDiscoveredModel[] = needsKey ? [] : AI_PROVIDER_MODELS[provider].map((model) => ({ ...model }));
+      let available: AiDiscoveredModel[] = needsKey
+        ? (config?.models.length ? config.models.map((model) => ({ ...model })) : [])
+        : curated;
+      const selectedIds = new Set(
+        config?.models.length ? config.models.map((model) => model.id) : (needsKey ? [] : curated.slice(0, 1).map((m) => m.id)),
+      );
+
+      function showHint(text: string, tone: 'ok' | 'error' = 'error') {
+        hint.textContent = text;
+        hint.dataset.tone = tone === 'error' ? 'error' : '';
+        hint.hidden = false;
+      }
+
+      function refreshChips() {
+        const selected = available.filter((model) => selectedIds.has(model.id));
+        renderModelChips(chips, selected, (id) => {
+          selectedIds.delete(id);
+          refreshChips();
+        });
+        chips.append(chooseBtn);
+      }
+      refreshChips();
+
+      chooseBtn.addEventListener('click', () => {
+        openModelPopup({
+          provider,
+          needsKey,
+          available,
+          selectedIds,
+          activeVendors: new Set(),
+          keyInput,
+          onAvailableChange: (models) => { available = models; },
+          onClose: refreshChips,
+        });
+      });
+
+      const actions = document.createElement('div');
+      actions.className = 'ai-provider-card-actions';
+      const saveBtn = document.createElement('button');
+      saveBtn.type = 'button';
+      saveBtn.className = 'modal-btn modal-btn-confirm';
+      saveBtn.textContent = 'Save';
+      actions.append(saveBtn);
+      card.append(actions);
+
+      saveBtn.addEventListener('click', async () => {
+        const chosen = available.filter((model) => selectedIds.has(model.id));
+        if (chosen.length < AI_PROVIDER_CONFIG_LIMITS.MIN_MODELS) {
+          showHint(`Choose at least ${AI_PROVIDER_CONFIG_LIMITS.MIN_MODELS} model`);
+          return;
+        }
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving…';
+        try {
+          const typedKey = keyInput?.value.trim();
+          const updated = await updateAiProviderConfig(provider, {
+            ...(typedKey ? { apiKey: typedKey } : {}),
+            models: chosen as AiConfiguredModel[],
+          });
+          aiProviderConfigs = [...aiProviderConfigs.filter((c) => c.provider !== provider), updated];
+          setSettingsStatus(`${AI_PROVIDER_LABELS[provider]} saved`);
+          renderAiProviderCards();
+        } catch (error) {
+          console.error(`[earth-portal] failed to save ${provider} config`, error);
+          showHint((error as Error).message || 'Save failed');
+        } finally {
+          saveBtn.disabled = false;
+          saveBtn.textContent = 'Save';
+        }
+      });
+
+      return card;
+    }
+
+    function renderAiProviderCards() {
+      if (!aiProviderCardsEl) return;
+      closeModelPopup();
+      aiProviderCardsEl.innerHTML = '';
+      AI_PROVIDERS.forEach((provider) => {
+        aiProviderCardsEl.append(buildAiProviderCard(provider));
+      });
+    }
+
+    async function loadAiProviderConfigsOnce() {
+      if (aiProviderConfigsLoaded) return;
+      aiProviderConfigsLoaded = true;
+      try {
+        aiProviderConfigs = await getAiProviderConfigs();
+      } catch (error) {
+        console.error('[earth-portal] failed to load AI provider configs', error);
+        aiProviderConfigs = [];
+      }
+      renderAiProviderCards();
     }
 
     /* ---------------- Data ---------------- */
@@ -1121,6 +1976,10 @@ const { ownerHandle = 'Frong Watcharapol', siteDomain = 'frong.me' } = Astro.pro
 
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') {
+        if (modelPopupState) {
+          closeModelPopup();
+          return;
+        }
         closeModal();
         closeSettingsModal();
         setSidebarOpen(false);
