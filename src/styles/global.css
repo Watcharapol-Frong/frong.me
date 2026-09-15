@@ -143,6 +143,53 @@
   }
 }
 
+/*
+ * Tailwind Typography's default gray scale defines every prose text color as
+ * e.g. `oklch(20.5% 0 none)` — the `none` hue component on an achromatic
+ * oklch() color is valid CSS Color 4, but WebKit/Safari has a long-standing
+ * bug failing to render it at all, so article body text disappears on iOS
+ * Safari while looking fine in Chromium (see e.g. WebKit bug 253522).
+ * Overriding these custom properties with the site's own HSL tokens (used
+ * everywhere else and known to render fine) sidesteps it entirely.
+ *
+ * Deliberately unlayered (not inside @layer base) — Tailwind's typography
+ * plugin registers `.prose` in a layer that outranks `base` regardless of
+ * source order, so a same-specificity override placed in `base` loses
+ * silently. Unlayered rules always win over any @layer'd rule, guaranteeing
+ * this actually takes effect.
+ */
+.prose {
+  --tw-prose-body: hsl(var(--foreground));
+  --tw-prose-headings: hsl(var(--foreground));
+  --tw-prose-bold: hsl(var(--foreground));
+  --tw-prose-links: hsl(var(--foreground));
+  --tw-prose-bullets: hsl(var(--muted-foreground));
+  --tw-prose-counters: hsl(var(--muted-foreground));
+  --tw-prose-quotes: hsl(var(--foreground));
+  --tw-prose-quote-borders: hsl(var(--border));
+  --tw-prose-code: hsl(var(--foreground));
+  --tw-prose-hr: hsl(var(--border));
+  --tw-prose-captions: hsl(var(--muted-foreground));
+  --tw-prose-th-borders: hsl(var(--border));
+  --tw-prose-td-borders: hsl(var(--border));
+}
+
+.dark .prose {
+  --tw-prose-invert-body: hsl(var(--foreground));
+  --tw-prose-invert-headings: hsl(var(--foreground));
+  --tw-prose-invert-bold: hsl(var(--foreground));
+  --tw-prose-invert-links: hsl(var(--foreground));
+  --tw-prose-invert-bullets: hsl(var(--muted-foreground));
+  --tw-prose-invert-counters: hsl(var(--muted-foreground));
+  --tw-prose-invert-quotes: hsl(var(--foreground));
+  --tw-prose-invert-quote-borders: hsl(var(--border));
+  --tw-prose-invert-code: hsl(var(--foreground));
+  --tw-prose-invert-hr: hsl(var(--border));
+  --tw-prose-invert-captions: hsl(var(--muted-foreground));
+  --tw-prose-invert-th-borders: hsl(var(--border));
+  --tw-prose-invert-td-borders: hsl(var(--border));
+}
+
 @layer components {
   .project-card {
     @apply block overflow-hidden;
