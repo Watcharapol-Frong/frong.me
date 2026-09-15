@@ -23,12 +23,19 @@ directly, without GitHub builds or deployment. Start with
 
 ## Verification
 
+Implementation commit `bf0950c30e01550b730bd4f43211b4c24a7f2418` passed
+[GitHub CMS CI](https://github.com/Watcharapol-Frong/frong.me/actions/runs/35031544646):
+215 tests, mandatory TypeScript and the full Astro/Cloudflare build.
+The latest checks and merge state are tracked in
+[PR #4](https://github.com/Watcharapol-Frong/frong.me/pull/4).
+
 Local verification: 215/215 tests pass with `node --import tsx --test
 tests/cms/*.test.ts`; `npx tsc --noEmit` and `git diff --check` pass.
 The tsx CLI cannot create its IPC socket here (EPERM). The full local build
 bundles server/client code but workerd prerendering cannot enumerate network
-interfaces in this runtime. Do not weaken either check; GitHub CI must run the
-ordinary npm test command and finish the build before merge.
+interfaces in this runtime. GitHub CI successfully ran the ordinary npm test
+command and completed prerendering; do not weaken either local check.
+Read-only Access and in-memory R2 smoke verifications also pass locally.
 
 The lockfile shrank from 1,457 to 594 package entries (including its root entry),
 with no version changes for retained package paths. All three archive checksums
@@ -37,7 +44,7 @@ retirement/read-only verification checks, for a net increase from 210 to 215.
 
 ## Next gates
 
-1. Complete the full suite, TypeScript and build before merging this change.
+1. Require green full-suite, TypeScript and build checks for every future change.
 2. Get deployment approval and follow the human acceptance checklist.
 3. Verify Access/login, media origin/environment separation and AI in the approved
    environment. Stored provider keys lack application-level encryption.
