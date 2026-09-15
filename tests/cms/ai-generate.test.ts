@@ -52,17 +52,21 @@ test('buildPromptContext truncates body and fills missing fields', () => {
   assert.equal(emptyContext, 'Title: (untitled)\nExcerpt: (none)\nBody:\n');
 });
 
-test('buildTaskPrompt embeds the exact spec template for each of the four generic text tasks', () => {
+test('buildTaskPrompt embeds the exact spec template for each of the six generic text tasks', () => {
   const tasksExpected: Record<
-    'title-suggestions' | 'auto-excerpt' | 'generate-outline' | 'seo-optimizer',
+    'title-suggestions' | 'auto-excerpt' | 'auto-slug' | 'auto-tags' | 'generate-outline' | 'seo-optimizer',
     RegExp
   > = {
     'title-suggestions':
-      /^You are an editor helping title a blog article\. Based on the article below, suggest 5 alternative titles\. Return ONLY a numbered list, one title per line, no extra commentary\./,
+      /^You are an editor titling a blog article for readers who skim before they click\. Based on the article below, suggest 5 alternative titles\. Each one must be short \(aim for 6-10 words, never more than 12\) and give the reader a concrete reason to click/,
     'auto-excerpt':
       /^Write a single, compelling excerpt\/meta description for this article, maximum 160 characters\. Return ONLY the excerpt text, nothing else\./,
+    'auto-slug':
+      /^Suggest a short, URL-friendly slug for this article: lowercase words separated by hyphens, no punctuation, 3-6 words\. Return ONLY the slug, nothing else\./,
+    'auto-tags':
+      /^Suggest at most 2 short, topical tags for this article \(one or two words each\)\. Return ONLY the tags, one per line, no numbering, no hashtags, no extra commentary\./,
     'generate-outline':
-      /^Propose an outline of 4-7 H2 section headings for this article\. Return ONLY a numbered list of headings, no extra commentary\./,
+      /^Plan this article's storyline before it's written\. Treat the title and excerpt below as the article's core promise to the reader, and propose 4-7 H2 section headings/,
     'seo-optimizer':
       /^Review this article's title and excerpt for SEO\. Give 3-5 short, concrete, actionable suggestions to improve them\. Return ONLY a numbered list\./,
   };
@@ -265,6 +269,9 @@ test('parseAiGenerateRequest rejects non-object, unknown task, provider, model, 
   assert.equal(minimal.provider, 'gemini');
   assert.equal(minimal.model, undefined);
   assert.equal(minimal.title, undefined);
+
+  assert.equal(parseAiGenerateRequest({ task: 'auto-slug', provider: 'gemini' }).task, 'auto-slug');
+  assert.equal(parseAiGenerateRequest({ task: 'auto-tags', provider: 'gemini' }).task, 'auto-tags');
 });
 
 test('resolveAiEnvironment prefers injected locals.env', async () => {

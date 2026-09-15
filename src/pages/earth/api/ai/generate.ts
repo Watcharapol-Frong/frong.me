@@ -9,6 +9,7 @@ import {
   resolveAiEnvironment,
 } from '../../../../server/cms/ai.ts';
 import { mapCmsError } from '../../../../server/cms/errors.ts';
+import { resolveCmsDatabase } from '../../../../server/cms/api.ts';
 
 export const prerender = false;
 
@@ -59,7 +60,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
     const input = parseAiGenerateRequest(parsed);
     const env = await resolveAiEnvironment(locals);
-    const result = await generateAiResult(input, env);
+    // BYOK config lives in D1, but the DB binding is optional here: when it's
+    // unavailable, provider keys just fall back to env vars (see
+    // resolveProviderApiKey) instead of failing the whole request.
+    const db = await resolveCmsDatabase(locals).catch(() => undefined);
+    const result = await generateAiResult(input, env, db);
     return aiJson({ result });
   } catch (error) {
     if (error instanceof AiProviderConfigError || error instanceof AiProviderRequestError) {

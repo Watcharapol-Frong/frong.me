@@ -3,6 +3,9 @@ import {
   AI_PROVIDERS,
   AI_TASKS,
   DEFAULT_AI_MODELS,
+  deriveShortLabel,
+  deriveVendor,
+  type AiDiscoveredModel,
   type AiGenerateRequest,
   type AiGenerateSuccessResponse,
   type AiPromptContext,
@@ -13,6 +16,8 @@ import {
   type AiWorkerEnvironment,
 } from './types/ai.ts';
 import { CmsBadRequestError, CmsError } from './errors.ts';
+import type { CmsDatabase } from './db.ts';
+import { getAiProviderConfigForUse } from './repositories/ai-provider-configs.ts';
 
 import { resolveRuntimeEnv } from './runtime-env.ts';
 
@@ -49,11 +54,15 @@ export async function resolveAiEnvironment(locals: unknown): Promise<AiGenerateE
 /** Prompt lead-ins for the four original single-string text tasks. */
 const TASK_PROMPTS: Partial<Record<AiTask, string>> = {
   'title-suggestions':
-    'You are an editor helping title a blog article. Based on the article below, suggest 5 alternative titles. Return ONLY a numbered list, one title per line, no extra commentary.',
+    "You are an editor titling a blog article for readers who skim before they click. Based on the article below, suggest 5 alternative titles. Each one must be short (aim for 6-10 words, never more than 12) and give the reader a concrete reason to click — a specific benefit, a sharp angle, a number, or a pointed question — not a vague summary of the whole article. Avoid generic patterns like \"A Guide to X\", \"Everything About X\", or \"X: An Overview\". Return ONLY a numbered list, one title per line, no extra commentary.",
   'auto-excerpt':
     'Write a single, compelling excerpt/meta description for this article, maximum 160 characters. Return ONLY the excerpt text, nothing else.',
+  'auto-slug':
+    'Suggest a short, URL-friendly slug for this article: lowercase words separated by hyphens, no punctuation, 3-6 words. Return ONLY the slug, nothing else.',
+  'auto-tags':
+    'Suggest at most 2 short, topical tags for this article (one or two words each). Return ONLY the tags, one per line, no numbering, no hashtags, no extra commentary.',
   'generate-outline':
-    'Propose an outline of 4-7 H2 section headings for this article. Return ONLY a numbered list of headings, no extra commentary.',
+    "Plan this article's storyline before it's written. Treat the title and excerpt below as the article's core promise to the reader, and propose 4-7 H2 section headings that build a coherent narrative arc from opening hook to conclusion — each heading should name a specific, concrete beat in that story (never a generic label like \"Introduction\", \"Background\", or \"Conclusion\"), and the sequence should read as a deliberate build toward the promise in the title, not an interchangeable checklist. If body text already exists below, keep the outline consistent with what it has already established. Return ONLY a numbered list of headings, no extra commentary.",
   'seo-optimizer':
     "Review this article's title and excerpt for SEO. Give 3-5 short, concrete, actionable suggestions to improve them. Return ONLY a numbered list.",
 };
@@ -340,13 +349,11 @@ async function runCloudflare(
 }
 
 async function runGemini(
-  env: AiWorkerEnvironment,
+  apiKey: string,
   model: string,
   prompt: string,
   fetcher: typeof fetch,
 ): Promise<string> {
-  const apiKey = env.GEMINI_API_KEY?.trim();
-  if (!apiKey) throw new AiProviderConfigError('Provider configuration missing');
   let response: Response;
   try {
     response = await fetcher(
@@ -381,13 +388,11 @@ async function runGemini(
 }
 
 async function runOpenRouter(
-  env: AiWorkerEnvironment,
+  apiKey: string,
   model: string,
   prompt: string,
   fetcher: typeof fetch,
 ): Promise<string> {
-  const apiKey = env.OPENROUTER_API_KEY?.trim();
-  if (!apiKey) throw new AiProviderConfigError('Provider configuration missing');
   let response: Response;
   try {
     response = await fetcher(OPENROUTER_ENDPOINT, {
@@ -420,9 +425,31 @@ async function runOpenRouter(
   return content;
 }
 
+/**
+ * BYOK first: an author-configured key in `ai_provider_configs` wins over
+ * the Worker's own env secret, which stays as a fallback for continuity
+ * (e.g. mid-migration, or a shared/default key the operator still wants
+ * available). Cloudflare has no key at all — it runs on the deployed
+ * Worker's own account-level AI binding.
+ */
+async function resolveProviderApiKey(
+  db: CmsDatabase | undefined,
+  env: AiWorkerEnvironment,
+  provider: AiProvider,
+): Promise<string | null> {
+  if (db) {
+    const config = await getAiProviderConfigForUse(db, provider).catch(() => null);
+    if (config?.apiKey?.trim()) return config.apiKey.trim();
+  }
+  if (provider === 'gemini') return env.GEMINI_API_KEY?.trim() || null;
+  if (provider === 'openrouter') return env.OPENROUTER_API_KEY?.trim() || null;
+  return null;
+}
+
 async function runProvider(
   provider: AiProvider,
   env: AiGenerateEnvironment,
+  db: CmsDatabase | undefined,
   model: string,
   prompt: string,
 ): Promise<string> {
@@ -430,31 +457,38 @@ async function runProvider(
   switch (provider) {
     case 'cloudflare':
       return runCloudflare(env, model, prompt);
-    case 'gemini':
-      return runGemini(env, model, prompt, fetcher);
-    case 'openrouter':
-      return runOpenRouter(env, model, prompt, fetcher);
+    case 'gemini': {
+      const apiKey = await resolveProviderApiKey(db, env, provider);
+      if (!apiKey) throw new AiProviderConfigError('Provider configuration missing');
+      return runGemini(apiKey, model, prompt, fetcher);
+    }
+    case 'openrouter': {
+      const apiKey = await resolveProviderApiKey(db, env, provider);
+      if (!apiKey) throw new AiProviderConfigError('Provider configuration missing');
+      return runOpenRouter(apiKey, model, prompt, fetcher);
+    }
   }
 }
 
 export async function generateAiResult(
   request: AiGenerateRequest,
   env: AiGenerateEnvironment,
+  db?: CmsDatabase,
 ): Promise<AiGenerateSuccessResponse['result']> {
   const model = request.model || DEFAULT_AI_MODELS[request.provider];
 
   if (request.task === 'research') {
-    const text = await runProvider(request.provider, env, model, buildResearchPrompt(request));
+    const text = await runProvider(request.provider, env, db, model, buildResearchPrompt(request));
     return parseResearchResponse(text);
   }
 
   if (request.task === 'review') {
-    const text = await runProvider(request.provider, env, model, buildReviewPrompt(request));
+    const text = await runProvider(request.provider, env, db, model, buildReviewPrompt(request));
     return parseReviewResponse(text);
   }
 
   if (request.task === 'inline_draft') {
-    return runProvider(request.provider, env, model, buildInlineDraftPrompt(request));
+    return runProvider(request.provider, env, db, model, buildInlineDraftPrompt(request));
   }
 
   const prompt = buildTaskPrompt(request.task, {
@@ -462,5 +496,140 @@ export async function generateAiResult(
     description: request.description,
     bodyText: request.bodyText,
   });
-  return runProvider(request.provider, env, model, prompt);
+  return runProvider(request.provider, env, db, model, prompt);
+}
+
+/**
+ * Live model discovery for the BYOK settings page — given an author-supplied
+ * key, list what that provider actually offers so they pick from reality
+ * instead of typing a model ID by hand. Cloudflare has no discovery step: it
+ * runs on the Worker's own AI binding with a fixed catalogue, so its config
+ * page skips this entirely.
+ *
+ * Each result also carries a derived `vendor` (for the Settings popup's
+ * vendor filter, since both providers namespace ids as `vendor/model`), a
+ * `short` display label, and a best-effort `capability`. OpenRouter's
+ * response includes real `architecture.modality` metadata, so its capability
+ * tag is authoritative; Gemini's API has no equivalent field, so its models
+ * are all tagged `text` here (this app only ever calls `generateContent`).
+ */
+
+async function listGeminiModels(apiKey: string, fetcher: typeof fetch): Promise<AiDiscoveredModel[]> {
+  let response: Response;
+  try {
+    response = await fetcher(`${GEMINI_ENDPOINT}?key=${encodeURIComponent(apiKey)}&pageSize=1000`, {
+      method: 'GET',
+    });
+  } catch (error) {
+    throw new AiProviderRequestError('Failed to list Gemini models', { cause: error });
+  }
+  if (!response.ok) {
+    throw new AiProviderRequestError('Failed to list Gemini models', {
+      cause: `Gemini returned HTTP ${response.status}`,
+    });
+  }
+  const payload: unknown = await response.json().catch(() => null);
+  const models = isRecord(payload) && Array.isArray(payload.models) ? payload.models : [];
+  const result: AiDiscoveredModel[] = [];
+  for (const entry of models) {
+    if (!isRecord(entry)) continue;
+    const methods = Array.isArray(entry.supportedGenerationMethods) ? entry.supportedGenerationMethods : [];
+    if (!methods.includes('generateContent')) continue;
+    const name = optionalString(entry.name);
+    if (!name) continue;
+    const id = name.replace(/^models\//, '');
+    const label = optionalString(entry.displayName) || id;
+    const vendor = deriveVendor('gemini', id);
+    result.push({ id, label, vendor, short: deriveShortLabel(vendor, label), capability: 'text' });
+  }
+  return result;
+}
+
+async function listOpenRouterModels(fetcher: typeof fetch): Promise<AiDiscoveredModel[]> {
+  let response: Response;
+  try {
+    response = await fetcher('https://openrouter.ai/api/v1/models', { method: 'GET' });
+  } catch (error) {
+    throw new AiProviderRequestError('Failed to list OpenRouter models', { cause: error });
+  }
+  if (!response.ok) {
+    throw new AiProviderRequestError('Failed to list OpenRouter models', {
+      cause: `OpenRouter returned HTTP ${response.status}`,
+    });
+  }
+  const payload: unknown = await response.json().catch(() => null);
+  const data = isRecord(payload) && Array.isArray(payload.data) ? payload.data : [];
+  const result: AiDiscoveredModel[] = [];
+  for (const entry of data) {
+    if (!isRecord(entry)) continue;
+    const id = optionalString(entry.id);
+    if (!id) continue;
+    const label = optionalString(entry.name) || id;
+    const vendor = deriveVendor('openrouter', id);
+    const architecture = isRecord(entry.architecture) ? entry.architecture : undefined;
+    const modality = architecture ? optionalString(architecture.modality) : undefined;
+    const capability = modality?.includes('image') ? 'text-image' : 'text';
+    result.push({ id, label, vendor, short: deriveShortLabel(vendor, label), capability });
+  }
+  return result;
+}
+
+/**
+ * Dispatches live discovery for the given provider. `apiKey` is required for
+ * gemini (the ListModels call is keyed) but ignored for openrouter (its
+ * model catalogue is public) and unsupported for cloudflare.
+ */
+export async function discoverProviderModels(
+  provider: AiProvider,
+  apiKey: string | null,
+  fetcher: typeof fetch = fetch,
+): Promise<AiDiscoveredModel[]> {
+  switch (provider) {
+    case 'gemini':
+      if (!apiKey?.trim()) throw new CmsBadRequestError('An API key is required to list Gemini models');
+      return listGeminiModels(apiKey.trim(), fetcher);
+    case 'openrouter':
+      return listOpenRouterModels(fetcher);
+    case 'cloudflare':
+      throw new CmsBadRequestError('Cloudflare Workers AI models are not discovered live');
+  }
+}
+
+/**
+ * Verifies a newly-typed API key actually works before it gets persisted, so
+ * a typo or a revoked key is caught immediately with a clear error instead of
+ * silently saving something that will only fail later, mid-generation, in
+ * the editor. Gemini's own `ListModels` call is inherently keyed, so listing
+ * doubles as the test; OpenRouter's model catalogue is public and ignores the
+ * key entirely, so it needs its own auth-key-info check instead.
+ */
+export async function validateProviderApiKey(
+  provider: AiProvider,
+  apiKey: string,
+  fetcher: typeof fetch = fetch,
+): Promise<void> {
+  switch (provider) {
+    case 'gemini':
+      await listGeminiModels(apiKey, fetcher);
+      return;
+    case 'openrouter': {
+      let response: Response;
+      try {
+        response = await fetcher('https://openrouter.ai/api/v1/auth/key', {
+          method: 'GET',
+          headers: { authorization: `Bearer ${apiKey}` },
+        });
+      } catch (error) {
+        throw new AiProviderRequestError('Failed to verify this OpenRouter API key', { cause: error });
+      }
+      if (!response.ok) {
+        throw new AiProviderRequestError('OpenRouter rejected this API key', {
+          cause: `OpenRouter returned HTTP ${response.status}`,
+        });
+      }
+      return;
+    }
+    case 'cloudflare':
+      return;
+  }
 }

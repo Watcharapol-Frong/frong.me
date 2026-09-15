@@ -17,6 +17,9 @@
       "bucket_name": "portfolio-media-staging"
     }
   ],
+  "ai": {
+    "binding": "AI"
+  },
   "env": {
     "staging": {
       "name": "frong-me-staging",
@@ -33,7 +36,10 @@
           "binding": "MEDIA_BUCKET",
           "bucket_name": "portfolio-media-staging"
         }
-      ]
+      ],
+      "ai": {
+        "binding": "AI"
+      }
     },
     "production": {
       "name": "frong-me",
@@ -50,7 +56,10 @@
           "binding": "MEDIA_BUCKET",
           "bucket_name": "portfolio-media-prod"
         }
-      ]
+      ],
+      "ai": {
+        "binding": "AI"
+      }
     }
   }
 }
