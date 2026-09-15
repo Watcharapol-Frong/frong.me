@@ -5,7 +5,7 @@ import AnnouncementBanner, { type AnnouncementBannerProps } from "@/components/A
 
 // Set this to show a site-wide banner above the grid (e.g. a linked event or campaign article).
 // Leave it null when there's nothing to announce.
-const activeAnnouncement: AnnouncementBannerProps | null = null;
+const activeAnnouncement = null as AnnouncementBannerProps | null;
 // Example:
 // const activeAnnouncement: AnnouncementBannerProps | null = {
 //   id: "election-2026",

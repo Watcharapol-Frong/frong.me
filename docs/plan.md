@@ -1,5 +1,41 @@
 # frong.me CMS Implementation Plan
 
+## Current cleanup handoff — 2026-09-15 (supersedes older inventory below)
+
+Owner authorized the conservative cleanup only: unused prototype, unused legacy
+renderer/components/dependencies, obsolete documentation and CI/type-check fixes.
+Do not remove in-app AI, standalone AI Worker, Sanity Studio, backups, release
+tables or cloud resources as part of this task. No deployment is authorized.
+
+Current public routes read D1 directly. The release routes, snapshot exporters
+and old `src/components/cms/` inventory referenced later are historical and do
+not describe the current tree. Preserve the old logs for evidence, not as a list
+of files to recreate. The current entry point is the root README.
+
+The deleted prototype and legacy files can be recovered from pre-cleanup commit
+`4e8ac930f527eb3032ea2f6ecc291e7469b2ada4`. TipTap bubble/floating-menu dependencies
+are retained because `@tiptap/react/menus` imports them indirectly; the link
+extension remains installed transitively through StarterKit.
+
+Local verification: `npx tsc --noEmit` and `git diff --check` pass. Running the
+CMS tests through `node --import tsx --test` passes 199/199 without the
+socket-based `verify-access-staging.test.ts`; that file is still enabled in the
+full CI suite. The ordinary `tsx` CLI cannot open its IPC socket in this
+workspace (EPERM), and workerd prerendering is blocked by local network-interface
+permissions, so the full suite/build must be verified on GitHub before merging.
+
+CI no longer ignores TypeScript failures. Its build uses the SDK-supported
+`CLOUDFLARE_VITE_FORCE_LOCAL=true` to prevent the AI binding opening a remote
+proxy during credential-free verification; `wrangler.jsonc` remains unchanged.
+See the [Cloudflare plugin API](https://developers.cloudflare.com/workers/vite-plugin/reference/api/)
+for remote binding behavior. Type fixes preserve runtime behavior, including
+older AI model inputs whose display fields are normalized by the repository.
+
+Next: run full CMS CI on the cleanup branch before merging; do not deploy or
+delete any remote resource. Sanity/service/data retirement remains separate.
+
+---
+
 Updated: 2026-09-15 · Status: Gates G0 and G0.5 passed. **Both staging and production are live with current code as of 2026-09-15**: `frong.me` (production, real custom domain) and `frong-me-staging.frongbook.workers.dev` are deployed with this session's full body of work (TipTap WYSIWYG editor, Zen mode redesign, selection toolbar, BYOK AI provider settings, the Workers AI binding fix, sharpened AI prompts), their D1 databases hold the current schema including migration `0008_ai_provider_configs.sql`, and real Cloudflare Access secrets are set on both Workers — see "First real staging + production deploy" and "Pushed and deployed to staging + production" below. Deploys are local-only (`npm run deploy:staging` / `wrangler deploy --env production`); there is no GitHub Actions deploy workflow anymore (removed 2026-09-14 — GitHub was never connected to Cloudflare) and no CI/CD auto-deploy on push. Environment variable SSOT names are defined in [`docs/cms/environment-map.md`](cms/environment-map.md), which now also records the real (non-placeholder) Access team domain and AUD.
 
 Requirements: [CMS migration specification, version 6](cms-migration-plan.md). Documentation index: [README](README.md).

@@ -1,27 +1,30 @@
 # Documentation
 
-Project documentation is maintained in English. Thai text may appear in explicitly labeled language-test examples where the original characters are necessary to demonstrate behavior.
+Project documentation is maintained in English.
 
-## Current implementation status
+## Current implementation
 
-- Phase 0 is complete and Gate G0 passed: the production AI Worker is protected and rejects unauthenticated requests.
-- Gate G0.5 passed after owner-confirmed staging Worker/workerd, D1 binding/query, and Access guard verification; the architecture record retains local evidence and identifies remote IDs still to record.
-- Phase 1 milestone 1A is partly complete. P1-01 through P1-03 are accepted: data contracts and runtime validation, versioned D1 migrations, the typed D1 data-access layer with atomic revision snapshots, idempotent releases, and live-pointer compare-and-set enforced in both code and database triggers.
-- P1-04a (authenticated release confirm/fail callback) is done locally, but as of 2026-09-14 has no caller: the GitHub Actions deploy workflow it was built for was removed the same day (GitHub was never actually connected to Cloudflare). Whether P1-04b (provider-first reconciliation) is still needed given that is an open question — see `plan.md`.
-- **Both staging and production are deployed and live as of 2026-09-14** — `frong.me` (production, real custom domain) and `frong-me-staging.frongbook.workers.dev`, both with the current `main`, migrated D1 schemas, and real Cloudflare Access secrets set. This is the first session where CMS code (including `/earth` and `/articles`) reached production. See `plan.md`'s "First real staging + production deploy" entry and `cms/environment-map.md` for exactly what that involved and what's still unverified (a real human login through Access).
-- This was an additive deploy, not a replacement cutover: the existing Sanity-backed portfolio pages (home, about) are unaffected and still present alongside the new CMS routes.
+The homepage and `/articles/[slug]` read published posts directly from D1.
+The protected `/earth` editor supports saving, publishing, withdrawing, archiving,
+image uploads and the in-app AI assistant. GitHub Actions runs verification only;
+deployment remains a separate local operation.
+
+Old release orchestration routes, snapshot exporters and `src/components/cms/`
+mentioned in historical entries are no longer in the current tree. Existing
+release-related database migrations, verifier code, Sanity Studio, backups and
+the standalone AI Worker are retained pending separate retirement decisions.
+
+## Read in this order
 
 | Document | Purpose |
 |---|---|
-| [Implementation plan](plan.md) | Start here for current status, task IDs, dependencies, acceptance gates, decisions, and session handoffs |
-| [CMS migration specification](cms-migration-plan.md) | Version 6 product requirements, architecture, example schema, routes, and detailed acceptance criteria |
-| [Phase 0 baseline](cms/baseline.md) | Repository/build/public-endpoint inventory and legacy reuse/replace/retire decisions |
-| [Environment map](cms/environment-map.md) | Staging/production resources, binding/secret names, ownership boundaries, and verification commands |
-| [Phase 0.5 architecture spike](cms/architecture-spike.md) | Astro/Cloudflare runtime, Access auth, D1 snapshot, dispatch, recovery, and staging evidence |
-| [Historical Astro migration notes](../README-MIGRATION.md) | Earlier Vite/React-to-Astro migration history; not the current CMS specification |
+| [Current handoff](plan.md) | Current cleanup status and follow-up work; older logs remain historical |
+| [Environment map](cms/environment-map.md) | Resource identifiers, variable names and deployment precautions |
+| [CMS requirements](cms-migration-plan.md) | Original requirements; release/snapshot sections need reconciliation with direct publishing |
+| [AI integration](cms/ai-integration-spec.md) | In-app AI contract and design |
+| [Baseline](cms/baseline.md) | Historical migration inventory |
+| [Architecture proof](cms/architecture-spike.md) | Historical evidence and a link to the removed prototype in Git |
 
-The owner has confirmed that the existing code is a legacy implementation and may change substantially to meet the new requirements. The implementation plan records that direction and later review refinements. Historical “verified” claims in the specification do not establish current deployment status.
-
-Keep planning and design documents in this directory. Keep the project entry point at [the root README](../README.md) and agent-specific instructions at their root discovery paths: [AGENTS.md](../AGENTS.md) and [CLAUDE.md](../CLAUDE.md).
-
-Update `plan.md` after each work session. The Phase 0 baseline/environment map and Phase 0.5 architecture record exist under `docs/cms/`; the release-protocol, backup-restore, and cutover runbooks listed at the end of `plan.md` will be created with their implementation tasks.
+Do not treat historical checkboxes, deployment logs or backup archives as proof of
+current production health or restorability. Keep user-facing behavior and data
+intact unless a separate change authorizes their retirement.

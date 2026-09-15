@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { set, PatchEvent, useClient } from "sanity";
-import type { ImageInputProps } from "sanity";
+import type { ImageValue, ObjectInputProps, ObjectSchemaType } from "sanity";
 
 interface UnsplashPhoto {
   id: string;
@@ -8,7 +8,7 @@ interface UnsplashPhoto {
   alt_description: string | null;
 }
 
-export function UnsplashImageInput(props: ImageInputProps) {
+export function UnsplashImageInput(props: ObjectInputProps<ImageValue, ObjectSchemaType>) {
   const client = useClient({ apiVersion: "2024-01-01" });
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<UnsplashPhoto[]>([]);

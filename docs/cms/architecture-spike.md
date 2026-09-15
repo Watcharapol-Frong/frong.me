@@ -4,7 +4,11 @@ Updated: 2026-09-10 UTC
 
 Tasks: S-01 through S-06
 
-Prototype: [`spikes/cloudflare-architecture/`](../../spikes/cloudflare-architecture/)
+Historical prototype: [pre-cleanup source in Git](https://github.com/Watcharapol-Frong/frong.me/tree/4e8ac930f527eb3032ea2f6ecc291e7469b2ada4/spikes/cloudflare-architecture/).
+
+> Archived evidence: the unused prototype was removed from the current tree on
+> 2026-09-15. Commands and conclusions below describe that earlier experiment,
+> not the current direct-D1 publishing system. See `../plan.md` for current work.
 
 ## Result
 

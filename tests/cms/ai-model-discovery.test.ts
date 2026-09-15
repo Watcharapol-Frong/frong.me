@@ -8,7 +8,7 @@ import { CmsBadRequestError, CmsError } from '../../src/server/cms/errors.ts';
 
 test('discoverProviderModels lists Gemini models that support generateContent, filtering out ones that do not', async () => {
   let capturedUrl = '';
-  const fetcher = async (url: string | URL) => {
+  const fetcher = async (url: Parameters<typeof fetch>[0]) => {
     capturedUrl = String(url);
     return new Response(
       JSON.stringify({
@@ -37,7 +37,7 @@ test('discoverProviderModels requires an API key for Gemini', async () => {
 
 test('discoverProviderModels lists OpenRouter models without needing a key, deriving vendor and capability', async () => {
   let capturedUrl = '';
-  const fetcher = async (url: string | URL) => {
+  const fetcher = async (url: Parameters<typeof fetch>[0]) => {
     capturedUrl = String(url);
     return new Response(
       JSON.stringify({
@@ -73,7 +73,7 @@ test('generateAiResult prefers a D1-saved provider key over the env var fallback
   let capturedUrl = '';
   const env = {
     GEMINI_API_KEY: 'env-key',
-    fetcher: async (url: string | URL) => {
+    fetcher: async (url: Parameters<typeof fetch>[0]) => {
       capturedUrl = String(url);
       return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: 'ok' }] } }] }), { status: 200 });
     },
@@ -90,7 +90,7 @@ test('generateAiResult falls back to the env var key when D1 has no config for t
   let capturedUrl = '';
   const env = {
     GEMINI_API_KEY: 'env-key',
-    fetcher: async (url: string | URL) => {
+    fetcher: async (url: Parameters<typeof fetch>[0]) => {
       capturedUrl = String(url);
       return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: 'ok' }] } }] }), { status: 200 });
     },
@@ -116,7 +116,7 @@ test('validateProviderApiKey accepts a Gemini key ListModels accepts', async () 
 test('validateProviderApiKey checks OpenRouter via its auth/key endpoint, not the public models list', async () => {
   let capturedUrl = '';
   let capturedAuth: string | null = null;
-  const okFetcher = async (url: string | URL, init?: RequestInit) => {
+  const okFetcher = async (url: Parameters<typeof fetch>[0], init?: RequestInit) => {
     capturedUrl = String(url);
     capturedAuth = new Headers(init?.headers).get('authorization');
     return new Response(JSON.stringify({ data: { label: 'test key' } }), { status: 200 });

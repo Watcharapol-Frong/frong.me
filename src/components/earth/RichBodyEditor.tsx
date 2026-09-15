@@ -17,6 +17,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useEditor, useEditorState, EditorContent, ReactNodeViewRenderer, NodeViewWrapper } from '@tiptap/react';
 import { BubbleMenu } from '@tiptap/react/menus';
+import type { ReactNodeViewProps } from '@tiptap/react';
 import { Editor, Mark, Node, mergeAttributes } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import Image from '@tiptap/extension-image';
@@ -118,7 +119,7 @@ function youtubeMarkdownItPlugin(md: any) {
   };
 }
 
-function YoutubeEmbedView({ node }: { node: { attrs: { videoId: string } } }) {
+function YoutubeEmbedView({ node }: ReactNodeViewProps) {
   return (
     <NodeViewWrapper className="video-embed" data-youtube-embed={node.attrs.videoId} contentEditable={false}>
       <iframe
