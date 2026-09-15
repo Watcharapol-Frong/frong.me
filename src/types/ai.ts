@@ -290,7 +290,8 @@ export interface AiProviderConfig {
 /** PUT body for saving a provider's config. `apiKey: undefined` leaves the stored key unchanged; `null` clears it. */
 export interface UpdateAiProviderConfigInput {
   apiKey?: string | null;
-  models: AiConfiguredModel[];
+  // The repository derives display metadata when callers send only id/label.
+  models: Array<Pick<AiConfiguredModel, 'id' | 'label'> & Partial<Pick<AiConfiguredModel, 'short' | 'vendor' | 'capability'>>>;
 }
 
 /** One entry from a provider's live model-list API, before the author narrows it down to their chosen 1-5. */
@@ -320,4 +321,3 @@ export interface AiWorkerEnvironment {
   /** Legacy shared secret for standalone AI Worker (optional) */
   AI_WORKER_SECRET?: string;
 }
-

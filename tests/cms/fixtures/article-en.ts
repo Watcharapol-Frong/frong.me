@@ -28,6 +28,7 @@ Decoupling mutable post drafts from immutable post revisions ensures editorial w
   archived_at: null,
   published_at: 1789030800000,
   cover_image_url: 'https://images.frong.me/staging/cover-architecture.webp',
+  cover_crop: null,
 };
 
 /**
@@ -135,4 +136,3 @@ export default {
   postRowEn,
   publicArticleEn,
 };
-

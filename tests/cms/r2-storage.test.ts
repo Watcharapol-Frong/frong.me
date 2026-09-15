@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  type R2UploadBucket,
   ASSET_CACHE_CONTROL,
   PUBLIC_ASSET_BASE_URL,
   R2_ASSET_PREFIX,
@@ -152,7 +153,7 @@ function makeBucket() {
       return { key };
     },
   };
-  return { bucket: bucket as unknown as R2Bucket, puts };
+  return { bucket: bucket as unknown as R2UploadBucket, puts };
 }
 
 const PNG_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
@@ -193,11 +194,11 @@ test('uploadAsset rejects empty payloads and invalid bindings', async () => {
   const { bucket } = makeBucket();
   await assert.rejects(() => uploadAsset(bucket, new Uint8Array(0), 'empty.png'), CmsValidationError);
   await assert.rejects(
-    () => uploadAsset(null as unknown as R2Bucket, PNG_BYTES, 'photo.png'),
+    () => uploadAsset(null as unknown as R2UploadBucket, PNG_BYTES, 'photo.png'),
     CmsValidationError,
   );
   await assert.rejects(
-    () => uploadAsset({} as unknown as R2Bucket, PNG_BYTES, 'photo.png'),
+    () => uploadAsset({} as unknown as R2UploadBucket, PNG_BYTES, 'photo.png'),
     CmsValidationError,
   );
 });

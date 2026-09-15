@@ -21,6 +21,7 @@ const POST: PostDetail = {
   updatedAt: 1789140000000,
   publishedAt: null,
   coverImageUrl: null,
+  coverCrop: null,
   tagNames: [],
   bodyMarkdown: '# Draft',
   categoryIds: ['cat_existing01'],
@@ -38,6 +39,7 @@ const DRAFT: PostEditorDraft = {
   tagIds: ['tag_editor001'],
   status: 'draft',
   coverUrl: '',
+  coverCrop: null,
 };
 
 interface RecordedRequest {

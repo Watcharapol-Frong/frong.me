@@ -52,9 +52,6 @@ export default defineConfig({
     resolve: {
       alias: {
         '@': fileURLToPath(new URL('./src', import.meta.url)),
-        ...(!hasLegacySanity
-          ? { 'sanity:client': fileURLToPath(new URL('./src/lib/sanityClientFallback.ts', import.meta.url)) }
-          : {}),
       },
     },
   }

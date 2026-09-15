@@ -12,9 +12,8 @@
  * only ever emits the tags it constructs itself. There is no raw-HTML
  * Markdown extension.
  *
- * Heading slugs are Unicode-aware (Thai included): unlike `src/lib/slugify.ts`
- * (which strips non-ASCII and exists for other historical reasons), this
- * keeps Thai characters intact, lowercases ASCII, collapses whitespace to
+ * Heading slugs are Unicode-aware (Thai included): this keeps Thai
+ * characters intact, lowercases ASCII, collapses whitespace to
  * hyphens, and de-duplicates collisions within one document.
  */
 

@@ -8,7 +8,7 @@ astro dev --background
 
 Manage the background server with `astro dev stop`, `astro dev status`, and `astro dev logs`.
 
-The root build currently requires the legacy Sanity variables, and `npx tsc --noEmit` stops on the legacy `baseUrl` option in `tsconfig.json`. Both are known retired-configuration issues; do not treat them as regressions.
+Run `npx tsc --noEmit` as a required check. For a credential-free verification build, use `CLOUDFLARE_VITE_FORCE_LOCAL=true npm run build`; Sanity variables are optional. This disables remote binding connections during verification without removing deployment bindings.
 
 ## CMS work
 

@@ -13,6 +13,13 @@
 import { CmsValidationError } from '../validation.ts';
 import type { CmsImageMimeType } from './metadata.ts';
 
+/** Only the R2 operation used by uploads; also implemented by test adapters. */
+export interface R2UploadBucket {
+  put(key: string, value: Uint8Array, options?: {
+    httpMetadata?: { contentType?: string; cacheControl?: string };
+  }): Promise<unknown>;
+}
+
 /** Public CDN origin that fronts the R2 bucket. */
 export const PUBLIC_ASSET_BASE_URL = 'https://images.frong.me';
 
@@ -155,7 +162,7 @@ export function resolveContentType(
  * `Cache-Control: public, max-age=31536000, immutable`.
  */
 export async function uploadAsset(
-  bucket: R2Bucket,
+  bucket: R2UploadBucket,
   input: Buffer | Uint8Array,
   filename: string,
   options: R2UploadOptions = {},

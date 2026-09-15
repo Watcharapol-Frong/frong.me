@@ -28,6 +28,7 @@ export const mockPostRowTh: PostRow = {
   archived_at: null,
   published_at: 1789030800000,
   cover_image_url: null,
+  cover_crop: null,
 };
 
 /**
@@ -135,4 +136,3 @@ export default {
   postRowTh,
   publicArticleTh,
 };
-
