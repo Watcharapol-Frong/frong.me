@@ -1,6 +1,7 @@
 # Current handoff
 
-Updated: 2026-09-15. Scope: legacy retirement and English maintainer onboarding.
+Updated: 2026-09-22. Scope: deployed legacy retirement release and maintainer
+handoff.
 
 ## Architecture
 
@@ -19,7 +20,8 @@ directly, without GitHub builds or deployment. Start with
 - Import shared AI types directly and declare development tools explicitly.
 - Replace contradictory historical onboarding with current English docs.
 - Preserve applied migrations, release-table rows and integrity checks.
-- No deployment, remote data change, service deletion or credential revocation.
+- Keep deployment, remote data changes, service retirement and credential
+  changes as separately approved operational actions.
 
 ## Verification
 
@@ -44,13 +46,39 @@ retirement/read-only verification checks, for a net increase from 210 to 215.
 
 ## Next gates
 
-1. Require green full-suite, TypeScript and build checks for every future change.
-2. Get deployment approval and follow the human acceptance checklist.
-3. Verify Access/login, media origin/environment separation and AI in the approved
-   environment. Stored provider keys lack application-level encryption.
-4. Verify D1/R2 backup and restore.
-5. Complete [remote retirement](legacy-retirement.md). Removing source does not
-   retire the remote Sanity project or AI Worker.
+1. Complete the authenticated browser checklist in production: sign in,
+   create/save/reopen a draft, insert an image, preview, publish, verify the public
+   article, unpublish, and check visibility after cache expiry.
+2. Verify media origin/environment separation and exercise AI only with an
+   approved account. Stored provider keys lack application-level encryption.
+3. Verify and document D1/R2 backup and restore.
+4. Complete [remote retirement](legacy-retirement.md). Removing source does not
+   retire the remote Sanity project or AI Worker. The stale staging
+   `RELEASE_CALLBACK_SECRET` also remains pending explicit removal approval.
+5. Continue requiring a green full suite, TypeScript check and production build
+   for every future release.
 
 Historical requirements/session logs are linked from the retirement record, not
 mixed into this current handoff.
+
+## Deployment record
+
+- 2026-09-22: Deployed commit `039d7ba` to Cloudflare staging as Worker
+  `frong-me-staging`.
+- Deployment version: `b0bea1db-81dd-480f-9e13-79833f29b69c`.
+- Preflight, the full production build and Wrangler upload completed successfully;
+  the remote staging database reported no pending migrations.
+- Post-deploy smoke check: `/` returned 200, `/about` returned its expected route
+  redirect, and an anonymous `/earth` request was rejected with 401.
+- An authenticated browser acceptance pass, media delivery and approved AI usage
+  remain human checks before promoting this build to production.
+- 2026-09-22: Deployed the same commit `039d7ba` to Cloudflare production as
+  Worker `frong-me`, version `9a030873-8213-4779-8d28-847f0e77184b`.
+- Before production deployment, 215/215 CMS tests and TypeScript passed, the
+  production-targeted build and Wrangler dry-run completed successfully, and the
+  remote production database reported no pending migrations.
+- Production smoke check: `https://frong.me/` and `/about/` returned 200,
+  `/earth` redirected anonymous traffic to Cloudflare Access, and the production
+  workers.dev endpoint returned 200.
+- Authenticated draft/media/publish/AI acceptance still requires a maintainer
+  browser session; the automated deployment did not mutate production content.

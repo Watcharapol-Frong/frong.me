@@ -6,7 +6,7 @@ All maintained engineering documentation is in English.
 | --- | --- |
 | [Architecture](architecture.md) | Flows, module ownership and placement rules |
 | [Contributor guide](../CONTRIBUTING.md) | Setup, checks and change workflow |
-| [Current handoff](plan.md) | Verification and remaining operational gates |
+| [Current handoff](plan.md) | Deployments, verification and remaining operational gates |
 | [Environment guide](cms/environment-map.md) | Configuration, deployment and isolation |
 | [AI contract](cms/ai-integration-spec.md) | Active embedded AI path |
 | [Retirement record](legacy-retirement.md) | Removed code, preserved data and remote closeout |

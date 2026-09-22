@@ -12,12 +12,15 @@ This describes repository configuration, not a live account audit.
 
 `wrangler.jsonc` is the source of truth. Default bindings target staging; select
 named environments explicitly for deployment. All declare `DB`, `MEDIA_BUCKET`
-and `AI`. Public host: `https://frong.me`. Recorded staging host:
+and `AI`. Production is served at `https://frong.me`; staging is served at
 `https://frong-me-staging.frongbook.workers.dev`.
 
-Staging Access login, production Access policy, media routing and restore
-readiness need live verification. A configuration file or old session log is not
-evidence of current remote health.
+On 2026-09-22, commit `039d7ba` was deployed to both environments. Public route
+smoke checks passed, production `/earth` redirected anonymous traffic to the
+Cloudflare Access login, and both remote databases reported no pending
+migrations. This does not replace authenticated author-flow, media delivery, AI,
+or backup/restore acceptance. See the deployment IDs and exact evidence in the
+[current handoff](../plan.md).
 
 ## Configuration consumers
 

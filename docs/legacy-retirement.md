@@ -10,7 +10,7 @@ Repository retirement and remote destruction are different operations.
 | Standalone AI Worker | Remove independent source, manifest and deployment config | Inspect outside consumers/traffic; retire remote Worker only with approval |
 | Weekly Sanity export | Remove scheduled workflow | Confirm final export and retention before remote data deletion |
 | Three historical exports | Move unchanged to `archive/sanity/` | Owner selects durable retention and verifies recovery |
-| Release callback probes | Remove obsolete mutating probes and callback-only tests | No active caller or callback secret required |
+| Release callback probes | Remove obsolete mutating probes and callback-only tests | No active caller or callback secret required; remove the stale staging secret only with explicit approval |
 | Historical release tables | Preserve migrations, rows and integrity checks | Inventory rows and review a forward migration before any drop |
 | Superseded plans/spikes/session docs | Remove from current docs; retain in Git | Historical evidence only |
 | Embedded Earth AI | Keep routes, settings, provider calls and tests | Verify real provider access separately |
@@ -21,8 +21,10 @@ outside clients still use remote services.
 
 ## Preserved data
 
-No deployment, remote deletion, credential revocation or database drop is part
-of this cleanup. `archive/` contains data, not another supported system.
+No deployment, remote deletion, credential revocation or database drop was part
+of the cleanup change itself. Commit `039d7ba` was subsequently deployed to
+staging and production on 2026-09-22; no remote migration was pending and no
+legacy service or credential was removed. `archive/` contains data, not another supported system.
 Do not import it, extract it into fixtures, or include it in deployment assets.
 [Checksums](../archive/sanity/README.md) verify relocation integrity, not backup
 completeness or restoration. Sanity exports are not current D1/R2 backups.
@@ -31,7 +33,8 @@ completeness or restoration. Sanity exports are not current D1/R2 backups.
 
 An authorized operator must:
 
-1. Confirm the current application is deployed and its author workflow works.
+1. Complete the authenticated author workflow acceptance for the deployed
+   application; public-route and Access-redirect smoke checks already passed.
 2. Inspect Sanity data and standalone Worker consumers/traffic without changing
    them. Check external clients and jobs.
 3. Verify a final recoverable export and agree retention/access policy.

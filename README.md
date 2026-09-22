@@ -56,3 +56,11 @@ Git history preserves removed source and superseded planning documents.
 
 GitHub Actions tests changes; it does **not** deploy. Deployment, remote data
 migrations, service deletion and credential revocation require explicit approval.
+
+## Current deployment
+
+Commit `039d7ba` was deployed to staging and production on 2026-09-22. The
+public production site is `https://frong.me`; the staging Worker is
+`https://frong-me-staging.frongbook.workers.dev`. Automated checks and public
+route smoke tests passed. Authenticated author, media and AI acceptance remains
+a maintainer browser task; see the [current handoff](docs/plan.md).
