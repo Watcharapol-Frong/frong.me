@@ -31,6 +31,16 @@ export interface PublicPostAssetRow {
   height: number;
 }
 
+export interface PublicPostCard {
+  id: string;
+  lang: Language;
+  slug: string;
+  title: string;
+  tags: string[];
+  coverAsset: PublicPostAssetRow | null;
+  coverImageUrl: string | null;
+}
+
 export async function listPublishedPosts(
   db: CmsDatabase,
   options: { lang?: Language; limit?: number } = {},
@@ -51,6 +61,62 @@ export async function listPublishedPosts(
      LIMIT ?${params.length}`,
     params,
   );
+}
+
+/**
+ * Homepage read model. Its interface hides the joins and guarantees a fixed
+ * three-query cost instead of making the route issue two queries per post.
+ */
+export async function listPublishedPostCards(
+  db: CmsDatabase,
+  options: { lang?: Language; limit?: number } = {},
+): Promise<PublicPostCard[]> {
+  const posts = await listPublishedPosts(db, options);
+  if (posts.length === 0) return [];
+
+  const placeholders = posts.map((_, index) => `?${index + 1}`).join(', ');
+  const ids = posts.map((post) => post.id);
+  const [covers, tags] = await Promise.all([
+    db.all<PublicPostAssetRow & { post_id: string }>(
+      `SELECT usage.post_id, usage.role, usage.alt_text, usage.caption,
+              usage.crop_json, usage.position, asset.public_r2_key,
+              asset.mime_type, asset.width, asset.height
+       FROM post_asset_usages AS usage
+       JOIN assets AS asset ON asset.id = usage.asset_id
+       WHERE usage.post_id IN (${placeholders})
+         AND usage.role = 'cover'
+         AND asset.lifecycle = 'public'
+         AND asset.public_r2_key IS NOT NULL
+       ORDER BY usage.post_id ASC, usage.position ASC, usage.id ASC`,
+      ids,
+    ),
+    db.all<{ post_id: string; slug: string }>(
+      `SELECT post_tags.post_id, tags.slug
+       FROM post_tags
+       JOIN tags ON tags.id = post_tags.tag_id
+       WHERE post_tags.post_id IN (${placeholders})
+       ORDER BY post_tags.post_id ASC, post_tags.position ASC, tags.id ASC`,
+      ids,
+    ),
+  ]);
+
+  const coverByPost = new Map(covers.map((cover) => [cover.post_id, cover]));
+  const tagsByPost = new Map<string, string[]>();
+  for (const tag of tags) {
+    const postTags = tagsByPost.get(tag.post_id) ?? [];
+    postTags.push(tag.slug);
+    tagsByPost.set(tag.post_id, postTags);
+  }
+
+  return posts.map((post) => ({
+    id: post.id,
+    lang: post.lang,
+    slug: post.slug,
+    title: post.title,
+    tags: tagsByPost.get(post.id) ?? [],
+    coverAsset: coverByPost.get(post.id) ?? null,
+    coverImageUrl: post.cover_image_url,
+  }));
 }
 
 /**

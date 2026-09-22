@@ -7,9 +7,8 @@
 import Layout from "@/layouts/Layout.astro";
 import HomeIsland from "@/components/HomeIsland";
 import { resolveCmsDatabase } from "@/server/cms/api.ts";
-import { listPublishedPosts, listPublicPostAssets } from "@/server/cms/repositories/public.ts";
+import { listPublishedPostCards } from "@/server/cms/repositories/public.ts";
 import { publicAssetUrl } from "@/lib/cms/markdown/asset-resolver.ts";
-import { getPostTaxonomy } from "@/server/cms/repositories/taxonomy.ts";
 
 export const prerender = false;
 
@@ -19,23 +18,17 @@ Astro.response.headers.set(
 );
 
 const db = await resolveCmsDatabase(Astro.locals);
-const posts = await listPublishedPosts(db, { limit: 60 });
-
-const articles = await Promise.all(
-  posts.map(async (post) => {
-    const [assets, taxonomy] = await Promise.all([
-      listPublicPostAssets(db, post.id),
-      getPostTaxonomy(db, post.id),
-    ]);
-    const cover = assets.find((asset) => asset.role === "cover");
-    return {
-      slug: post.slug,
-      title: post.title,
-      tags: taxonomy.tags.map((tag) => tag.slug),
-      cover: cover ? publicAssetUrl(cover, "https://images.frong.me") : post.cover_image_url ?? "",
-    };
-  }),
-);
+const cards = await listPublishedPostCards(db, { limit: 60 });
+const articles = cards.map((card) => ({
+  slug: card.slug,
+  title: card.title,
+  tags: card.tags,
+  cover: card.coverAsset
+    ? publicAssetUrl(card.coverAsset, "https://images.frong.me")
+    : card.coverImageUrl ?? "",
+  coverWidth: card.coverAsset?.width,
+  coverHeight: card.coverAsset?.height,
+}));
 
 const categories = [...new Set(articles.flatMap((article) => article.tags))];
 ---

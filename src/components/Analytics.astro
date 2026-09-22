@@ -1,0 +1,150 @@
+---
+interface Props {
+  measurementId?: string;
+}
+
+const measurementId = Astro.props.measurementId?.trim();
+const enabled = Boolean(measurementId && /^G-[A-Z0-9]+$/.test(measurementId));
+---
+
+{enabled && (
+  <>
+    <aside class="analytics-consent" data-analytics-consent hidden aria-live="polite" aria-label="Analytics consent">
+      <p>May I use anonymous Google Analytics data to improve this site?</p>
+      <div>
+        <button type="button" data-analytics-deny>No thanks</button>
+        <button type="button" data-analytics-accept>Allow analytics</button>
+      </div>
+    </aside>
+    <button class="analytics-settings" type="button" data-analytics-settings hidden>
+      Analytics settings
+    </button>
+    <script is:inline define:vars={{ measurementId }}>
+      (() => {
+        const storageKey = 'frong:analytics-consent:v1';
+        const panel = document.querySelector('[data-analytics-consent]');
+        const settings = document.querySelector('[data-analytics-settings]');
+        const accept = document.querySelector('[data-analytics-accept]');
+        const deny = document.querySelector('[data-analytics-deny]');
+        let loaded = false;
+
+        const readChoice = () => {
+          try { return localStorage.getItem(storageKey); } catch { return null; }
+        };
+        const saveChoice = (choice) => {
+          try { localStorage.setItem(storageKey, choice); } catch { /* storage can be unavailable */ }
+        };
+        const showPanel = () => {
+          if (panel) panel.hidden = false;
+          if (settings) settings.hidden = true;
+        };
+        const hidePanel = () => {
+          if (panel) panel.hidden = true;
+          if (settings) settings.hidden = false;
+        };
+        const gtag = (...args) => {
+          window.dataLayer = window.dataLayer || [];
+          window.dataLayer.push(args);
+        };
+        const loadAnalytics = () => {
+          if (loaded) return;
+          loaded = true;
+          gtag('consent', 'default', {
+            ad_storage: 'denied',
+            ad_user_data: 'denied',
+            ad_personalization: 'denied',
+            analytics_storage: 'denied',
+          });
+          gtag('consent', 'update', { analytics_storage: 'granted' });
+          gtag('js', new Date());
+          gtag('config', measurementId, {
+            allow_google_signals: false,
+            allow_ad_personalization_signals: false,
+          });
+          const script = document.createElement('script');
+          script.async = true;
+          script.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(measurementId)}`;
+          document.head.appendChild(script);
+        };
+        const revokeAnalytics = () => {
+          if (loaded) gtag('consent', 'update', { analytics_storage: 'denied' });
+          for (const cookie of document.cookie.split(';')) {
+            const name = cookie.split('=')[0]?.trim();
+            if (name === '_ga' || name?.startsWith('_ga_')) {
+              document.cookie = `${name}=; Max-Age=0; Path=/; SameSite=Lax`;
+            }
+          }
+        };
+
+        accept?.addEventListener('click', () => {
+          saveChoice('granted');
+          hidePanel();
+          loadAnalytics();
+        });
+        deny?.addEventListener('click', () => {
+          saveChoice('denied');
+          revokeAnalytics();
+          hidePanel();
+        });
+        settings?.addEventListener('click', showPanel);
+
+        const choice = readChoice();
+        if (choice === 'granted') {
+          hidePanel();
+          loadAnalytics();
+        } else if (choice === 'denied') {
+          hidePanel();
+        } else {
+          showPanel();
+        }
+      })();
+    </script>
+  </>
+)}
+
+<style>
+  .analytics-consent {
+    position: fixed;
+    z-index: 100;
+    right: 1rem;
+    bottom: 1rem;
+    width: min(24rem, calc(100vw - 2rem));
+    padding: 1rem;
+    border: 1px solid hsl(var(--border));
+    border-radius: 0.75rem;
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
+    box-shadow: 0 12px 36px rgb(0 0 0 / 0.14);
+    font: 400 0.875rem/1.5 Inter, system-ui, sans-serif;
+  }
+  .analytics-consent div {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+  }
+  .analytics-consent button,
+  .analytics-settings {
+    border: 1px solid hsl(var(--border));
+    border-radius: 9999px;
+    padding: 0.45rem 0.75rem;
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
+    cursor: pointer;
+  }
+  .analytics-consent [data-analytics-accept] {
+    border-color: hsl(var(--foreground));
+    background: hsl(var(--foreground));
+    color: hsl(var(--background));
+  }
+  .analytics-settings {
+    position: fixed;
+    z-index: 90;
+    right: 0.75rem;
+    bottom: 0.75rem;
+    padding: 0.3rem 0.55rem;
+    font-size: 0.7rem;
+    opacity: 0.65;
+  }
+  [hidden] { display: none !important; }
+</style>

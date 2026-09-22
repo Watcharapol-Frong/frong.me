@@ -61,6 +61,24 @@ retirement/read-only verification checks, for a net increase from 210 to 215.
 Historical requirements/session logs are linked from the retirement record, not
 mixed into this current handoff.
 
+## Repository maintenance
+
+- 2026-09-22: Removed the redundant root declarations for
+  `@tiptap/extension-bubble-menu` and `@tiptap/extension-floating-menu`.
+  `@tiptap/react` continues to provide both optional packages used by its menu
+  entry point.
+- Reduced the project-local Matt Pocock skill set from 38 skills to
+  `code-review`, `codebase-design`, and `diagnosing-bugs`.
+- After cleanup, all 215 CMS tests, TypeScript, the local production build, and
+  `git diff --check` passed.
+- 2026-09-22: Centralized canonical/social/structured metadata behind the
+  `PageSeo` interface, added consent-gated optional GA4, and reduced homepage
+  D1 reads from up to 121 queries to a fixed three-query read model. The
+  responsive article grid now uses one DOM tree with intrinsic image sizing.
+  GA4 remains inactive until an authorized build receives
+  `PUBLIC_GA_MEASUREMENT_ID`; deployment and GA4 property creation were not
+  performed.
+
 ## Deployment record
 
 - 2026-09-22: Deployed commit `039d7ba` to Cloudflare staging as Worker

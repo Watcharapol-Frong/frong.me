@@ -85,7 +85,16 @@ const newerPost = currentIndex > 0 ? otherPosts[currentIndex - 1] : undefined;
 const publishedAtIso = new Date(post.published_at ?? post.created_at).toISOString();
 ---
 
-<Layout title={`${post.title} - frong.me`} description={post.excerpt ?? undefined} ogImage={coverUrl}>
+<Layout seo={{
+  type: "article",
+  title: post.title,
+  description: post.excerpt ?? undefined,
+  image: coverUrl,
+  language: post.lang,
+  publishedAt: publishedAtIso,
+  modifiedAt: new Date(post.updated_at).toISOString(),
+  tags,
+}}>
   <main class="min-h-screen bg-background page-transition">
     <Navbar client:load />
 
@@ -93,7 +102,15 @@ const publishedAtIso = new Date(post.published_at ?? post.created_at).toISOStrin
       <div class="max-w-2xl mx-auto">
         {coverUrl && (
           <div class="w-full aspect-[1.91/1] overflow-hidden rounded-[10px] bg-muted mb-14 fade-in-up">
-            <img src={coverUrl} alt={post.title} class="w-full h-full object-cover" style={coverStyle} />
+            <img
+              src={coverUrl}
+              alt={post.title}
+              width={cover?.width}
+              height={cover?.height}
+              fetchpriority="high"
+              class="w-full h-full object-cover"
+              style={coverStyle}
+            />
           </div>
         )}
 

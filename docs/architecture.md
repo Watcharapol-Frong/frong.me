@@ -12,6 +12,7 @@ Cloudflare runs the application and binds D1, R2 and Workers AI.
 | Author workspace | `/earth`, `/earth/editor` | Portal, editor, local draft recovery, media and AI panels |
 | Content management | `/earth/api/posts/*`, asset/settings endpoints | Validation and repositories behind thin handlers |
 | AI assistance | `/earth/api/ai/generate`, provider settings/discovery | Provider calls and configuration |
+| SEO and analytics | `src/lib/seo.ts`, `Layout.astro`, `Analytics.astro` | Canonical/social/structured metadata and consent-gated GA4 |
 | Access | Middleware on `/earth` and descendants | Signed Access assertion verification |
 | Storage | `CmsDatabase`, media upload interface | D1 adapter/repositories and content-addressed R2 assets |
 
@@ -35,6 +36,8 @@ Code deployment and article publication are different operations.
 - HTTP translation only: `src/pages/earth/api/`.
 - Author interactions: `src/components/earth/`; public presentation elsewhere
   in `src/components/` and `src/layouts/`.
+- Page metadata crosses the `PageSeo` interface in `src/lib/seo.ts`; routes do
+  not duplicate head tags or analytics loaders.
 - Operational verification: `scripts/`; regression tests: `tests/cms/`.
 
 Use small interfaces that hide real implementation work. Do not create a second

@@ -4,7 +4,7 @@ import Navbar from "@/components/Navbar";
 import FloatingNav from "@/components/FloatingNav";
 ---
 
-<Layout title="Page not found - frong.me">
+<Layout seo={{ title: "Page not found", noIndex: true }}>
   <main class="min-h-screen bg-background flex items-center justify-center px-6 page-transition">
     <Navbar client:load />
     <div class="text-center fade-in-up">

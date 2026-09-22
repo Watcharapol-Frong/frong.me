@@ -19,6 +19,8 @@ interface HomeArticle {
   title: string;
   tags: string[];
   cover: string;
+  coverWidth?: number;
+  coverHeight?: number;
 }
 
 interface HomeIslandProps {
@@ -77,67 +79,36 @@ const HomeIsland = ({ articles, categories }: HomeIslandProps) => {
         <section ref={sectionRef} className="pt-32 md:pt-24 pb-24 px-6">
           {activeAnnouncement && <AnnouncementBanner {...activeAnnouncement} />}
 
-          {/* Mobile: Pinterest-style 2-column grid with equal sizes */}
-          <div className="grid grid-cols-2 gap-3 md:hidden">
+          {/* One responsive list avoids duplicating every image and card in the DOM. */}
+          <div className="grid grid-cols-2 gap-3 md:block md:columns-2 lg:columns-3 3xl:columns-4 md:gap-4">
             {filteredArticles.map((article, index) => (
               <a
                 key={article.slug}
                 href={`/articles/${article.slug}`}
-                className={`project-card group block transition-all duration-700 ${
+                className={`project-card group block md:mb-4 md:break-inside-avoid transition-all duration-700 ${
                   isVisible
                     ? "opacity-100 translate-y-0"
                     : "opacity-0 translate-y-16"
                 }`}
                 style={{ transitionDelay: `${index * 50}ms` }}
               >
-                <div className="relative overflow-hidden rounded-2xl bg-muted aspect-[4/5]">
+                <div className="relative overflow-hidden rounded-2xl md:rounded-3xl bg-muted aspect-[4/5] md:aspect-auto">
                   <img
                     src={article.cover}
                     alt={article.title}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
+                    width={article.coverWidth}
+                    height={article.coverHeight}
+                    className="w-full h-full md:h-auto object-cover"
+                    loading={index === 0 ? "eager" : "lazy"}
+                    fetchPriority={index === 0 ? "high" : "auto"}
                   />
                 </div>
 
-                <div className="pt-2 pb-3">
-                  <h3 className="text-xs font-medium group-hover:opacity-70 transition-opacity duration-300 line-clamp-1">
+                <div className="pt-2 pb-3 md:pt-3 md:pb-4">
+                  <h3 className="text-xs md:text-sm font-medium group-hover:opacity-70 transition-opacity duration-300 line-clamp-1">
                     {article.title}
                   </h3>
-                  <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">
-                    {article.tags.slice(0, 2).map((tag) => `#${tag}`).join(" ")}
-                  </p>
-                </div>
-              </a>
-            ))}
-          </div>
-
-          {/* Desktop: Masonry layout */}
-          <div className="hidden md:block columns-2 lg:columns-3 3xl:columns-4 gap-4">
-            {filteredArticles.map((article, index) => (
-              <a
-                key={article.slug}
-                href={`/articles/${article.slug}`}
-                className={`project-card group block mb-4 break-inside-avoid transition-all duration-700 ${
-                  isVisible
-                    ? "opacity-100 translate-y-0"
-                    : "opacity-0 translate-y-16"
-                }`}
-                style={{ transitionDelay: `${index * 80}ms` }}
-              >
-                <div className="relative overflow-hidden rounded-3xl bg-muted">
-                  <img
-                    src={article.cover}
-                    alt={article.title}
-                    className="w-full h-auto object-cover"
-                    loading="lazy"
-                  />
-                </div>
-
-                <div className="pt-3 pb-4">
-                  <h3 className="text-sm font-medium group-hover:opacity-70 transition-opacity duration-300 line-clamp-1">
-                    {article.title}
-                  </h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">
+                  <p className="text-[10px] md:text-xs text-muted-foreground mt-0.5 line-clamp-1 md:line-clamp-none">
                     {article.tags.map((tag) => `#${tag}`).join(" ")}
                   </p>
                 </div>

@@ -2,27 +2,33 @@
 import "../styles/global.css";
 import { getImage } from "astro:assets";
 import ogFallback from "../assets/og-fallback.svg";
+import Analytics from "../components/Analytics.astro";
+import {
+  buildSeoMetadata,
+  type ArticleSeo,
+  type ProfileSeo,
+  type WebsiteSeo,
+} from "../lib/seo.ts";
+
+type LayoutImage = ImageMetadata | string;
+type LayoutSeo =
+  | (Omit<WebsiteSeo, "image"> & { image?: LayoutImage })
+  | (Omit<ProfileSeo, "image"> & { image?: LayoutImage })
+  | (Omit<ArticleSeo, "image"> & { image?: LayoutImage });
 
 interface Props {
-  title?: string;
-  description?: string;
-  ogImage?: ImageMetadata | string;
+  seo?: LayoutSeo;
 }
 
-const {
-  title = "frong.me",
-  description = "Portfolio of Watcharapol Charoensuk (Frong) - Connecting Data to Business, and Strategy to Impact. Passionate about data analytics, AI, and design thinking.",
-  ogImage,
-} = Astro.props;
-
-const canonicalURL = new URL(Astro.url.pathname, Astro.site);
+const seo = Astro.props.seo ?? {};
+const { image, ...seoInput } = seo;
 
 let ogImageURL: URL;
-if (typeof ogImage === "string") {
-  ogImageURL = new URL(ogImage);
+if (typeof image === "string") {
+  ogImageURL = new URL(image);
 } else {
   const optimizedOgImage = await getImage({
-    src: ogImage ?? ogFallback,
+    src: image ?? ogFallback,
     width: 1200,
     height: 630,
     fit: "cover",
@@ -31,10 +37,21 @@ if (typeof ogImage === "string") {
   });
   ogImageURL = new URL(optimizedOgImage.src, Astro.site);
 }
+
+const metadata = buildSeoMetadata(
+  { ...seoInput, image: ogImageURL.toString() },
+  {
+    siteUrl: Astro.site!.toString(),
+    pathname: Astro.url.pathname,
+    defaultImageUrl: ogImageURL.toString(),
+  },
+);
+const structuredData = JSON.stringify(metadata.structuredData).replace(/</g, '\\u003c');
+const gaMeasurementId = import.meta.env.PUBLIC_GA_MEASUREMENT_ID;
 ---
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang={metadata.language}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -45,23 +62,29 @@ if (typeof ogImage === "string") {
         document.documentElement.classList.toggle("dark", isDark);
       })();
     </script>
-    <title>{title}</title>
-    <meta name="description" content={description} />
+    <title>{metadata.title}</title>
+    <meta name="description" content={metadata.description} />
     <meta name="author" content="Watcharapol Charoensuk" />
+    <meta name="robots" content={metadata.noIndex ? "noindex, nofollow" : "index, follow, max-image-preview:large"} />
 
-    <meta property="og:title" content={title} />
-    <meta property="og:description" content={description} />
-    <meta property="og:type" content="website" />
-    <meta property="og:url" content={canonicalURL} />
-    <meta property="og:image" content={ogImageURL} />
+    <meta property="og:title" content={metadata.title} />
+    <meta property="og:description" content={metadata.description} />
+    <meta property="og:type" content={metadata.openGraphType} />
+    <meta property="og:url" content={metadata.canonicalUrl} />
+    <meta property="og:locale" content={metadata.locale} />
+    <meta property="og:site_name" content="frong.me" />
+    <meta property="og:image" content={metadata.imageUrl} />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
 
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@Frong_wc" />
-    <meta name="twitter:image" content={ogImageURL} />
+    <meta name="twitter:title" content={metadata.title} />
+    <meta name="twitter:description" content={metadata.description} />
+    <meta name="twitter:image" content={metadata.imageUrl} />
 
-    <link rel="canonical" href={canonicalURL} />
+    <link rel="canonical" href={metadata.canonicalUrl} />
+    <script type="application/ld+json" set:html={structuredData} />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -73,5 +96,6 @@ if (typeof ogImage === "string") {
 
   <body>
     <slot />
+    <Analytics measurementId={gaMeasurementId} />
   </body>
 </html>

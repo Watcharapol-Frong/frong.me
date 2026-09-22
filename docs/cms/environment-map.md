@@ -35,10 +35,13 @@ or backup/restore acceptance. See the deployment IDs and exact evidence in the
 | `CF_ACCESS_CLIENT_ID`, `CF_ACCESS_CLIENT_SECRET` | Authorized Access service-token verification |
 | `CF_ACCESS_JWT_ASSERTION` | Alternative Access verifier credential |
 | `GEMINI_API_KEY`, `OPENROUTER_API_KEY` | Optional Worker fallback keys for embedded AI |
+| `PUBLIC_GA_MEASUREMENT_ID` | Optional public GA4 web-stream ID embedded at build time |
 
 Use untracked local shell configuration / `.dev.vars` as appropriate.
 `.env.example` lists names, not credentials; scripts do not all auto-load `.env`.
 Workers AI uses `AI`; Earth can also store provider keys in D1.
+`PUBLIC_GA_MEASUREMENT_ID` is not a secret. It must be supplied to each build;
+leaving it unset disables both the Google tag and analytics-consent UI.
 
 Operational scripts retain tested compatibility aliases, including
 `CF_ACCOUNT_ID`, `STAGING_D1_DATABASE_ID`, `STAGING_R2_BUCKET_NAME`,
