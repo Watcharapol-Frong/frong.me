@@ -100,3 +100,14 @@ mixed into this current handoff.
   workers.dev endpoint returned 200.
 - Authenticated draft/media/publish/AI acceptance still requires a maintainer
   browser session; the automated deployment did not mutate production content.
+- 2026-09-22: Deployed commit `b0f1e37` to Cloudflare production as Worker
+  `frong-me`, version `098810b2-2bfc-4f1d-877d-c21fee56ff37`.
+- Before upload, 218/218 CMS tests and TypeScript passed, production D1 had no
+  pending migrations, the production-targeted build completed with local
+  prerender bindings, and Wrangler's production dry-run resolved
+  `portfolio-db-prod`, `portfolio-media-prod`, Workers AI and static assets.
+- Post-deploy smoke checks returned 200 for `/`, `/about/` and the production
+  workers.dev endpoint; anonymous `/earth` redirected to Cloudflare Access.
+  Rendered production HTML contains the configured GA4 measurement ID,
+  canonical metadata and JSON-LD. Analytics still requires reader consent.
+- This deployment did not apply migrations or mutate production content.
