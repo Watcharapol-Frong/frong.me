@@ -78,6 +78,12 @@ mixed into this current handoff.
   GA4 remains inactive until an authorized build receives
   `PUBLIC_GA_MEASUREMENT_ID`; deployment and GA4 property creation were not
   performed.
+- 2026-09-22: Deepened analytics consent behind one browser module, added
+  12-month versioned choices, Thai/English copy, balanced actions, keyboard
+  focus handling, cookie revocation and a bilingual `/privacy/` page. Production
+  still runs the previous deployment until this change is separately approved
+  and deployed. All 221 CMS tests, TypeScript, the local production build and
+  `git diff --check` passed for this change.
 
 ## Deployment record
 

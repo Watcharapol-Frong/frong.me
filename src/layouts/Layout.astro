@@ -96,6 +96,6 @@ const gaMeasurementId = import.meta.env.PUBLIC_GA_MEASUREMENT_ID;
 
   <body>
     <slot />
-    <Analytics measurementId={gaMeasurementId} />
+    <Analytics measurementId={gaMeasurementId} language={metadata.language} />
   </body>
 </html>

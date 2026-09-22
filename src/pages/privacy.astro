@@ -1,0 +1,64 @@
+---
+import Layout from "@/layouts/Layout.astro";
+import Navbar from "@/components/Navbar";
+import FloatingNav from "@/components/FloatingNav";
+---
+
+<Layout seo={{
+  title: "Privacy and analytics",
+  description: "How frong.me uses consent-gated Google Analytics and how readers can change their choice.",
+}}>
+  <main class="min-h-screen bg-background page-transition">
+    <Navbar client:load />
+    <article class="mx-auto max-w-2xl px-6 pb-24 pt-28">
+      <header class="mb-12">
+        <p class="mb-3 text-xs uppercase tracking-widest text-muted-foreground">Privacy</p>
+        <h1 class="text-headline font-semibold">Privacy and analytics</h1>
+        <p class="mt-4 text-sm text-muted-foreground">Last updated: 22 September 2026</p>
+      </header>
+
+      <section lang="th" class="prose prose-neutral dark:prose-invert max-w-none">
+        <h2>ข้อมูลสำหรับผู้อ่านภาษาไทย</h2>
+        <p>
+          frong.me ใช้ Google Analytics 4 เพื่อดูภาพรวมการเข้าชมและนำข้อมูลไปปรับปรุงเว็บไซต์
+          ระบบจะไม่ดาวน์โหลด Google Analytics หรือส่งข้อมูลให้ Google จนกว่าคุณจะกดอนุญาต
+        </p>
+        <p>
+          เราปิดการจัดเก็บข้อมูลเพื่อการโฆษณา Google Signals และการปรับโฆษณาเฉพาะบุคคล
+          ตัวเลือกของคุณจะถูกเก็บไว้ในเบราว์เซอร์นี้เป็นเวลาไม่เกิน 12 เดือน
+        </p>
+        <h3>เปลี่ยนหรือถอนความยินยอม</h3>
+        <p>
+          ใช้ปุ่ม <strong>ตั้งค่าข้อมูลวิเคราะห์</strong> ที่มุมล่างของหน้าเพื่อเปลี่ยนตัวเลือกได้ทุกเมื่อ
+          เมื่อถอนความยินยอม เว็บไซต์จะหยุดส่งข้อมูลใหม่และพยายามลบคุกกี้ Google Analytics
+          ที่เว็บไซต์เข้าถึงได้ ข้อมูลที่ส่งไปก่อนหน้านั้นไม่สามารถเรียกคืนผ่านเว็บไซต์นี้ได้
+        </p>
+      </section>
+
+      <hr class="my-12 border-border" />
+
+      <section lang="en" class="prose prose-neutral dark:prose-invert max-w-none">
+        <h2>English summary</h2>
+        <p>
+          frong.me uses Google Analytics 4 to understand aggregate visits and improve the site.
+          The Google tag is not downloaded and no analytics request is sent until you select Allow.
+        </p>
+        <p>
+          Advertising storage, Google Signals, and ad personalisation are disabled. Your choice is
+          stored in this browser for no longer than 12 months.
+        </p>
+        <h3>Change or withdraw your choice</h3>
+        <p>
+          Use the <strong>Analytics settings</strong> button at the bottom of any page. Withdrawing
+          consent stops new analytics collection and the site attempts to remove accessible Google
+          Analytics cookies. Data previously sent cannot be recalled by this site.
+        </p>
+        <p>
+          Google describes how it processes Analytics data in its
+          <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.
+        </p>
+      </section>
+    </article>
+  </main>
+  <FloatingNav client:load />
+</Layout>

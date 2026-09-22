@@ -1,106 +1,80 @@
 ---
 interface Props {
   measurementId?: string;
+  language?: 'th' | 'en';
 }
 
 const measurementId = Astro.props.measurementId?.trim();
 const enabled = Boolean(measurementId && /^G-[A-Z0-9]+$/.test(measurementId));
+const language = Astro.props.language === 'th' ? 'th' : 'en';
+const copy = language === 'th'
+  ? {
+      label: 'การตั้งค่าข้อมูลวิเคราะห์',
+      title: 'ช่วยเราปรับปรุงเว็บไซต์',
+      description: 'เราใช้ Google Analytics เพื่อวัดการเข้าชมและปรับปรุงเว็บไซต์ โดยจะไม่เปิดใช้งานจนกว่าคุณจะยินยอม',
+      deny: 'ปฏิเสธ',
+      accept: 'อนุญาต',
+      privacy: 'อ่านรายละเอียดความเป็นส่วนตัว',
+      settings: 'ตั้งค่าข้อมูลวิเคราะห์',
+      granted: 'สถานะปัจจุบัน: อนุญาตข้อมูลวิเคราะห์',
+      denied: 'สถานะปัจจุบัน: ปฏิเสธข้อมูลวิเคราะห์',
+    }
+  : {
+      label: 'Analytics preferences',
+      title: 'Help improve this site',
+      description: 'We use Google Analytics to measure visits and improve this site. It stays off until you allow it.',
+      deny: 'Decline',
+      accept: 'Allow',
+      privacy: 'Read the privacy details',
+      settings: 'Analytics settings',
+      granted: 'Current choice: analytics allowed',
+      denied: 'Current choice: analytics declined',
+    };
 ---
 
 {enabled && (
-  <>
-    <aside class="analytics-consent" data-analytics-consent hidden aria-live="polite" aria-label="Analytics consent">
-      <p>May I use anonymous Google Analytics data to improve this site?</p>
-      <div>
-        <button type="button" data-analytics-deny>No thanks</button>
-        <button type="button" data-analytics-accept>Allow analytics</button>
+  <div
+    class="analytics-root"
+    data-analytics-root
+    data-measurement-id={measurementId}
+    data-status-granted={copy.granted}
+    data-status-denied={copy.denied}
+  >
+    <aside
+      class="analytics-consent"
+      data-analytics-consent
+      hidden
+      aria-live="polite"
+      aria-labelledby="analytics-consent-title"
+      aria-describedby="analytics-consent-description"
+    >
+      <h2 id="analytics-consent-title">{copy.title}</h2>
+      <p id="analytics-consent-description">{copy.description}</p>
+      <p class="analytics-status" data-analytics-status hidden></p>
+      <a class="analytics-privacy" href="/privacy/">{copy.privacy}</a>
+      <div class="analytics-actions">
+        <button type="button" data-analytics-deny>{copy.deny}</button>
+        <button type="button" data-analytics-accept>{copy.accept}</button>
       </div>
     </aside>
-    <button class="analytics-settings" type="button" data-analytics-settings hidden>
-      Analytics settings
+    <button
+      class="analytics-settings"
+      type="button"
+      data-analytics-settings
+      hidden
+      aria-label={copy.label}
+    >
+      {copy.settings}
     </button>
-    <script is:inline define:vars={{ measurementId }}>
-      (() => {
-        const storageKey = 'frong:analytics-consent:v1';
-        const panel = document.querySelector('[data-analytics-consent]');
-        const settings = document.querySelector('[data-analytics-settings]');
-        const accept = document.querySelector('[data-analytics-accept]');
-        const deny = document.querySelector('[data-analytics-deny]');
-        let loaded = false;
-
-        const readChoice = () => {
-          try { return localStorage.getItem(storageKey); } catch { return null; }
-        };
-        const saveChoice = (choice) => {
-          try { localStorage.setItem(storageKey, choice); } catch { /* storage can be unavailable */ }
-        };
-        const showPanel = () => {
-          if (panel) panel.hidden = false;
-          if (settings) settings.hidden = true;
-        };
-        const hidePanel = () => {
-          if (panel) panel.hidden = true;
-          if (settings) settings.hidden = false;
-        };
-        const gtag = (...args) => {
-          window.dataLayer = window.dataLayer || [];
-          window.dataLayer.push(args);
-        };
-        const loadAnalytics = () => {
-          if (loaded) return;
-          loaded = true;
-          gtag('consent', 'default', {
-            ad_storage: 'denied',
-            ad_user_data: 'denied',
-            ad_personalization: 'denied',
-            analytics_storage: 'denied',
-          });
-          gtag('consent', 'update', { analytics_storage: 'granted' });
-          gtag('js', new Date());
-          gtag('config', measurementId, {
-            allow_google_signals: false,
-            allow_ad_personalization_signals: false,
-          });
-          const script = document.createElement('script');
-          script.async = true;
-          script.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(measurementId)}`;
-          document.head.appendChild(script);
-        };
-        const revokeAnalytics = () => {
-          if (loaded) gtag('consent', 'update', { analytics_storage: 'denied' });
-          for (const cookie of document.cookie.split(';')) {
-            const name = cookie.split('=')[0]?.trim();
-            if (name === '_ga' || name?.startsWith('_ga_')) {
-              document.cookie = `${name}=; Max-Age=0; Path=/; SameSite=Lax`;
-            }
-          }
-        };
-
-        accept?.addEventListener('click', () => {
-          saveChoice('granted');
-          hidePanel();
-          loadAnalytics();
-        });
-        deny?.addEventListener('click', () => {
-          saveChoice('denied');
-          revokeAnalytics();
-          hidePanel();
-        });
-        settings?.addEventListener('click', showPanel);
-
-        const choice = readChoice();
-        if (choice === 'granted') {
-          hidePanel();
-          loadAnalytics();
-        } else if (choice === 'denied') {
-          hidePanel();
-        } else {
-          showPanel();
-        }
-      })();
-    </script>
-  </>
+  </div>
 )}
+
+<script>
+  import { mountAnalyticsConsent } from '../lib/analytics-consent.ts';
+
+  document.querySelectorAll<HTMLElement>('[data-analytics-root]')
+    .forEach((root) => mountAnalyticsConsent(root));
+</script>
 
 <style>
   .analytics-consent {
@@ -117,9 +91,29 @@ const enabled = Boolean(measurementId && /^G-[A-Z0-9]+$/.test(measurementId));
     box-shadow: 0 12px 36px rgb(0 0 0 / 0.14);
     font: 400 0.875rem/1.5 Inter, system-ui, sans-serif;
   }
-  .analytics-consent div {
+  .analytics-consent h2 {
+    margin: 0 0 0.35rem;
+    font-size: 1rem;
+    font-weight: 600;
+  }
+  .analytics-consent p {
+    margin: 0;
+  }
+  .analytics-status {
+    margin-top: 0.55rem !important;
+    color: hsl(var(--muted-foreground));
+    font-size: 0.8rem;
+  }
+  .analytics-privacy {
+    display: inline-block;
+    margin-top: 0.55rem;
+    color: hsl(var(--foreground));
+    text-decoration: underline;
+    text-underline-offset: 0.18em;
+  }
+  .analytics-actions {
     display: flex;
-    justify-content: flex-end;
+    align-items: stretch;
     gap: 0.5rem;
     margin-top: 0.75rem;
   }
@@ -132,10 +126,20 @@ const enabled = Boolean(measurementId && /^G-[A-Z0-9]+$/.test(measurementId));
     color: hsl(var(--foreground));
     cursor: pointer;
   }
-  .analytics-consent [data-analytics-accept] {
-    border-color: hsl(var(--foreground));
-    background: hsl(var(--foreground));
-    color: hsl(var(--background));
+  .analytics-consent button {
+    flex: 1;
+    min-height: 2.25rem;
+    font-weight: 500;
+  }
+  .analytics-consent button:hover,
+  .analytics-settings:hover {
+    background: hsl(var(--accent));
+  }
+  .analytics-consent button:focus-visible,
+  .analytics-settings:focus-visible,
+  .analytics-privacy:focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
   }
   .analytics-settings {
     position: fixed;
@@ -145,6 +149,14 @@ const enabled = Boolean(measurementId && /^G-[A-Z0-9]+$/.test(measurementId));
     padding: 0.3rem 0.55rem;
     font-size: 0.7rem;
     opacity: 0.65;
+  }
+  @supports (padding: env(safe-area-inset-bottom)) {
+    .analytics-consent {
+      bottom: max(1rem, env(safe-area-inset-bottom));
+    }
+    .analytics-settings {
+      bottom: max(0.75rem, env(safe-area-inset-bottom));
+    }
   }
   [hidden] { display: none !important; }
 </style>
