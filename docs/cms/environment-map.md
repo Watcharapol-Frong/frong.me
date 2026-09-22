@@ -15,12 +15,12 @@ named environments explicitly for deployment. All declare `DB`, `MEDIA_BUCKET`
 and `AI`. Production is served at `https://frong.me`; staging is served at
 `https://frong-me-staging.frongbook.workers.dev`.
 
-On 2026-09-22, commit `039d7ba` was deployed to both environments. Public route
-smoke checks passed, production `/earth` redirected anonymous traffic to the
-Cloudflare Access login, and both remote databases reported no pending
-migrations. This does not replace authenticated author-flow, media delivery, AI,
-or backup/restore acceptance. See the deployment IDs and exact evidence in the
-[current handoff](../plan.md).
+As of 2026-09-22, production runs commit `f86933e` and staging remains on commit
+`039d7ba`. Public route smoke checks passed, production `/earth` redirected
+anonymous traffic to the Cloudflare Access login, and the production database
+reported no pending migrations. This does not replace authenticated author-flow,
+media delivery, AI, or backup/restore acceptance. See the deployment IDs and
+exact evidence in the [current handoff](../plan.md).
 
 ## Configuration consumers
 

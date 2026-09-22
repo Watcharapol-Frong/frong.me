@@ -80,10 +80,9 @@ mixed into this current handoff.
   performed.
 - 2026-09-22: Deepened analytics consent behind one browser module, added
   12-month versioned choices, Thai/English copy, balanced actions, keyboard
-  focus handling, cookie revocation and a bilingual `/privacy/` page. Production
-  still runs the previous deployment until this change is separately approved
-  and deployed. All 221 CMS tests, TypeScript, the local production build and
-  `git diff --check` passed for this change.
+  focus handling, cookie revocation and a bilingual `/privacy/` page. All 221
+  CMS tests, TypeScript, the local production build and `git diff --check`
+  passed for this change; production deployment is recorded below.
 
 ## Deployment record
 
@@ -117,3 +116,14 @@ mixed into this current handoff.
   Rendered production HTML contains the configured GA4 measurement ID,
   canonical metadata and JSON-LD. Analytics still requires reader consent.
 - This deployment did not apply migrations or mutate production content.
+- 2026-09-22: Deployed consent/privacy commit `f86933e` to Cloudflare production
+  as Worker `frong-me`, version `32f8b288-61b8-44fe-b8c9-9a80c24683d8`.
+- Before upload, 221/221 CMS tests, TypeScript, the production-targeted build
+  and Wrangler production dry-run passed. Production D1 reported no pending
+  migrations; the dry-run resolved `portfolio-db-prod`, `portfolio-media-prod`,
+  Workers AI and static assets.
+- Post-deploy smoke checks returned 200 for `/`, `/about/`, `/privacy/` and the
+  production workers.dev endpoint. Anonymous `/earth` redirected to Cloudflare
+  Access. Rendered production HTML contains `G-EL7HS25NP4`, the updated consent
+  interface and the canonical privacy page. No migration or production content
+  mutation was performed.
