@@ -59,7 +59,7 @@ migrations, service deletion and credential revocation require explicit approval
 
 ## Current deployment
 
-Commit `f86933e` was deployed to production and commit `039d7ba` remains on
+Commit `547c92e` was deployed to production and commit `039d7ba` remains on
 staging as of 2026-09-22. The public production site is `https://frong.me`; the
 staging Worker is `https://frong-me-staging.frongbook.workers.dev`. Automated
 checks and public route smoke tests passed. Authenticated author, media and AI

@@ -15,7 +15,7 @@ named environments explicitly for deployment. All declare `DB`, `MEDIA_BUCKET`
 and `AI`. Production is served at `https://frong.me`; staging is served at
 `https://frong-me-staging.frongbook.workers.dev`.
 
-As of 2026-09-22, production runs commit `f86933e` and staging remains on commit
+As of 2026-09-23, production runs commit `547c92e` and staging remains on commit
 `039d7ba`. Public route smoke checks passed, production `/earth` redirected
 anonymous traffic to the Cloudflare Access login, and the production database
 reported no pending migrations. This does not replace authenticated author-flow,

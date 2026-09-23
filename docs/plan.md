@@ -87,8 +87,8 @@ mixed into this current handoff.
   Readers now reopen consent from **Privacy & Analytics** inside the persistent
   Contact popover, with `/privacy/` as the fallback when GA4 is disabled. The
   mobile consent panel still reserves navigation height and device safe area.
-  A layout-contract regression raises the suite to 222 tests; this change is not
-  yet deployed.
+  A layout-contract regression raises the suite to 222 tests; production
+  deployment is recorded below.
 
 ## Deployment record
 
@@ -133,3 +133,15 @@ mixed into this current handoff.
   Access. Rendered production HTML contains `G-EL7HS25NP4`, the updated consent
   interface and the canonical privacy page. No migration or production content
   mutation was performed.
+- 2026-09-23: Deployed analytics-settings commit `547c92e` to Cloudflare
+  production as Worker `frong-me`, version
+  `0bb28039-adc2-43c6-a2d7-afc84404aabb`.
+- Before upload, 222/222 CMS tests, TypeScript, the production-targeted build
+  and Wrangler production dry-run passed. Production D1 reported no pending
+  migrations; bindings resolved to the production D1/R2 resources, Workers AI
+  and static assets.
+- Post-deploy smoke checks returned 200 for `/`, `/about/`, `/privacy/` and the
+  production workers.dev endpoint; anonymous `/earth` redirected to Cloudflare
+  Access. The deployed client bundle contains **Privacy & Analytics**, while
+  rendered HTML no longer contains the removed floating settings button. No
+  migration or production content mutation was performed.
