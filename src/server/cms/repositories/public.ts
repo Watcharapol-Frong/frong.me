@@ -41,6 +41,23 @@ export interface PublicPostCard {
   coverImageUrl: string | null;
 }
 
+export interface PublishedSitemapEntry {
+  slug: string;
+  updated_at: number;
+}
+
+/** One URL per public slug, matching the Thai-first article reader. */
+export async function listPublishedSitemapEntries(db: CmsDatabase): Promise<PublishedSitemapEntry[]> {
+  return db.all<PublishedSitemapEntry>(
+    `SELECT slug,
+            COALESCE(MAX(CASE WHEN lang = 'th' THEN updated_at END), MAX(updated_at)) AS updated_at
+     FROM posts
+     WHERE lifecycle = 'active'
+     GROUP BY slug
+     ORDER BY slug ASC`,
+  );
+}
+
 export async function listPublishedPosts(
   db: CmsDatabase,
   options: { lang?: Language; limit?: number } = {},

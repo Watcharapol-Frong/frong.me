@@ -205,13 +205,7 @@ export interface AiResearchIdea {
 export interface AiReviewReport {
   grammar: string[];
   missingReferences: string[];
-  seo: {
-    score: number;
-    titleLengthOk: boolean;
-    excerptLengthOk: boolean;
-    hasHeadings: boolean;
-    keywordSuggestions: string[];
-  };
+  readerSuggestions: string[];
 }
 
 /**
