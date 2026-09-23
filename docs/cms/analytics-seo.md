@@ -18,7 +18,10 @@ expires the stored choice, owns Google tag loading and revocation, and mounts
 the browser interactions rendered by `Analytics.astro`. Choices expire after
 12 months; invalid, future, legacy or version-mismatched records prompt again.
 The banner follows the current page language, gives accept and decline equal
-visual weight, and links to the bilingual `/privacy/` explanation.
+visual weight, and links to the bilingual `/privacy/` explanation. Readers can
+reopen it from **Privacy & Analytics** in the persistent Contact menu; if GA4 is
+disabled, that entry falls back to `/privacy/`. On mobile, the consent panel
+reserves the fixed navigation footprint plus the device safe area.
 
 GA4 measures traffic; it does not directly improve search ranking. Search
 eligibility comes from crawlable content, accurate metadata, structured data,

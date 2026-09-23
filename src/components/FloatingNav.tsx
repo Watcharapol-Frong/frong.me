@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
-import { Mail, Linkedin, Github } from "lucide-react";
+import { Mail, Linkedin, Github, Cookie } from "lucide-react";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { ANALYTICS_SETTINGS_EVENT } from "@/lib/analytics-consent";
 
 const FloatingNav = () => {
   const [currentPath, setCurrentPath] = useState("/");
@@ -29,6 +30,15 @@ const FloatingNav = () => {
     { name: "GitHub", icon: Github, url: "https://github.com/Watcharapol-Frong" },
   ];
 
+  const openAnalyticsSettings = () => {
+    setContactOpen(false);
+    window.setTimeout(() => {
+      const event = new Event(ANALYTICS_SETTINGS_EVENT, { cancelable: true });
+      const handled = !window.dispatchEvent(event);
+      if (!handled) window.location.assign("/privacy/");
+    }, 0);
+  };
+
   return (
     <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
       <div className="flex items-center gap-1 bg-muted/80 backdrop-blur-md rounded-full p-1.5">
@@ -50,6 +60,7 @@ const FloatingNav = () => {
         <Popover open={contactOpen} onOpenChange={setContactOpen}>
           <PopoverTrigger asChild>
             <button
+              data-analytics-settings-return
               className={`px-5 py-2 text-sm font-medium rounded-full transition-all duration-300 ${
                 contactOpen
                   ? "bg-background text-foreground shadow-sm"
@@ -98,6 +109,17 @@ const FloatingNav = () => {
                     </a>
                   ))}
                 </div>
+              </div>
+
+              <div className="pt-3 border-t border-border">
+                <button
+                  type="button"
+                  onClick={openAnalyticsSettings}
+                  className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  <Cookie size={14} aria-hidden="true" />
+                  <span>Privacy &amp; Analytics</span>
+                </button>
               </div>
             </div>
           </PopoverContent>

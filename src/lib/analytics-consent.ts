@@ -1,6 +1,7 @@
 export const ANALYTICS_CONSENT_STORAGE_KEY = 'frong:analytics-consent:v1';
 export const ANALYTICS_CONSENT_VERSION = 1;
 export const ANALYTICS_CONSENT_MAX_AGE_MS = 365 * 24 * 60 * 60 * 1000;
+export const ANALYTICS_SETTINGS_EVENT = 'frong:open-analytics-settings';
 
 export type AnalyticsConsentChoice = 'granted' | 'denied';
 
@@ -103,17 +104,17 @@ export function mountAnalyticsConsent(root: HTMLElement): () => void {
 
   const measurementId = root.dataset.measurementId;
   const panel = root.querySelector<HTMLElement>('[data-analytics-consent]');
-  const settings = root.querySelector<HTMLButtonElement>('[data-analytics-settings]');
   const accept = root.querySelector<HTMLButtonElement>('[data-analytics-accept]');
   const deny = root.querySelector<HTMLButtonElement>('[data-analytics-deny]');
   const status = root.querySelector<HTMLElement>('[data-analytics-status]');
 
-  if (!measurementId || !panel || !settings || !accept || !deny || !status) {
+  if (!measurementId || !panel || !accept || !deny || !status) {
     return () => {};
   }
 
   let loaded = false;
   let choice = readStoredChoice();
+  let returnFocus: HTMLElement | null = null;
 
   const updateStatus = () => {
     if (!choice) {
@@ -128,13 +129,12 @@ export function mountAnalyticsConsent(root: HTMLElement): () => void {
   const showPanel = (moveFocus = false) => {
     updateStatus();
     panel.hidden = false;
-    settings.hidden = true;
     if (moveFocus) deny.focus();
   };
   const hidePanel = (moveFocus = false) => {
     panel.hidden = true;
-    settings.hidden = false;
-    if (moveFocus) settings.focus();
+    if (moveFocus) returnFocus?.focus();
+    returnFocus = null;
   };
   const gtag = (...args: unknown[]) => {
     const analyticsWindow = window as Window & { dataLayer?: unknown[][] };
@@ -171,19 +171,23 @@ export function mountAnalyticsConsent(root: HTMLElement): () => void {
     saveChoice(nextChoice);
     if (nextChoice === 'granted') loadAnalytics();
     else revokeAnalytics();
-    hidePanel(true);
+    hidePanel(Boolean(returnFocus));
   };
 
   const onAccept = () => choose('granted');
   const onDeny = () => choose('denied');
-  const onSettings = () => showPanel(true);
+  const onSettings = (event: Event) => {
+    event.preventDefault();
+    returnFocus = document.querySelector<HTMLElement>('[data-analytics-settings-return]');
+    showPanel(true);
+  };
   const onKeydown = (event: KeyboardEvent) => {
-    if (event.key === 'Escape' && choice) hidePanel(true);
+    if (event.key === 'Escape' && choice) hidePanel(Boolean(returnFocus));
   };
 
   accept.addEventListener('click', onAccept);
   deny.addEventListener('click', onDeny);
-  settings.addEventListener('click', onSettings);
+  window.addEventListener(ANALYTICS_SETTINGS_EVENT, onSettings);
   panel.addEventListener('keydown', onKeydown);
 
   if (choice === 'granted') {
@@ -198,7 +202,7 @@ export function mountAnalyticsConsent(root: HTMLElement): () => void {
   return () => {
     accept.removeEventListener('click', onAccept);
     deny.removeEventListener('click', onDeny);
-    settings.removeEventListener('click', onSettings);
+    window.removeEventListener(ANALYTICS_SETTINGS_EVENT, onSettings);
     panel.removeEventListener('keydown', onKeydown);
     delete root.dataset.analyticsMounted;
   };

@@ -9,24 +9,20 @@ const enabled = Boolean(measurementId && /^G-[A-Z0-9]+$/.test(measurementId));
 const language = Astro.props.language === 'th' ? 'th' : 'en';
 const copy = language === 'th'
   ? {
-      label: 'การตั้งค่าข้อมูลวิเคราะห์',
       title: 'ช่วยเราปรับปรุงเว็บไซต์',
       description: 'เราใช้ Google Analytics เพื่อวัดการเข้าชมและปรับปรุงเว็บไซต์ โดยจะไม่เปิดใช้งานจนกว่าคุณจะยินยอม',
       deny: 'ปฏิเสธ',
       accept: 'อนุญาต',
       privacy: 'อ่านรายละเอียดความเป็นส่วนตัว',
-      settings: 'ตั้งค่าข้อมูลวิเคราะห์',
       granted: 'สถานะปัจจุบัน: อนุญาตข้อมูลวิเคราะห์',
       denied: 'สถานะปัจจุบัน: ปฏิเสธข้อมูลวิเคราะห์',
     }
   : {
-      label: 'Analytics preferences',
       title: 'Help improve this site',
       description: 'We use Google Analytics to measure visits and improve this site. It stays off until you allow it.',
       deny: 'Decline',
       accept: 'Allow',
       privacy: 'Read the privacy details',
-      settings: 'Analytics settings',
       granted: 'Current choice: analytics allowed',
       denied: 'Current choice: analytics declined',
     };
@@ -57,15 +53,6 @@ const copy = language === 'th'
         <button type="button" data-analytics-accept>{copy.accept}</button>
       </div>
     </aside>
-    <button
-      class="analytics-settings"
-      type="button"
-      data-analytics-settings
-      hidden
-      aria-label={copy.label}
-    >
-      {copy.settings}
-    </button>
   </div>
 )}
 
@@ -117,8 +104,7 @@ const copy = language === 'th'
     gap: 0.5rem;
     margin-top: 0.75rem;
   }
-  .analytics-consent button,
-  .analytics-settings {
+  .analytics-consent button {
     border: 1px solid hsl(var(--border));
     border-radius: 9999px;
     padding: 0.45rem 0.75rem;
@@ -131,31 +117,22 @@ const copy = language === 'th'
     min-height: 2.25rem;
     font-weight: 500;
   }
-  .analytics-consent button:hover,
-  .analytics-settings:hover {
+  .analytics-consent button:hover {
     background: hsl(var(--accent));
   }
   .analytics-consent button:focus-visible,
-  .analytics-settings:focus-visible,
   .analytics-privacy:focus-visible {
     outline: 2px solid hsl(var(--ring));
     outline-offset: 2px;
-  }
-  .analytics-settings {
-    position: fixed;
-    z-index: 90;
-    right: 0.75rem;
-    bottom: 0.75rem;
-    padding: 0.3rem 0.55rem;
-    font-size: 0.7rem;
-    opacity: 0.65;
   }
   @supports (padding: env(safe-area-inset-bottom)) {
     .analytics-consent {
       bottom: max(1rem, env(safe-area-inset-bottom));
     }
-    .analytics-settings {
-      bottom: max(0.75rem, env(safe-area-inset-bottom));
+  }
+  @media (max-width: 40rem) {
+    .analytics-consent {
+      bottom: calc(5.25rem + env(safe-area-inset-bottom, 0px));
     }
   }
   [hidden] { display: none !important; }

@@ -40,10 +40,24 @@ test('analytics UI keeps consent optional, bilingual, reversible, and linked to 
   assert.match(analytics, /const enabled = Boolean\(measurementId/);
   assert.match(analytics, /data-analytics-deny/);
   assert.match(analytics, /data-analytics-accept/);
-  assert.match(analytics, /ตั้งค่าข้อมูลวิเคราะห์/);
+  assert.match(analytics, /ช่วยเราปรับปรุงเว็บไซต์/);
   assert.match(analytics, /href="\/privacy\/"/);
+  assert.doesNotMatch(analytics, /class="analytics-settings"/);
   assert.match(layout, /language=\{metadata\.language\}/);
   assert.match(privacy, /Google Analytics 4/);
   assert.match(privacy, /lang="th"/);
   assert.match(privacy, /lang="en"/);
+});
+
+test('analytics settings live in Contact and the mobile panel clears navigation', () => {
+  const analytics = readFileSync('src/components/Analytics.astro', 'utf8');
+  const floatingNav = readFileSync('src/components/FloatingNav.tsx', 'utf8');
+
+  assert.match(floatingNav, /fixed bottom-6/);
+  assert.match(floatingNav, /Privacy &amp; Analytics/);
+  assert.match(floatingNav, /ANALYTICS_SETTINGS_EVENT/);
+  assert.match(
+    analytics,
+    /@media \(max-width: 40rem\)[\s\S]*\.analytics-consent[\s\S]*bottom: calc\(5\.25rem \+ env\(safe-area-inset-bottom, 0px\)\)/,
+  );
 });

@@ -83,6 +83,12 @@ mixed into this current handoff.
   focus handling, cookie revocation and a bilingual `/privacy/` page. All 221
   CMS tests, TypeScript, the local production build and `git diff --check`
   passed for this change; production deployment is recorded below.
+- 2026-09-23: Removed the visually competing floating analytics-settings button.
+  Readers now reopen consent from **Privacy & Analytics** inside the persistent
+  Contact popover, with `/privacy/` as the fallback when GA4 is disabled. The
+  mobile consent panel still reserves navigation height and device safe area.
+  A layout-contract regression raises the suite to 222 tests; this change is not
+  yet deployed.
 
 ## Deployment record
 
