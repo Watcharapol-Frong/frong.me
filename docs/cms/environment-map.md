@@ -68,7 +68,14 @@ deployment bindings. Dry-run checks are mocks, not live-account verification.
 
 ## Deployment runbook — approval required
 
-GitHub Actions verifies code only. Publishing content and pushing code do not deploy.
+The CMS CI workflow verifies code only. Publishing content and pushing code do
+not deploy. The separate **Deploy CMS staging** workflow runs only when manually
+dispatched from `main`. Its job uses GitHub Environment `cms-staging` and that
+environment's `CLOUDFLARE_API_TOKEN` secret, `CLOUDFLARE_ACCOUNT_ID`, staging
+D1/R2 IDs, and Access configuration variables. It tests, runs TypeScript, then
+uses `npm run deploy:staging` for preflight, staging build and deployment. It
+does not apply remote migrations or deploy production. Review the run and
+staging site before any separate production release.
 
 1. Confirm target, approved commit, green CI, operator access and recovery plan.
    Never deploy with the development Access bypass enabled.
