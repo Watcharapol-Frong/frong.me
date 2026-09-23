@@ -2,10 +2,10 @@
 /**
  * AI Assistant — right sidebar, one accordion section per task.
  *
- * Four of the six tasks return plain text the author can click to apply;
+ * Text tasks return suggestions the author can click to apply;
  * `research` returns structured angle cards, `inline_draft` returns a pending
  * suggestion the author must Accept or Reject before it touches the body, and
- * `review` returns a scored checklist. All six go to
+ * `review` combines local draft checks with AI editorial suggestions. AI tasks go to
  * `POST /earth/api/ai/generate` (see `src/server/cms/ai.ts`); nothing here is
  * part of the post payload until an explicit click edits a field.
  *
@@ -51,7 +51,7 @@ const SECTIONS: { id: string; task: string; icon: string; label: string; action:
     icon: '✓',
     label: 'Review & SEO',
     action: 'Run review',
-    hint: 'Proofreads, flags claims that need a citation, and scores the SEO basics.',
+    hint: 'Checks the draft and suggests clearer answers, examples, and citations.',
   },
 ];
 ---
@@ -126,6 +126,7 @@ const SECTIONS: { id: string; task: string; icon: string; label: string; action:
   import { AI_PROVIDERS, AI_PROVIDER_MODELS, DEFAULT_AI_MODELS } from '../../types/ai.ts';
   import type { AiGenerateSuccessResponse, AiProvider, AiResearchIdea, AiReviewReport } from '../../types/ai.ts';
   import { getAiProviderConfigs } from '../../lib/cms/client/api.ts';
+  import { reviewArticleBasics } from '../../lib/cms/seo-review.ts';
 
   const AI_PROVIDER_LABELS: Record<AiProvider, string> = {
     cloudflare: 'Workers AI',
@@ -441,52 +442,44 @@ const SECTIONS: { id: string; task: string; icon: string; label: string; action:
       setOutput('inline_draft', box);
     }
 
-    function renderReview(report: AiReviewReport) {
+    function renderReview(report: AiReviewReport | null, error?: string) {
       const box = el('div', 'ai-review');
-
-      const score = el('div', 'seo-score');
-      score.append(
-        el('span', 'seo-score-num', String(report.seo.score)),
-        el('span', 'seo-score-label', '/100'),
-      );
-      box.append(score);
-
+      box.append(el('div', 'seo-section', 'Checked from your draft'));
       const checklist = el('div', 'seo-checklist');
-      const checks: [string, boolean][] = [
-        ['Title length (≤60 chars)', report.seo.titleLengthOk],
-        ['Excerpt length (≤160 chars)', report.seo.excerptLengthOk],
-        ['Has section headings', report.seo.hasHeadings],
-      ];
-      for (const [label, ok] of checks) {
-        checklist.append(el('div', `seo-item ${ok ? 'seo-ok' : 'seo-warn'}`, `${ok ? '✓' : '⚠'} ${label}`));
+      const checks = reviewArticleBasics({
+        title: titleField?.value ?? '',
+        excerpt: excerptField?.value ?? '',
+        bodyMarkdown: bodyField?.value ?? '',
+      });
+      for (const check of checks) {
+        const marker = check.status === 'ready' ? '✓' : check.status === 'optional' ? '·' : '⚠';
+        const row = el('div', 'seo-item ' + (check.status === 'ready' ? 'seo-ok' : check.status === 'optional' ? '' : 'seo-warn'));
+        row.append(el('strong', '', marker + ' ' + check.label));
+        if (check.status !== 'ready') row.append(el('span', '', ' — ' + check.detail));
+        checklist.append(row);
       }
       box.append(checklist);
-
-      if (report.seo.keywordSuggestions.length > 0) {
-        box.append(el('div', 'seo-section', 'Focus keywords'));
-        const keywords = el('div', 'seo-keywords');
-        for (const keyword of report.seo.keywordSuggestions) {
-          keywords.append(el('span', 'seo-keyword', keyword));
+      if (report) {
+        const lists: [string, string[]][] = [
+          ['Suggestions for readers', report.readerSuggestions],
+          ['Grammar & spelling', report.grammar],
+          ['Needs a citation', report.missingReferences],
+        ];
+        for (const [heading, entries] of lists) {
+          if (entries.length === 0) continue;
+          box.append(el('div', 'seo-section', heading));
+          for (const entry of entries) {
+            box.append(el('div', 'seo-item', '· ' + entry));
+          }
         }
-        box.append(keywords);
-      }
-
-      const lists: [string, string[]][] = [
-        ['Grammar & spelling', report.grammar],
-        ['Needs a citation', report.missingReferences],
-      ];
-      for (const [heading, entries] of lists) {
-        if (entries.length === 0) continue;
-        box.append(el('div', 'seo-section', heading));
-        for (const entry of entries) {
-          box.append(el('div', 'seo-item', `· ${entry}`));
+        if (lists.every(([, entries]) => entries.length === 0)) {
+          box.append(el('p', 'ai-note', 'No editorial suggestions returned.'));
         }
+      } else if (error) {
+        box.append(el('p', 'ai-error', 'AI suggestions unavailable: ' + error));
+      } else {
+        box.append(el('p', 'ai-note', 'Checking the article for editorial suggestions…'));
       }
-
-      if (report.grammar.length === 0 && report.missingReferences.length === 0) {
-        box.append(el('p', 'ai-note', 'No grammar or citation issues found.'));
-      }
-
       setOutput('review', box);
     }
 
@@ -497,7 +490,8 @@ const SECTIONS: { id: string; task: string; icon: string; label: string; action:
       const original = label?.textContent ?? '';
       button.disabled = true;
       if (label) label.textContent = 'Thinking…';
-      setOutput(task, el('div', 'ai-loading', 'Thinking…'));
+      if (task === 'review') renderReview(null);
+      else setOutput(task, el('div', 'ai-loading', 'Thinking…'));
 
       // Captured before the await: focus moves to the button, but this keeps
       // the doc positions the rich editor's selection was at, and the body
@@ -534,7 +528,8 @@ const SECTIONS: { id: string; task: string; icon: string; label: string; action:
           renderReview(report);
         }
       } catch (error) {
-        setOutput(task, el('div', 'ai-error', (error as Error).message));
+        if (task === 'review') renderReview(null, (error as Error).message);
+        else setOutput(task, el('div', 'ai-error', (error as Error).message));
       } finally {
         button.disabled = false;
         if (label) label.textContent = original;

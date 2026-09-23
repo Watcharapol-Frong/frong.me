@@ -27,6 +27,14 @@ GA4 measures traffic; it does not directly improve search ranking. Search
 eligibility comes from crawlable content, accurate metadata, structured data,
 the sitemap and page performance.
 
+Astro emits `sitemap-index.xml` for statically generated pages. Articles use
+D1 at request time and are listed instead by `/articles-sitemap.xml`. Both
+sitemaps are advertised in `public/robots.txt`; the dynamic one includes only
+active article slugs and is edge-cached for up to 15 minutes. The Earth Editor
+review supports writing, while Google Search Console is the source for actual
+indexing status and search queries. The [article SEO plan](../seo-plan.md)
+records verification after deployment.
+
 ## Configuration
 
 Set `PUBLIC_GA_MEASUREMENT_ID` to the GA4 web stream measurement ID at build

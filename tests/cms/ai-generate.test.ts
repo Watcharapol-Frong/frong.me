@@ -112,7 +112,7 @@ test('buildInlineDraftPrompt targets the selection when present, else continues 
   assert.match(withoutSelection, /Continue the article/);
 });
 
-test('buildReviewPrompt embeds title/excerpt lengths, tags, and the strict JSON schema', () => {
+test('buildReviewPrompt requests reader advice without ranking claims or model-generated SEO checks', () => {
   const prompt = buildReviewPrompt({
     task: 'review',
     provider: 'gemini',
@@ -123,7 +123,9 @@ test('buildReviewPrompt embeds title/excerpt lengths, tags, and the strict JSON 
   });
   assert.match(prompt, /Title \(7 chars\): A title/);
   assert.match(prompt, /Tags: cms, cloudflare/);
-  assert.match(prompt, /"titleLengthOk": boolean/);
+  assert.match(prompt, /"readerSuggestions": string\[\]/);
+  assert.match(prompt, /Do not invent search demand/);
+  assert.doesNotMatch(prompt, /"score"|"titleLengthOk"/);
 });
 
 test('generateAiResult parses a well-formed research response into structured ideas', async () => {
@@ -159,7 +161,7 @@ test('generateAiResult strips a ```json fence before parsing a review report', a
   const reportJson = JSON.stringify({
     grammar: ['fix comma'],
     missingReferences: ['claim needs a source'],
-    seo: { score: 80, titleLengthOk: true, excerptLengthOk: false, hasHeadings: true, keywordSuggestions: ['d1'] },
+    readerSuggestions: ['Answer the reader question in the first paragraph'],
   });
   const env = {
     GEMINI_API_KEY: 'gemini-key',
@@ -174,27 +176,37 @@ test('generateAiResult strips a ```json fence before parsing a review report', a
   assert.deepEqual(result, {
     grammar: ['fix comma'],
     missingReferences: ['claim needs a source'],
-    seo: { score: 80, titleLengthOk: true, excerptLengthOk: false, hasHeadings: true, keywordSuggestions: ['d1'] },
+    readerSuggestions: ['Answer the reader question in the first paragraph'],
   });
 });
 
-test('generateAiResult clamps an out-of-range SEO score and drops non-string array entries', async () => {
+test('generateAiResult limits suggestions, drops malformed entries, and rejects the old score shape', async () => {
   const env = {
     GEMINI_API_KEY: 'gemini-key',
     fetcher: async () => new Response(JSON.stringify({
       candidates: [{ content: { parts: [{ text: JSON.stringify({
         grammar: ['ok', 42],
         missingReferences: [],
-        seo: { score: 999, titleLengthOk: true, excerptLengthOk: true, hasHeadings: false, keywordSuggestions: [] },
+        readerSuggestions: ['A', 42, 'B', 'C', 'D', 'E'],
       }) }] } }],
     }), { status: 200 }),
   };
   const result = await generateAiResult(
     { task: 'review', provider: 'gemini', title: 'T', bodyText: 'B' },
     env,
-  ) as { grammar: string[]; seo: { score: number } };
+  ) as { grammar: string[]; readerSuggestions: string[] };
   assert.deepEqual(result.grammar, ['ok']);
-  assert.equal(result.seo.score, 100);
+  assert.deepEqual(result.readerSuggestions, ['A', 'B', 'C', 'D']);
+
+  await assert.rejects(
+    generateAiResult({ task: 'review', provider: 'gemini' }, {
+      GEMINI_API_KEY: 'gemini-key',
+      fetcher: async () => new Response(JSON.stringify({
+        candidates: [{ content: { parts: [{ text: '{"seo":{"score":100}}' }] } }],
+      }), { status: 200 }),
+    }),
+    /review response is malformed/,
+  );
 });
 
 test('generateAiResult returns plain text for inline_draft, same as the other text tasks', async () => {

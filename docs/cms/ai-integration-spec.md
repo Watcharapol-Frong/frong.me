@@ -17,6 +17,14 @@ Requests validate task/provider/model and return text or structured suggestions.
 Research is angle ideation, not a promise of web retrieval. Review is assistance,
 not verified fact-checking. Authors choose what to apply; AI does not publish.
 
+The Review & SEO panel first computes local checks from the current draft:
+title, summary, sections in longer articles, missing image descriptions, and
+an optional related-article link. It then asks the configured model for
+`grammar`, `missingReferences`, and up to four `readerSuggestions`. A failed
+AI request leaves the local checks visible. Review does not return a numeric
+SEO score, search volume, ranking prediction or verified citations. See the
+[article SEO plan](../seo-plan.md) for crawl and measurement steps.
+
 Cloudflare uses the main Worker's `AI` binding. Gemini/OpenRouter use server-side
 calls with saved keys or environment fallbacks. Model IDs and limits belong in
 code, not a duplicated list here. Discovery can fail independently of local tests.

@@ -2,3 +2,4 @@ User-agent: *
 Allow: /
 
 Sitemap: https://frong.me/sitemap-index.xml
+Sitemap: https://frong.me/articles-sitemap.xml

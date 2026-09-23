@@ -132,28 +132,27 @@ export function buildInlineDraftPrompt(request: AiGenerateRequest): string {
 }
 
 /**
- * `review`: proofreading + SEO + reference audit, returned as strict JSON so
- * the editor can render a checklist instead of a wall of prose.
+ * `review`: editorial feedback and reference audit. Mechanical checks are
+ * calculated from the draft locally, without asking a model to score them.
  */
 export function buildReviewPrompt(request: AiGenerateRequest): string {
   const tags = request.tags?.length ? request.tags.join(', ') : '(none)';
   return [
     'You are an editor reviewing a blog post before publish. Check spelling',
     '/grammar (Thai and English as appropriate), flag any factual claims that',
-    'read like they need a citation, and score the SEO basics.',
+    'read like they need a citation. Suggest up to four specific changes that',
+    'would help the intended reader: a clear question and answer, alignment',
+    'between the title and body, first-hand examples, and natural links to',
+    'related reading when relevant. Base each suggestion on the draft, and',
+    'use its language. Do not invent search demand, competitors, facts,',
+    'ranking predictions, or a numeric SEO score. Avoid keyword repetition.',
     '',
     'Respond with ONLY JSON (no markdown fences, no commentary) shaped',
     'exactly as:',
     '{',
     '  "grammar": string[],',
     '  "missingReferences": string[],',
-    '  "seo": {',
-    '    "score": number (0-100),',
-    '    "titleLengthOk": boolean (title should be under 60 characters),',
-    '    "excerptLengthOk": boolean (excerpt should be under 160 characters),',
-    '    "hasHeadings": boolean (body should contain at least one heading),',
-    '    "keywordSuggestions": string[]',
-    '  }',
+    '  "readerSuggestions": string[]',
     '}',
     '',
     `Title (${request.title?.length ?? 0} chars): ${request.title || '(untitled)'}`,
@@ -202,27 +201,19 @@ function parseResearchResponse(text: string): AiResearchIdea[] {
 
 function parseReviewResponse(text: string): AiReviewReport {
   const payload = extractJsonPayload(text);
-  if (!isRecord(payload) || !isRecord(payload.seo)) {
+  if (!isRecord(payload) || !Array.isArray(payload.readerSuggestions)) {
     throw new AiProviderRequestError('AI review response is malformed');
   }
   const grammar = Array.isArray(payload.grammar) ? payload.grammar.filter((v): v is string => typeof v === 'string') : [];
   const missingReferences = Array.isArray(payload.missingReferences)
     ? payload.missingReferences.filter((v): v is string => typeof v === 'string')
     : [];
-  const seo = payload.seo;
-  const keywordSuggestions = Array.isArray(seo.keywordSuggestions)
-    ? seo.keywordSuggestions.filter((v): v is string => typeof v === 'string')
-    : [];
   return {
     grammar,
     missingReferences,
-    seo: {
-      score: typeof seo.score === 'number' ? Math.max(0, Math.min(100, seo.score)) : 0,
-      titleLengthOk: seo.titleLengthOk === true,
-      excerptLengthOk: seo.excerptLengthOk === true,
-      hasHeadings: seo.hasHeadings === true,
-      keywordSuggestions,
-    },
+    readerSuggestions: payload.readerSuggestions
+      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+      .slice(0, 4),
   };
 }
 

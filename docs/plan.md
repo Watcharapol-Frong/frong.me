@@ -1,7 +1,7 @@
 # Current handoff
 
-Updated: 2026-09-22. Scope: deployed legacy retirement release and maintainer
-handoff.
+Updated: 2026-09-23. Scope: maintainer handoff, including the pending article
+SEO review and sitemap change.
 
 ## Architecture
 
@@ -62,6 +62,17 @@ Historical requirements/session logs are linked from the retirement record, not
 mixed into this current handoff.
 
 ## Repository maintenance
+
+- 2026-09-23: Prepared the scoped [article SEO plan](seo-plan.md). Earth Editor
+  Review & SEO now shows checks derived from the current draft and AI editorial
+  suggestions without a fabricated score or ranking forecast. A request-time
+  D1 article sitemap includes only active slugs and is advertised in robots.txt.
+  After deployment, verify sitemap and article URLs publicly, then inspect
+  indexing and query performance in Google Search Console. Public site page
+  changes are a separate maintainer task. All 225 CMS tests, TypeScript, and
+  `git diff --check` pass locally. The build bundles server and client code,
+  then stops in Cloudflare prerendering because this environment cannot
+  enumerate network interfaces; require a green CI build before merging.
 
 - 2026-09-22: Removed the redundant root declarations for
   `@tiptap/extension-bubble-menu` and `@tiptap/extension-floating-menu`.
