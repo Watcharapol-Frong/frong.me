@@ -63,6 +63,11 @@ mixed into this current handoff.
 
 ## Repository maintenance
 
+- 2026-09-23: Added a manually dispatched staging deployment workflow using
+  the existing `cms-staging` GitHub Environment. It is restricted to `main`,
+  checks required variables without exposing the token, runs tests and
+  TypeScript, then calls the staging preflight/build/deploy helper. A workflow
+  run and browser acceptance are still needed; it does not deploy production.
 - 2026-09-23: Prepared the scoped [article SEO plan](seo-plan.md). Earth Editor
   Review & SEO now shows checks derived from the current draft and AI editorial
   suggestions without a fabricated score or ranking forecast. A request-time
