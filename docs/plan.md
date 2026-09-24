@@ -63,6 +63,14 @@ mixed into this current handoff.
 
 ## Repository maintenance
 
+- 2026-09-24: Prepared separate `staging` and `production` GitHub Actions
+  deployments. The staging workflow runs on pushes to the `staging` branch; the
+  production workflow is manually dispatched from `main` and references the
+  protected `production` GitHub Environment. Both verify bindings, run tests and
+  TypeScript, and build for their own Worker. Account setup, runtime Access
+  variables, branch creation, and a successful staging/browser check remain
+  migration gates; the previous `cms-staging` secrets are not copied or deleted
+  by this code change.
 - 2026-09-23: Added a manually dispatched staging deployment workflow using
   the existing `cms-staging` GitHub Environment. It is restricted to `main`,
   checks required variables without exposing the token, runs tests and

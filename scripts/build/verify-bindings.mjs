@@ -1,16 +1,16 @@
 #!/usr/bin/env node
 
 /**
- * Pre-flight verification for Cloudflare staging deployment.
+ * Pre-flight verification for Cloudflare deployments.
  *
- * Verifies that the wrangler.jsonc configuration and the staging build environment
- * are properly wired before deploying to staging:
+ * Verifies that the wrangler.jsonc configuration and selected build environment
+ * are properly wired before deployment:
  * 1. All five SSOT variables are present and non-blank, including legacy fallback resolution.
  * 2. D1 database binding matches CF_D1_DATABASE_ID (legacy: STAGING_D1_DATABASE_ID).
  * 3. R2 bucket binding matches CF_R2_BUCKET_NAME (legacy: STAGING_R2_BUCKET_NAME).
  * 4. Configured Access Application AUD (if present in wrangler.jsonc) matches CF_ACCESS_AUD.
  * 5. Dev-bypass guard: ENABLE_ACCESS_DEV_BYPASS must NEVER be true in staging build env.
- * 6. Production isolation: verifies staging bindings never point to env.production.
+ * 6. Environment isolation: verifies bindings never point to the other environment.
  *
  * Parses wrangler.jsonc using jsonc-parser (never raw JSON.parse) and fails loudly on syntax errors.
  */
@@ -105,7 +105,7 @@ export function parseWranglerJsonc(configPath) {
 }
 
 /**
- * Performs pre-flight verification on bindings and staging environment variables.
+ * Performs pre-flight verification on bindings and environment variables.
  *
  * @param {object} [options]
  * @param {string} [options.configPath]
@@ -122,11 +122,15 @@ export function verifyBindings({
   dryRun = false,
   log = console.log,
 } = {}) {
+  if (envName !== 'staging' && envName !== 'production') {
+    throw new BindingVerificationError(`Unsupported deployment environment: ${envName}`, 'missing-env');
+  }
+
   // Check: Dev-bypass guard must fail immediately under any condition if set to true
   const bypassVal = (env.ENABLE_ACCESS_DEV_BYPASS ?? '').trim().toLowerCase();
   if (bypassVal === 'true' || bypassVal === '1' || bypassVal === 'yes') {
     throw new BindingVerificationError(
-      `CRITICAL SECURITY VIOLATION: ENABLE_ACCESS_DEV_BYPASS is set to "${env.ENABLE_ACCESS_DEV_BYPASS}". Development bypass is strictly forbidden in staging build environments!`,
+      `CRITICAL SECURITY VIOLATION: ENABLE_ACCESS_DEV_BYPASS is set to "${env.ENABLE_ACCESS_DEV_BYPASS}". Development bypass is strictly forbidden in deployed environments!`,
       'dev-bypass'
     );
   }
@@ -135,8 +139,8 @@ export function verifyBindings({
   // so an empty GitHub vars/secrets resolution stops the pre-flight immediately.
   // Legacy names remain temporary, explicitly identified fallback sources.
   const cloudflareAccountId = requiredSsotVariable(env, 'CLOUDFLARE_ACCOUNT_ID', ['CF_ACCOUNT_ID']);
-  const stagingD1DbId = requiredSsotVariable(env, 'CF_D1_DATABASE_ID', ['STAGING_D1_DATABASE_ID']);
-  const stagingR2BucketName = requiredSsotVariable(env, 'CF_R2_BUCKET_NAME', ['STAGING_R2_BUCKET_NAME']);
+  const expectedD1DbId = requiredSsotVariable(env, 'CF_D1_DATABASE_ID', ['STAGING_D1_DATABASE_ID']);
+  const expectedR2BucketName = requiredSsotVariable(env, 'CF_R2_BUCKET_NAME', ['STAGING_R2_BUCKET_NAME']);
   const cfAccessTeamDomain = requiredSsotVariable(env, 'CF_ACCESS_TEAM_DOMAIN');
   const cfAccessAud = requiredSsotVariable(env, 'CF_ACCESS_AUD');
 
@@ -160,11 +164,11 @@ export function verifyBindings({
       'd1-binding'
     );
   }
-  const matchingD1 = d1Databases.find((db) => db.database_id === stagingD1DbId);
+  const matchingD1 = d1Databases.find((db) => db.database_id === expectedD1DbId);
   if (!matchingD1) {
     const foundIds = d1Databases.map((db) => db.database_id).join(', ');
     throw new BindingVerificationError(
-      `D1 database binding mismatch: env.${envName}.d1_databases does not contain database_id matching CF_D1_DATABASE_ID. Expected: "${stagingD1DbId}", Found: [${foundIds}]`,
+      `D1 database binding mismatch: env.${envName}.d1_databases does not contain database_id matching CF_D1_DATABASE_ID. Expected: "${expectedD1DbId}", Found: [${foundIds}]`,
       'd1-binding'
     );
   }
@@ -177,11 +181,11 @@ export function verifyBindings({
       'r2-binding'
     );
   }
-  const matchingR2 = r2Buckets.find((bucket) => bucket.bucket_name === stagingR2BucketName);
+  const matchingR2 = r2Buckets.find((bucket) => bucket.bucket_name === expectedR2BucketName);
   if (!matchingR2) {
     const foundBuckets = r2Buckets.map((b) => b.bucket_name).join(', ');
     throw new BindingVerificationError(
-      `R2 bucket binding mismatch: env.${envName}.r2_buckets does not contain bucket_name matching CF_R2_BUCKET_NAME. Expected: "${stagingR2BucketName}", Found: [${foundBuckets}]`,
+      `R2 bucket binding mismatch: env.${envName}.r2_buckets does not contain bucket_name matching CF_R2_BUCKET_NAME. Expected: "${expectedR2BucketName}", Found: [${foundBuckets}]`,
       'r2-binding'
     );
   }
@@ -202,39 +206,43 @@ export function verifyBindings({
     }
   }
 
-  // Production isolation: ensure staging never points to env.production
-  if (config.env?.production) {
-    const prodD1Databases = Array.isArray(config.env.production.d1_databases)
-      ? config.env.production.d1_databases
+  // Keep the two named environments independent in both deployment directions.
+  const otherEnvName = envName === 'staging' ? 'production' : envName === 'production' ? 'staging' : null;
+  if (otherEnvName && config.env?.[otherEnvName]) {
+    const otherD1Databases = Array.isArray(config.env[otherEnvName].d1_databases)
+      ? config.env[otherEnvName].d1_databases
       : [];
     for (const d1 of d1Databases) {
-      if (prodD1Databases.some((p) => p.database_id === d1.database_id)) {
+      if (otherD1Databases.some((p) => p.database_id === d1.database_id)) {
         throw new BindingVerificationError(
-          `Production isolation failure: staging D1 database ID "${d1.database_id}" matches a database in env.production!`,
+          `Production isolation failure: ${envName} D1 database ID "${d1.database_id}" matches a database in env.${otherEnvName}!`,
           'prod-isolation'
         );
       }
     }
 
-    const prodR2Buckets = Array.isArray(config.env.production.r2_buckets)
-      ? config.env.production.r2_buckets
+    const otherR2Buckets = Array.isArray(config.env[otherEnvName].r2_buckets)
+      ? config.env[otherEnvName].r2_buckets
       : [];
     for (const r2 of r2Buckets) {
-      if (prodR2Buckets.some((p) => p.bucket_name === r2.bucket_name)) {
+      if (otherR2Buckets.some((p) => p.bucket_name === r2.bucket_name)) {
         throw new BindingVerificationError(
-          `Production isolation failure: staging R2 bucket "${r2.bucket_name}" matches a bucket in env.production!`,
+          `Production isolation failure: ${envName} R2 bucket "${r2.bucket_name}" matches a bucket in env.${otherEnvName}!`,
           'prod-isolation'
         );
       }
     }
   }
 
-  // Ensure staging binding names do not point at production
+  // Names are an additional safeguard against pasting the wrong resource ID.
   for (const d1 of d1Databases) {
     const dbName = (d1.database_name ?? '').toLowerCase();
-    if (dbName.includes('production') || dbName.endsWith('-prod')) {
+    const wrongName = envName === 'staging'
+      ? dbName.includes('production') || dbName.endsWith('-prod')
+      : envName === 'production' && dbName.includes('staging');
+    if (wrongName) {
       throw new BindingVerificationError(
-        `Production isolation failure: staging D1 database name "${d1.database_name}" points at production!`,
+        `Environment isolation failure: ${envName} D1 database name "${d1.database_name}" points at ${envName === 'staging' ? 'production' : 'staging'}!`,
         'prod-isolation'
       );
     }
@@ -242,9 +250,12 @@ export function verifyBindings({
 
   for (const r2 of r2Buckets) {
     const bName = (r2.bucket_name ?? '').toLowerCase();
-    if (bName.includes('production') || bName.endsWith('-prod')) {
+    const wrongName = envName === 'staging'
+      ? bName.includes('production') || bName.endsWith('-prod')
+      : envName === 'production' && bName.includes('staging');
+    if (wrongName) {
       throw new BindingVerificationError(
-        `Production isolation failure: staging R2 bucket name "${r2.bucket_name}" points at production!`,
+        `Environment isolation failure: ${envName} R2 bucket name "${r2.bucket_name}" points at ${envName === 'staging' ? 'production' : 'staging'}!`,
         'prod-isolation'
       );
     }
@@ -255,22 +266,22 @@ export function verifyBindings({
     log('[verify-bindings] Running in --dry-run mode.');
   }
   log('[verify-bindings] Check 1/5: Required SSOT variables are present and non-blank: PASSED');
-  log(`[verify-bindings] Check 2/5: D1 database ID matches CF_D1_DATABASE_ID: PASSED (${stagingD1DbId})`);
-  log(`[verify-bindings] Check 3/5: R2 bucket name matches CF_R2_BUCKET_NAME: PASSED (${stagingR2BucketName})`);
+  log(`[verify-bindings] Check 2/5: D1 database ID matches CF_D1_DATABASE_ID: PASSED (${expectedD1DbId})`);
+  log(`[verify-bindings] Check 3/5: R2 bucket name matches CF_R2_BUCKET_NAME: PASSED (${expectedR2BucketName})`);
   if (configuredAud) {
     log(`[verify-bindings] Check 4/5: Access Application AUD matches CF_ACCESS_AUD: PASSED (${cfAccessAud})`);
   } else {
     log(`[verify-bindings] Check 4/5: Access Application AUD matches CF_ACCESS_AUD: PASSED (CF_ACCESS_AUD validated from environment; not hardcoded in wrangler.jsonc)`);
   }
   log(`[verify-bindings] Check 5/5: Access dev-bypass guard (ENABLE_ACCESS_DEV_BYPASS): PASSED (disabled)`);
-  log(`[verify-bindings] Production isolation guard: PASSED (no bindings point at env.production)`);
-  log(`[verify-bindings] All staging pre-flight checks PASSED successfully.`);
+  log(`[verify-bindings] Environment isolation guard: PASSED (${envName} bindings are independent)`);
+  log(`[verify-bindings] All ${envName} pre-flight checks PASSED successfully.`);
 
   return {
     success: true,
     accountId: cloudflareAccountId,
-    d1DatabaseId: stagingD1DbId,
-    r2BucketName: stagingR2BucketName,
+    d1DatabaseId: expectedD1DbId,
+    r2BucketName: expectedR2BucketName,
     accessTeamDomain: cfAccessTeamDomain,
     accessAud: cfAccessAud,
     configuredAud: configuredAud ?? null,
