@@ -2,9 +2,9 @@ name: CMS CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [staging, main]
   push:
-    branches: [main]
+    branches: [staging, main]
   workflow_dispatch:
 
 permissions:

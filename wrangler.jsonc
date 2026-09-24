@@ -3,6 +3,7 @@
   "name": "frong-me",
   "compatibility_date": "2026-09-10",
   "compatibility_flags": ["nodejs_compat"],
+  "keep_vars": true,
   "d1_databases": [
     {
       "binding": "DB",

@@ -61,7 +61,9 @@ policies, backups or a browser workflow are configured.
 
 ## Operational safety
 
-- A merge does not deploy; follow the [environment guide](docs/cms/environment-map.md).
+- A push or merge to `staging` deploys its Worker after checks; production
+  requires a manual dispatch from `main` and approval. Follow the
+  [environment guide](docs/cms/environment-map.md).
 - Do not deploy, run remote migrations/seeds, delete services or rotate secrets
   as part of routine refactoring.
 - Never copy production data or keys into tests, logs, issues or pull requests.
