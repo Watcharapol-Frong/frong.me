@@ -58,7 +58,7 @@ jobs:
         run: node scripts/build/verify-bindings.mjs --env production
 
       - name: Build for production
-        run: CLOUDFLARE_ENV=production npm run build
+        run: CLOUDFLARE_VITE_FORCE_LOCAL=true CLOUDFLARE_ENV=production npm run build
 
       - name: Deploy production Worker
         run: npx wrangler deploy --env production

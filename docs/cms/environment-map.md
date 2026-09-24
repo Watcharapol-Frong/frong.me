@@ -76,6 +76,9 @@ into `main`. CI verifies pull requests and pushes to both branches. Pushing to
 `staging` triggers **Deploy CMS staging**; it checks configuration, tests and
 TypeScript, then builds and deploys `frong-me-staging` using the GitHub
 Environment `staging`. A manual rerun must also select the `staging` branch.
+The GitHub build forces local bindings for prerendering, avoiding a Cloudflare
+remote preview session; the subsequent Wrangler deployment still targets the
+real staging Worker and its bound D1/R2 resources.
 **Deploy CMS production** runs only when manually dispatched from `main`. It
 uses the GitHub Environment `production`, repeats tests and preflight, builds
 for production and deploys `frong-me`. Configure a required reviewer on that
@@ -131,7 +134,7 @@ migrations or seeds content.
    `--env production --remote`. Never edit applied migrations or seed remotely.
 3. Staging workflow: `npm run deploy:staging` performs preflight, build and
    deploy. Production workflow checks production bindings, runs
-   `CLOUDFLARE_ENV=production npm run build`, then
+   `CLOUDFLARE_VITE_FORCE_LOCAL=true CLOUDFLARE_ENV=production npm run build`, then
    `npx wrangler deploy --env production`. Never reuse a staging build.
 4. Verify public pages, authenticated Earth, an approved test article, image
    delivery and authorized AI. Account for response caching.
