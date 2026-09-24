@@ -63,7 +63,7 @@ const SHORTCUTS: { keys: string[]; label: string }[] = [
 
   <div class="form-group">
     <label class="form-label" for="earth-slug">
-      <span>Slug</span>
+      <span>Article URL name</span>
       <span class="form-label-right">
         <span class="form-label-hint" data-earth-slug-mode>auto</span>
         <button type="button" class="ai-inline-btn" data-earth-ai-inline="auto-slug">✨ AI</button>
@@ -77,9 +77,11 @@ const SHORTCUTS: { keys: string[]; label: string }[] = [
       value={initial.slug ?? ''}
       placeholder="post-url-slug"
       pattern="[a-z0-9]+(-[a-z0-9]+)*"
-      title="Lowercase letters, numbers, and hyphens only"
+      maxlength="120"
+      title="Lowercase English letters, numbers, and hyphens only"
       autocomplete="off"
     />
+    <p class="form-label-hint">For Thai titles, enter an English URL name or use AI.</p>
     <div class="slug-preview">{siteDomain}/articles/<span data-earth-slug-preview>your-slug</span></div>
   </div>
 

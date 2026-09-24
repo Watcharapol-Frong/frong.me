@@ -63,6 +63,10 @@ mixed into this current handoff.
 
 ## Repository maintenance
 
+- 2026-09-24: Staging deploy and Access sign-in now work. A first draft save
+  exposed invalid manually entered article URL names: Earth now validates the
+  slug before submitting and gives an example suitable for Thai-titled posts.
+  Verify the full create/save/reopen flow in the staging browser after release.
 - 2026-09-24: Prepared separate `staging` and `production` GitHub Actions
   deployments. The staging workflow runs on pushes to the `staging` branch; the
   production workflow is manually dispatched from `main` and references the
