@@ -188,6 +188,7 @@ const seed = {
     PostEditorPublishError,
     type PostEditorDraft,
   } from '../../lib/cms/client/post-editor-api.ts';
+  import { postSlugFeedback } from '../../lib/cms/client/post-slug-feedback.ts';
 
   const MAX_TAGS = 2;
   const EMOJI = [
@@ -406,7 +407,8 @@ const seed = {
     function syncSlugFromTitle() {
       if (slugTouched || !fields.slug || !fields.title) return;
       const next = autoSlug(fields.title.value);
-      if (next) fields.slug.value = next;
+      fields.slug.value = next;
+      if (slugMode) slugMode.textContent = next ? 'auto' : 'enter English URL name';
       updateSlugPreview();
     }
 
@@ -761,8 +763,9 @@ const seed = {
         fields.title?.focus();
         return;
       }
-      if (!payload.slug) {
-        setStatus('Slug is required', 'error');
+      const slugError = postSlugFeedback(payload.slug);
+      if (slugError) {
+        setStatus(slugError, 'error');
         fields.slug?.focus();
         return;
       }
