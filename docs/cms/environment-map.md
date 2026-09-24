@@ -93,10 +93,13 @@ configure the following values for *that* target only:
 | Variable: `CF_D1_DATABASE_ID` | `portfolio-db-staging` database ID from `wrangler.jsonc` | `portfolio-db-prod` database ID from `wrangler.jsonc` |
 | Variable: `CF_R2_BUCKET_NAME` | `portfolio-media-staging` | `portfolio-media-prod` |
 | Variable: `CF_ACCESS_TEAM_DOMAIN` | Staging Access team domain | Production Access team domain |
-| Variable: `CF_ACCESS_AUD` | Staging `/earth` Access application AUD | Production `/earth` Access application AUD |
+| Secret or variable: `CF_ACCESS_AUD` | Staging `/earth` Access application AUD | Production `/earth` Access application AUD |
 | Optional variable: `PUBLIC_GA_MEASUREMENT_ID` | Staging measurement ID, if analytics is desired | Production measurement ID, if analytics is desired |
 
-Both deployment jobs fail before building if a required value is missing. The
+For `CF_ACCESS_AUD`, the workflows read an Environment secret first and then an
+Environment variable. The secret is suitable if the AUD is already stored there;
+there is no need to copy it into a variable. Both deployment jobs fail before
+building if a required value is missing. The
 production preflight rejects mismatched production D1/R2 bindings; staging has
 the equivalent guard. GitHub Environment variables exist only during the build
 and deploy. In **Workers & Pages > each Worker > Settings > Variables and
