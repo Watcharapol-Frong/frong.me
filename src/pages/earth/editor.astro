@@ -31,7 +31,7 @@ const postId = Astro.url.searchParams.get('id')?.trim() || undefined;
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&family=Google+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&family=Google+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap"
     />
     <style is:global>
       *, *::before, *::after { box-sizing: border-box; }
@@ -200,11 +200,8 @@ const postId = Astro.url.searchParams.get('id')?.trim() || undefined;
       body.zen-mode .ai-panel,
       body.zen-mode .ai-panel-toggle { display: none; }
 
-      /* Zen mode replaced the old "Preview" (a separate rendered tab) — it's
-         now the closest thing to seeing the finished article while writing,
-         so its typography leans toward how the published page actually
-         looks rather than the comfortable-for-editing defaults above. Scoped
-         to zen only: normal editing keeps its own sizing. */
+      /* Zen keeps the editor chrome while matching the Markdown typography
+         on the public article route. Normal editing retains its own styles. */
       body.zen-mode .title-input {
         font-size: clamp(2.25rem, 3vw, 2.75rem); /* matches the public article page's own title token */
         font-weight: 700;
@@ -224,13 +221,39 @@ const postId = Astro.url.searchParams.get('id')?.trim() || undefined;
       .zen-excerpt[hidden] { display: none; }
 
       body.zen-mode .body-input .ProseMirror {
-        font-size: 19px;
-        line-height: 1.85;
+        font-family: 'Inter', system-ui, sans-serif;
+        font-size: 16px;
+        line-height: 1.75;
+        color: #0d0d0d;
       }
 
-      body.zen-mode .body-input .ProseMirror h1 { font-size: 2em; }
-      body.zen-mode .body-input .ProseMirror h2 { font-size: 1.6em; }
-      body.zen-mode .body-input .ProseMirror h3 { font-size: 1.25em; }
+      body.zen-mode .body-input .ProseMirror p { margin: 1.25em 0; }
+      body.zen-mode .body-input .ProseMirror h1,
+      body.zen-mode .body-input .ProseMirror h2,
+      body.zen-mode .body-input .ProseMirror h3 { font-weight: 700; line-height: 1.3; }
+      body.zen-mode .body-input .ProseMirror h1 { font-size: 2.25em; margin: 0 0 .888em; }
+      body.zen-mode .body-input .ProseMirror h2 { font-size: 1.5em; margin: 2em 0 1em; }
+      body.zen-mode .body-input .ProseMirror h3 { font-size: 1.25em; margin: 1.6em 0 .6em; }
+      body.zen-mode .body-input .ProseMirror ol,
+      body.zen-mode .body-input .ProseMirror ul { margin: 1.25em 0; padding-inline-start: 1.625em; }
+      body.zen-mode .body-input .ProseMirror li { margin: .5em 0; }
+      body.zen-mode .body-input .ProseMirror blockquote {
+        margin: 1.6em 0;
+        border-left: .25em solid #e5e5e5;
+        padding-left: 1em;
+        font-style: italic;
+      }
+      body.zen-mode .body-input .ProseMirror a { text-decoration: underline; font-weight: 500; }
+      body.zen-mode .body-input .ProseMirror pre {
+        margin: 1.7em 0;
+        border: 1px solid #e5e5e5;
+        border-radius: 8px;
+      }
+      body.zen-mode .body-input .ProseMirror hr {
+        border: 0;
+        border-top: 1px solid #737373;
+        margin: 3em 0;
+      }
 
       /* ---------------- AI Assistant: collapsible flex column ----------------
          A real flex sibling like .sidebar (not an overlay) — closed by
@@ -619,6 +642,10 @@ const postId = Astro.url.searchParams.get('id')?.trim() || undefined;
       }
 
       .body-input .ProseMirror img { max-width: 100%; border-radius: 8px; }
+      /* The page resets all padding. Give list markers room inside the
+         scrollable writing column, including nested lists. */
+      .body-input .ProseMirror ol { list-style-type: decimal; padding-inline-start: 1.5em; }
+      .body-input .ProseMirror ul { list-style-type: disc; padding-inline-start: 1.5em; }
       .body-input .ProseMirror blockquote { border-left: 3px solid #eee; padding-left: 16px; color: #666; }
       .body-input .ProseMirror pre {
         background: #f6f8fa;

@@ -63,6 +63,11 @@ mixed into this current handoff.
 
 ## Repository maintenance
 
+- 2026-09-25: Restored ordered and bulleted list markers in the scrollable
+  Earth editor panel. The page-wide padding reset had left markers outside
+  the writing column. Zen now matches public article Markdown typography,
+  while public and Zen dividers receive a visible border. Editor controls stay
+  unchanged. Staging and production still require their normal release checks.
 - 2026-09-24: Staging deploy and Access sign-in now work. A first draft save
   exposed invalid manually entered article URL names: Earth now validates the
   slug before submitting and gives an example suitable for Thai-titled posts.
