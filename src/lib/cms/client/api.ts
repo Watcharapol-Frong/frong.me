@@ -39,6 +39,7 @@ import type {
   EpochMilliseconds,
   Language,
   PostLifecycle,
+  PrimaryTopic,
   TaxonomySnapshot,
   UpdatePostDraftInput,
 } from '../contracts.ts';
@@ -188,6 +189,7 @@ export interface PostSummary {
   publishedAt: EpochMilliseconds | null;
   coverImageUrl: string | null;
   coverCrop: { x: number; y: number; zoom: number } | null;
+  primaryTopic: PrimaryTopic | null;
   /**
    * Tag names. List responses only — the detail route sends full `tags`
    * objects under that name instead, so this one stays distinct to keep the
@@ -503,6 +505,7 @@ function oneOf<T extends string>(value: unknown, field: string, allowed: readonl
 
 const LANGUAGES: readonly Language[] = ['th', 'en'];
 const LIFECYCLES: readonly PostLifecycle[] = ['draft', 'active', 'archived'];
+const PRIMARY_TOPIC_VALUES: readonly PrimaryTopic[] = ['data', 'technology', 'business'];
 
 function parsePostSummary(value: unknown, field: string): PostSummary {
   const row = obj(value, field);
@@ -519,6 +522,9 @@ function parsePostSummary(value: unknown, field: string): PostSummary {
     publishedAt: nullableNum(row.publishedAt ?? null, `${field}.publishedAt`),
     coverImageUrl: nullableStr(row.coverImageUrl ?? null, `${field}.coverImageUrl`),
     coverCrop: nullableCrop(row.coverCrop, `${field}.coverCrop`),
+    primaryTopic: row.primaryTopic == null
+      ? null
+      : oneOf(row.primaryTopic, `${field}.primaryTopic`, PRIMARY_TOPIC_VALUES),
     tagNames: list(row.tagNames ?? [], `${field}.tagNames`, str),
   };
 }

@@ -17,6 +17,7 @@ test('listPublishedPostCards returns homepage data with a fixed three-query cost
     'db/migrations/0006_post_cover_crop.sql',
     'db/migrations/0007_site_settings.sql',
     'db/migrations/0008_ai_provider_configs.sql',
+    'db/migrations/0009_primary_topic.sql',
   );
 
   let selectCount = 0;
@@ -29,16 +30,16 @@ test('listPublishedPostCards returns homepage data with a fixed three-query cost
   };
   const db = createCmsDatabase(countingBinding);
 
-  for (const [id, slug, title] of [
-    ['post_card_0001', 'first-card', 'First card'],
-    ['post_card_0002', 'second-card', 'Second card'],
+  for (const [id, slug, title, primaryTopic] of [
+    ['post_card_0001', 'first-card', 'First card', 'data'],
+    ['post_card_0002', 'second-card', 'Second card', null],
   ]) {
     await db.run(
       `INSERT INTO posts (
          id, lang, slug, title, body_markdown, lifecycle,
-         created_at, updated_at, published_at
-       ) VALUES (?1, 'en', ?2, ?3, '# Body', 'active', 1000, 1000, 1000)`,
-      [id, slug, title],
+         created_at, updated_at, published_at, primary_topic
+       ) VALUES (?1, 'en', ?2, ?3, '# Body', 'active', 1000, 1000, 1000, ?4)`,
+      [id, slug, title, primaryTopic],
     );
   }
   await db.run(
@@ -72,6 +73,9 @@ test('listPublishedPostCards returns homepage data with a fixed three-query cost
   assert.equal(cards.length, 2);
   const first = cards.find((card) => card.id === 'post_card_0001');
   assert.deepEqual(first?.tags, ['analytics']);
+  assert.equal(first?.primaryTopic, 'data');
   assert.equal(first?.coverAsset?.public_r2_key, 'public/cover.jpg');
-  assert.equal(cards.find((card) => card.id === 'post_card_0002')?.coverAsset, null);
+  const unclassified = cards.find((card) => card.id === 'post_card_0002');
+  assert.equal(unclassified?.coverAsset, null);
+  assert.equal(unclassified?.primaryTopic, null, 'older posts stay visible under Everything without receiving a topic');
 });

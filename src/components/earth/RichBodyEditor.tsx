@@ -47,6 +47,34 @@ const CodeNoShortcut = Code.extend({ addKeyboardShortcuts: () => ({}) });
 const StrikeNoShortcut = Strike.extend({ addKeyboardShortcuts: () => ({}) });
 
 /**
+ * `tiptap-markdown` uses ProseMirror's inline image serializer even though
+ * TipTap configures Image as a block node. Without closing the block, an
+ * immediately following divider is saved as `![...](...)---` and reopens as
+ * literal `---` text. Preserve the package's Markdown syntax, then terminate
+ * the image block so the next block keeps its meaning across a round trip.
+ */
+const BlockImage = Image.extend({
+  addStorage() {
+    return {
+      markdown: {
+        serialize(state: any, node: any) {
+          const alt = state.esc(node.attrs.alt || '');
+          const src = node.attrs.src.replace(/[()]/g, '\\$&');
+          const title = node.attrs.title
+            ? ` "${node.attrs.title.replace(/"/g, '\\"')}"`
+            : '';
+          state.write(`![${alt}](${src}${title})`);
+          state.closeBlock(node);
+        },
+        parse: {
+          // handled by markdown-it
+        },
+      },
+    };
+  },
+});
+
+/**
  * Highlight mark, serialized to `==text==` — a common Markdown-flavor
  * convention (Obsidian, many other editors) that `markdown-it-mark` both
  * renders and parses. Not part of `@tiptap/extension-highlight`, which has
@@ -464,24 +492,28 @@ interface RichBodyEditorProps {
   placeholder?: string;
 }
 
+export function createRichBodyEditorExtensions(placeholder?: string) {
+  return [
+    StarterKit.configure({ link: { openOnClick: false }, italic: false, code: false, strike: false }),
+    ItalicNoShortcut,
+    CodeNoShortcut,
+    StrikeNoShortcut,
+    Highlight,
+    BlockImage,
+    YoutubeEmbed,
+    SlashCommand,
+    Placeholder.configure({ placeholder: placeholder ?? 'Start writing…' }),
+    Markdown.configure({ html: false, bulletListMarker: '-', tightLists: true }),
+  ];
+}
+
 export default function RichBodyEditor({ initial = '', placeholder }: RichBodyEditorProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const hiddenTextareaRef = useRef<HTMLTextAreaElement>(null);
   const [isEmpty, setIsEmpty] = useState(!initial.trim());
 
   const editor = useEditor({
-    extensions: [
-      StarterKit.configure({ link: { openOnClick: false }, italic: false, code: false, strike: false }),
-      ItalicNoShortcut,
-      CodeNoShortcut,
-      StrikeNoShortcut,
-      Highlight,
-      Image,
-      YoutubeEmbed,
-      SlashCommand,
-      Placeholder.configure({ placeholder: placeholder ?? 'Start writing…' }),
-      Markdown.configure({ html: false, bulletListMarker: '-', tightLists: true }),
-    ],
+    extensions: createRichBodyEditorExtensions(placeholder),
     content: initial,
     immediatelyRender: false,
     onUpdate: ({ editor: ed }) => {

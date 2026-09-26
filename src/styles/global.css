@@ -190,11 +190,10 @@
   --tw-prose-invert-td-borders: hsl(var(--border));
 }
 
-/* Make a Markdown divider visible in both themes. The typography plugin's
-   default gray is easy to miss against the article background. */
+/* Match Markdown dividers to the lighter borders used by article sections. */
 .article-content hr {
   border: 0;
-  border-top: 1px solid hsl(var(--muted-foreground));
+  border-top: 1px solid hsl(var(--border));
 }
 
 @layer components {

@@ -22,6 +22,7 @@ const POST: PostDetail = {
   publishedAt: null,
   coverImageUrl: null,
   coverCrop: null,
+  primaryTopic: null,
   tagNames: [],
   bodyMarkdown: '# Draft',
   categoryIds: ['cat_existing01'],
@@ -37,6 +38,7 @@ const DRAFT: PostEditorDraft = {
   excerpt: POST.excerpt ?? '',
   bodyMarkdown: POST.bodyMarkdown,
   tagIds: ['tag_editor001'],
+  primaryTopic: 'data',
   status: 'draft',
   coverUrl: '',
   coverCrop: null,
@@ -101,8 +103,10 @@ test('PostEditor creates with POST then applies tag ids through versioned PUT', 
     title: POST.title,
     excerpt: POST.excerpt,
     bodyMarkdown: POST.bodyMarkdown,
+    primaryTopic: 'data',
   });
   assert.deepEqual((requests[1]?.body as any).tagIds, ['tag_editor001']);
+  assert.equal((requests[1]?.body as any).draft.primaryTopic, 'data');
   assert.equal((requests[1]?.body as any).draft.expectedDraftVersion, 1);
   assert.equal('status' in (requests[0]?.body as object), false, 'strict posts payload excludes UI status');
 });

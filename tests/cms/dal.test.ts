@@ -178,6 +178,54 @@ test('resolveTagIds upserts free-typed tag names and reuses the same row on a re
   assert.notEqual(sameNameOtherLang[0], firstPass[0], 'tags are scoped per language, so the same word in a different language is a distinct row');
 });
 
+test('primary topic is nullable for old content and constrained on every write path', async (t) => {
+  const { binding, db } = createCmsDbFixture();
+  t.after(() => binding.close());
+
+  const legacyCompatible = await createPost(db, {
+    id: POST_ID,
+    lang: 'en',
+    slug: 'primary-topic-proof',
+    title: 'Primary topic proof',
+  }, NOW);
+  assert.equal(legacyCompatible.primary_topic, null);
+
+  const classified = await updatePostDraft(db, POST_ID, {
+    expectedDraftVersion: 1,
+    lang: 'en',
+    slug: 'primary-topic-proof',
+    title: 'Primary topic proof',
+    bodyMarkdown: '# Topic',
+    primaryTopic: 'technology',
+  }, NOW + 1);
+  assert.equal(classified.primary_topic, 'technology');
+
+  const legacyUpdate = await updatePostDraft(db, POST_ID, {
+    expectedDraftVersion: 2,
+    lang: 'en',
+    slug: 'primary-topic-proof',
+    title: 'Primary topic proof',
+    bodyMarkdown: '# Topic',
+  }, NOW + 2);
+  assert.equal(legacyUpdate.primary_topic, 'technology', 'an older client omitting the new field does not erase it');
+
+  await assert.rejects(
+    db.run('UPDATE posts SET primary_topic = ?1 WHERE id = ?2', ['lifestyle', POST_ID]),
+    (error: unknown) => error instanceof Error
+      && /CHECK constraint failed/.test(String((error as Error & { cause?: unknown }).cause)),
+  );
+});
+
+test('resolveTagIds treats capitalization-only variants as one canonical tag', async (t) => {
+  const { binding, db } = createCmsDbFixture();
+  t.after(() => binding.close());
+
+  const ids = await resolveTagIds(db, 'en', ['AI', 'ai'], NOW);
+  assert.equal(ids.length, 1);
+  const rows = await db.all<{ name: string }>('SELECT name FROM tags WHERE lang = ?1', ['en']);
+  assert.deepEqual(rows.map((row) => row.name), ['AI'], 'the first canonical spelling is preserved');
+});
+
 test('resolveTagIds trims whitespace, drops empty entries, and derives a Thai-safe slug', async (t) => {
   const { binding, db } = createCmsDbFixture();
   t.after(() => binding.close());
@@ -244,4 +292,3 @@ test('updatePostBundle resolves typed tags end-to-end: reuse across saves, drop 
     'the same typed tag resolves to the same underlying row across separate saves',
   );
 });
-

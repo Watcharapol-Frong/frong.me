@@ -70,6 +70,7 @@ export interface PostListDto {
   publishedAt: number | null;
   coverImageUrl: string | null;
   coverCrop: { x: number; y: number; zoom: number } | null;
+  primaryTopic: PostRow['primary_topic'];
 }
 
 export function postRowToListDto(row: PostRow): PostListDto {
@@ -86,6 +87,7 @@ export function postRowToListDto(row: PostRow): PostListDto {
     publishedAt: row.published_at,
     coverImageUrl: row.cover_image_url,
     coverCrop: parseCrop(row.cover_crop, 'post cover crop'),
+    primaryTopic: row.primary_topic,
   };
 }
 

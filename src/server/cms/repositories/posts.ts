@@ -31,7 +31,8 @@ const POST_COLUMNS = `
   archived_at,
   published_at,
   cover_image_url,
-  cover_crop
+  cover_crop,
+  primary_topic
 `;
 
 function serializeCoverCrop(crop: { x: number; y: number; zoom: number } | null | undefined): string | null {
@@ -65,8 +66,8 @@ export async function createPost(
   const result = await db.run<PostRow>(
     `INSERT INTO posts (
       id, lang, translation_group_id, slug, title, excerpt, body_markdown,
-      draft_version, lifecycle, created_at, updated_at, cover_image_url, cover_crop
-    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 1, 'draft', ?8, ?8, ?9, ?10)
+      draft_version, lifecycle, created_at, updated_at, cover_image_url, cover_crop, primary_topic
+    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 1, 'draft', ?8, ?8, ?9, ?10, ?11)
     RETURNING ${POST_COLUMNS}`,
     [
       input.id,
@@ -79,6 +80,7 @@ export async function createPost(
       now,
       input.coverImageUrl ?? null,
       serializeCoverCrop(input.coverCrop),
+      input.primaryTopic ?? null,
     ],
   );
   return requiredReturnedRow(result.results[0], 'post', input.id);
@@ -151,10 +153,11 @@ export async function updatePostDraft(
          body_markdown = ?6,
          cover_image_url = ?7,
          cover_crop = ?8,
+         primary_topic = CASE WHEN ?9 = 1 THEN ?10 ELSE primary_topic END,
          draft_version = draft_version + 1,
-         updated_at = ?9
-     WHERE id = ?10
-       AND draft_version = ?11
+         updated_at = ?11
+     WHERE id = ?12
+       AND draft_version = ?13
        AND lifecycle <> 'archived'
      RETURNING ${POST_COLUMNS}`,
     [
@@ -166,6 +169,8 @@ export async function updatePostDraft(
       input.bodyMarkdown,
       input.coverImageUrl ?? null,
       serializeCoverCrop(input.coverCrop),
+      input.primaryTopic === undefined ? 0 : 1,
+      input.primaryTopic ?? null,
       now,
       postId,
       input.expectedDraftVersion,
@@ -197,8 +202,9 @@ export async function updatePostBundle(
     {
       sql: `UPDATE posts
             SET lang = ?1, translation_group_id = ?2, slug = ?3, title = ?4,
-                excerpt = ?5, body_markdown = ?6, cover_image_url = ?7, cover_crop = ?8
-            WHERE id = ?9 AND draft_version = ?10 AND lifecycle <> 'archived'`,
+                excerpt = ?5, body_markdown = ?6, cover_image_url = ?7, cover_crop = ?8,
+                primary_topic = CASE WHEN ?9 = 1 THEN ?10 ELSE primary_topic END
+            WHERE id = ?11 AND draft_version = ?12 AND lifecycle <> 'archived'`,
       params: [
         input.draft.lang,
         input.draft.translationGroupId ?? null,
@@ -208,6 +214,8 @@ export async function updatePostBundle(
         input.draft.bodyMarkdown,
         input.draft.coverImageUrl ?? null,
         serializeCoverCrop(input.draft.coverCrop),
+        input.draft.primaryTopic === undefined ? 0 : 1,
+        input.draft.primaryTopic ?? null,
         postId,
         version,
       ],

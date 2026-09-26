@@ -122,12 +122,7 @@ const publishedAtIso = new Date(post.published_at ?? post.created_at).toISOStrin
               {tags.map((tag, i) => (
                 <>
                   {i > 0 && " "}
-                  <a
-                    href={`/?tag=${encodeURIComponent(tag)}`}
-                    class="hover:text-foreground hover:underline transition-colors"
-                  >
-                    #{tag}
-                  </a>
+                  <span>#{tag}</span>
                 </>
               ))}
             </p>

@@ -1,4 +1,4 @@
-import type { Language, PostLifecycle } from '../contracts.ts';
+import type { Language, PostLifecycle, PrimaryTopic } from '../contracts.ts';
 import {
   createPost,
   describeConflict,
@@ -18,6 +18,7 @@ export interface PostEditorDraft {
   slug: string;
   excerpt: string;
   tagIds: string[];
+  primaryTopic: PrimaryTopic | null;
   status: 'draft' | 'published';
   bodyMarkdown: string;
   coverUrl: string;
@@ -117,6 +118,7 @@ export function createPostEditorApi(options?: CmsClientOptions): PostEditorApi {
           bodyMarkdown: draft.bodyMarkdown,
           coverImageUrl: draft.coverUrl.trim() || null,
           coverCrop: draft.coverUrl.trim() ? draft.coverCrop : null,
+          primaryTopic: draft.primaryTopic,
         },
         categoryIds: current.categoryIds,
         tagIds: draft.tagIds,
@@ -141,6 +143,7 @@ export function createPostEditorApi(options?: CmsClientOptions): PostEditorApi {
         ...(draft.bodyMarkdown ? { bodyMarkdown: draft.bodyMarkdown } : {}),
         ...(draft.coverUrl.trim() ? { coverImageUrl: draft.coverUrl.trim() } : {}),
         ...(draft.coverUrl.trim() && draft.coverCrop ? { coverCrop: draft.coverCrop } : {}),
+        ...(draft.primaryTopic ? { primaryTopic: draft.primaryTopic } : {}),
       },
       options,
     );

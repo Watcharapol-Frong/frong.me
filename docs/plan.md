@@ -63,6 +63,48 @@ mixed into this current handoff.
 
 ## Repository maintenance
 
+- 2026-09-26: Rewrote `/privacy/` as a Thai-first, bilingual notice grounded in
+  the public site's current data flows. It distinguishes consent-based GA4 from
+  Cloudflare request processing, Google Fonts, optional YouTube embeds, and
+  voluntary email contact; explains retention criteria, reader rights, and
+  how to reopen Analytics settings. Privacy requests use `admin@frong.me`.
+  Public-facing copy avoids internal CMS names and describes only reader-relevant
+  behavior and security measures. Analytics cookie identifiers and browser storage
+  implementation terms are omitted from the reader-facing explanation.
+  Confirm the GA4 property's retention setting and any provider log settings
+  before publishing a specific retention period or introducing new collection.
+- 2026-09-26: Added a responsive `More` filter to homepage navigation for
+  published article tags outside the fixed primary topics. Selecting a tag
+  filters the grid; tags are ordered by article frequency and unavailable tags
+  do not appear in the menu. The menu uses a touch-friendly single-column list
+  on mobile, a two-column grid on wider screens, and scrolls when the list grows.
+  On mobile, `More` stays in the horizontal topic row. Its tag panel is positioned
+  separately so it is not clipped by the row's scroll container.
+- 2026-09-26: Refined Earth metadata controls to match the editor's minimal
+  monochrome text style. Primary Topic uses compact single-select segments;
+  tag chips and typing now share one compact input field, with autocomplete for
+  existing tags on focus and while typing. Removed redundant tag guidance and
+  the Thai-title slug helper copy.
+- 2026-09-26: Separated fixed Primary Topics from free-form tags. Earth now
+  saves one optional constrained topic (`data`, `technology`, or `business`)
+  and offers a keyboard-accessible, creatable two-tag combobox backed by the
+  existing canonical tag table. Homepage navigation is fixed to those three
+  topics; unclassified legacy articles remain visible under Everything. Added
+  migration `0009_primary_topic.sql` and regression coverage for persistence,
+  filtering, case-insensitive reuse, suggestions, and legacy nulls. All 241 CMS
+  tests, TypeScript, and the local staging-targeted build pass. Local D1 migration
+  and integrity verification pass. Before staging deploy, apply migration 0009
+  to the staging D1 database; the deployment workflow does not apply migrations.
+- 2026-09-26: Fixed Earth Editor divider round-tripping after a block image.
+  `tiptap-markdown` used its inline image serializer for TipTap's block image,
+  producing `![...](...)---`; reopening that saved Markdown therefore showed a
+  literal `---` paragraph instead of a horizontal rule. The editor now closes
+  the image block during serialization, with a DOM-backed regression covering
+  save/reopen through the real TipTap extension set. All 234 CMS tests,
+  TypeScript and `git diff --check` pass. Local D1 reported no pending
+  migrations, and the staging integrity verification passed against local data
+  (foreign keys, partial indexes and seeded rows). No remote data or deployment
+  was changed.
 - 2026-09-25: Restored ordered and bulleted list markers in the scrollable
   Earth editor panel. The page-wide padding reset had left markers outside
   the writing column. Zen now matches public article Markdown typography,

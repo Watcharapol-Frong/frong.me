@@ -12,6 +12,7 @@ export function createCmsDbFixture() {
     'db/migrations/0006_post_cover_crop.sql',
     'db/migrations/0007_site_settings.sql',
     'db/migrations/0008_ai_provider_configs.sql',
+    'db/migrations/0009_primary_topic.sql',
   );
   return { binding, db: createCmsDatabase(binding) };
 }

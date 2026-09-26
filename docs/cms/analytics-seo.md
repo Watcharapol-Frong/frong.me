@@ -8,10 +8,24 @@ canonical URLs, robots directives, Open Graph, Twitter cards and JSON-LD. Add a
 new page type there instead of copying head tags into routes.
 
 `src/components/Analytics.astro` owns Google Analytics 4. It uses Google's
-basic consent model: the Google tag is not downloaded and no request is sent to
-Google until the reader selects **Allow analytics**. A reader can reopen
+basic consent model: the Google tag is not downloaded and no Analytics request
+is sent until the reader selects **Allow analytics**. A reader can reopen
 Analytics settings and revoke consent. Advertising storage, signals and
 personalisation remain disabled.
+
+The bilingual `/privacy/` notice covers actual public-site data flows beyond
+Analytics: Cloudflare delivery and security, browser-stored preferences,
+Google Fonts, lazy YouTube embeds, and voluntary email contact. Google Fonts
+and YouTube requests are separate from Analytics consent. The privacy-contact
+address is `admin@frong.me`; the policy does not describe planned forms or
+newsletters as active collection. GA4 property retention and provider log
+retention must be checked in their account settings before stating exact
+periods in public copy.
+
+The notice is organized around the disclosure items in section 23 of the
+[Thai Personal Data Protection Act](https://www.epad.go.th/fileupload/3589927270.pdf):
+purpose, data, retention, recipient categories, controller contact, and rights.
+Review the text against live provider and mailbox settings before deployment.
 
 `src/lib/analytics-consent.ts` is the consent module seam. It validates and
 expires the stored choice, owns Google tag loading and revocation, and mounts

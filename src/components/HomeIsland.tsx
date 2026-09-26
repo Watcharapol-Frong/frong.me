@@ -18,6 +18,7 @@ interface HomeArticle {
   slug: string;
   title: string;
   tags: string[];
+  primaryTopic: string | null;
   cover: string;
   coverWidth?: number;
   coverHeight?: number;
@@ -25,13 +26,32 @@ interface HomeArticle {
 
 interface HomeIslandProps {
   articles: HomeArticle[];
-  categories: string[];
+  topics: string[];
 }
 
-const HomeIsland = ({ articles, categories }: HomeIslandProps) => {
-  const [selectedCategory, setSelectedCategory] = useState<string>("everything");
+const HomeIsland = ({ articles, topics }: HomeIslandProps) => {
+  const [selectedTopic, setSelectedTopic] = useState<string>("everything");
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const sectionRef = useRef<HTMLElement>(null);
   const [isVisible, setIsVisible] = useState(false);
+
+  const tags = useMemo(() => {
+    const primaryTopicNames = new Set(topics.map((topic) => topic.toLocaleLowerCase()));
+    const counts = new Map<string, number>();
+    const tagLabels = new Map<string, string>();
+    for (const article of articles) {
+      for (const tag of new Set(article.tags.map((value) => value.trim()).filter(Boolean))) {
+        if (!primaryTopicNames.has(tag.toLocaleLowerCase())) {
+          const key = tag.toLocaleLowerCase();
+          counts.set(key, (counts.get(key) ?? 0) + 1);
+          if (!tagLabels.has(key)) tagLabels.set(key, tag);
+        }
+      }
+    }
+    return [...counts.keys()].sort((left, right) =>
+      (counts.get(right)! - counts.get(left)!) || left.localeCompare(right),
+    ).map((key) => tagLabels.get(key)!);
+  }, [articles, topics]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -51,28 +71,45 @@ const HomeIsland = ({ articles, categories }: HomeIslandProps) => {
   }, []);
 
   useEffect(() => {
+    const topicParam = new URLSearchParams(window.location.search).get("topic");
     const tagParam = new URLSearchParams(window.location.search).get("tag");
-    if (!tagParam) return;
-    const match = categories.find((c) => c.toLowerCase() === tagParam.toLowerCase());
-    if (match) setSelectedCategory(match);
-  }, [categories]);
+    if (tagParam) {
+      const match = tags.find((tag) => tag.toLocaleLowerCase() === tagParam.toLocaleLowerCase());
+      if (match) {
+        setSelectedTag(match);
+        return;
+      }
+    }
+    if (topicParam) {
+      const match = topics.find((topic) => topic.toLowerCase() === topicParam.toLowerCase());
+      if (match) setSelectedTopic(match);
+    }
+  }, [tags, topics]);
 
   const filteredArticles = useMemo(() => {
-    if (selectedCategory === "everything") {
+    if (selectedTag) {
+      const selectedKey = selectedTag.toLocaleLowerCase();
+      return articles.filter((article) => article.tags.some((tag) => tag.toLocaleLowerCase() === selectedKey));
+    }
+    if (selectedTopic === "everything") {
       return articles;
     }
-    return articles.filter((article) =>
-      article.tags.some((tag) => tag.toLowerCase() === selectedCategory.toLowerCase())
-    );
-  }, [articles, selectedCategory]);
+    return articles.filter((article) => article.primaryTopic === selectedTopic);
+  }, [articles, selectedTag, selectedTopic]);
 
   return (
     <>
       <main className="min-h-screen bg-background page-transition">
         <Navbar
-          selectedCategory={selectedCategory}
-          onCategoryChange={setSelectedCategory}
-          categories={categories}
+          selectedTopic={selectedTopic}
+          onTopicChange={(topic) => {
+            setSelectedTopic(topic);
+            setSelectedTag(null);
+          }}
+          topics={topics}
+          tags={tags}
+          selectedTag={selectedTag}
+          onTagChange={setSelectedTag}
         />
 
         {/* Article Grid */}

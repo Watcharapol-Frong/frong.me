@@ -29,6 +29,7 @@ export const mockPostRowTh: PostRow = {
   published_at: 1789030800000,
   cover_image_url: null,
   cover_crop: null,
+  primary_topic: 'data',
 };
 
 /**
@@ -52,6 +53,7 @@ export const mockPublicArticleTh: PublicArticle = {
 ## การออกแบบฐานข้อมูล
 
 การแยกความรับผิดชอบระหว่าง Post Draft และ Post Revision ช่วยให้สามารถแก้ไขเนื้อหาได้อย่างอิสระโดยไม่กระทบต่อเวอร์ชันที่เผยแพร่อยู่บน Production`,
+  primaryTopic: 'data',
   categories: [
     {
       id: 'cat_engineering_th',

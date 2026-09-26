@@ -13,9 +13,9 @@ test('a saved divider becomes a horizontal rule between article paragraphs', () 
   assert.match(html, /<p>Before<\/p>\s*<hr \/>\s*<p>After<\/p>/);
 });
 
-test('public articles give divider a visible border', () => {
+test('public article dividers use the same subtle border as other sections', () => {
   assert.ok(publicPage.includes('class="article-content prose '), 'public article must opt into the divider style');
-  assert.ok(/\.article-content\s+hr\s*\{[^}]*border-top:\s*1px\s+solid\s+hsl\(var\(--muted-foreground\)\)/.test(publicStyles));
+  assert.ok(/\.article-content\s+hr\s*\{[^}]*border-top:\s*1px\s+solid\s+hsl\(var\(--border\)\)/.test(publicStyles));
 });
 
 test('Zen article body matches public prose font, size, rhythm and divider', () => {
