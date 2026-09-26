@@ -1,7 +1,7 @@
 # Current handoff
 
-Updated: 2026-09-23. Scope: maintainer handoff, including the pending article
-SEO review and sitemap change.
+Updated: 2026-09-26. Scope: maintainer handoff and the latest staging and
+production deployment.
 
 ## Architecture
 
@@ -24,6 +24,29 @@ directly, without GitHub builds or deployment. Start with
   changes as separately approved operational actions.
 
 ## Verification
+
+The current application commit `847d480` passed 241 CMS tests, TypeScript and
+the full build in [staging CI](https://github.com/Watcharapol-Frong/frong.me/actions/runs/36234178148).
+[Staging deployment](https://github.com/Watcharapol-Frong/frong.me/actions/runs/36234178144)
+completed after migration `0009_primary_topic.sql` was applied remotely.
+The owner confirmed authenticated Earth testing on staging. Public staging
+checks returned 200 for `/`, `/privacy/` and `/articles-sitemap.xml`, while
+anonymous `/earth` redirected to Access.
+
+[PR #13](https://github.com/Watcharapol-Frong/frong.me/pull/13) merged the
+release into `main` as `731795c`. [Main CI](https://github.com/Watcharapol-Frong/frong.me/actions/runs/36232701031)
+passed. Migration `0009_primary_topic.sql` was then applied to production D1;
+both remote databases report no pending migrations. The owner approved the
+[production workflow](https://github.com/Watcharapol-Frong/frong.me/actions/runs/36234275661),
+which passed configuration checks, tests, TypeScript, the production build and
+deployment. Production Worker version:
+`15eb2e34-abcb-4ced-a917-c70d4c34181a`. Public production checks returned
+200 for `/`, `/privacy/` and `/articles-sitemap.xml`; anonymous `/earth`
+redirected to Access. Authenticated production author, media and AI checks are
+still pending. D1 Time Travel bookmarks were checked before the migration, but
+a backup/restore exercise has not been completed.
+
+The earlier retirement verification follows for historical context.
 
 Implementation commit `bf0950c30e01550b730bd4f43211b4c24a7f2418` passed
 [GitHub CMS CI](https://github.com/Watcharapol-Frong/frong.me/actions/runs/35031544646):
@@ -93,8 +116,9 @@ mixed into this current handoff.
   migration `0009_primary_topic.sql` and regression coverage for persistence,
   filtering, case-insensitive reuse, suggestions, and legacy nulls. All 241 CMS
   tests, TypeScript, and the local staging-targeted build pass. Local D1 migration
-  and integrity verification pass. Before staging deploy, apply migration 0009
-  to the staging D1 database; the deployment workflow does not apply migrations.
+  and integrity verification pass. Migration 0009 was subsequently applied to
+  staging and production before their respective code deployments; the
+  deployment workflows do not apply migrations.
 - 2026-09-26: Fixed Earth Editor divider round-tripping after a block image.
   `tiptap-markdown` used its inline image serializer for TipTap's block image,
   producing `![...](...)---`; reopening that saved Markdown therefore showed a

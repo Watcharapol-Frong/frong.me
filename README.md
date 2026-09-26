@@ -62,9 +62,11 @@ do not apply remote data migrations, delete services or rotate credentials.
 
 ## Current deployment
 
-Commit `547c92e` was deployed to production and commit `039d7ba` remains on
-staging as of 2026-09-22. The public production site is `https://frong.me`; the
-staging Worker is `https://frong-me-staging.frongbook.workers.dev`. Automated
-checks and public route smoke tests passed. Authenticated author, media and AI
-acceptance remains a maintainer browser task; see the
+Application commit `847d480` is on staging, and merge commit `731795c` was
+deployed to production as of 2026-09-26. The public production site is
+`https://frong.me`; the staging Worker is
+`https://frong-me-staging.frongbook.workers.dev`. Automated checks and public
+route smoke tests passed. The owner confirmed staging Earth testing;
+authenticated production author, media and AI acceptance remains a maintainer
+browser task; see the
 [current handoff](docs/plan.md).
