@@ -9,7 +9,8 @@ import type { CmsDatabase } from '../db.ts';
 
 const PUBLIC_POST_COLUMNS = `
   id, lang, translation_group_id, slug, title, excerpt, body_markdown,
-  created_at, updated_at, published_at, cover_image_url, cover_crop
+  created_at, updated_at, published_at, cover_image_url, cover_crop,
+  primary_topic
 `;
 
 export type PublicPostRow = Pick<
@@ -17,6 +18,7 @@ export type PublicPostRow = Pick<
   | 'id' | 'lang' | 'translation_group_id' | 'slug' | 'title' | 'excerpt'
   | 'body_markdown' | 'created_at' | 'updated_at' | 'published_at' | 'cover_image_url'
   | 'cover_crop'
+  | 'primary_topic'
 >;
 
 export interface PublicPostAssetRow {
@@ -39,6 +41,7 @@ export interface PublicPostCard {
   tags: string[];
   coverAsset: PublicPostAssetRow | null;
   coverImageUrl: string | null;
+  primaryTopic: PostRow['primary_topic'];
 }
 
 export interface PublishedSitemapEntry {
@@ -133,6 +136,7 @@ export async function listPublishedPostCards(
     tags: tagsByPost.get(post.id) ?? [],
     coverAsset: coverByPost.get(post.id) ?? null,
     coverImageUrl: post.cover_image_url,
+    primaryTopic: post.primary_topic,
   }));
 }
 

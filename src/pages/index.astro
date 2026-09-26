@@ -9,6 +9,7 @@ import HomeIsland from "@/components/HomeIsland";
 import { resolveCmsDatabase } from "@/server/cms/api.ts";
 import { listPublishedPostCards } from "@/server/cms/repositories/public.ts";
 import { publicAssetUrl } from "@/lib/cms/markdown/asset-resolver.ts";
+import { PRIMARY_TOPICS } from "@/lib/cms/contracts.ts";
 
 export const prerender = false;
 
@@ -23,6 +24,7 @@ const articles = cards.map((card) => ({
   slug: card.slug,
   title: card.title,
   tags: card.tags,
+  primaryTopic: card.primaryTopic,
   cover: card.coverAsset
     ? publicAssetUrl(card.coverAsset, "https://images.frong.me")
     : card.coverImageUrl ?? "",
@@ -30,9 +32,8 @@ const articles = cards.map((card) => ({
   coverHeight: card.coverAsset?.height,
 }));
 
-const categories = [...new Set(articles.flatMap((article) => article.tags))];
 ---
 
 <Layout>
-  <HomeIsland client:load articles={articles} categories={categories} />
+  <HomeIsland client:load articles={articles} topics={[...PRIMARY_TOPICS]} />
 </Layout>

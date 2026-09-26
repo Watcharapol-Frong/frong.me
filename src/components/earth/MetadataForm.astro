@@ -1,8 +1,8 @@
 ---
 /**
  * Left sidebar: slug (with live URL preview), reading font, cover image,
- * excerpt, tags, and two collapsible reference panels (Markdown syntax and
- * editor shortcuts).
+ * excerpt, primary topic, tags, and two collapsible reference panels
+ * (Markdown syntax and editor shortcuts).
  *
  * Markup only — behaviour is wired by the delegated script in
  * `PostEditor.astro`, styling lives in `src/pages/earth/editor.astro`.
@@ -12,6 +12,7 @@ export interface MetadataFormProps {
     slug?: string;
     excerpt?: string;
     tags?: string[];
+    primaryTopic?: 'data' | 'technology' | 'business' | null;
     font?: string;
     coverUrl?: string;
     jsonLd?: boolean;
@@ -26,6 +27,11 @@ const { initial = {}, siteDomain = 'frong.me' } = Astro.props as Props;
 
 const status = initial.status ?? 'draft';
 const tags = (initial.tags ?? []).join(', ');
+const primaryTopics = [
+  { value: 'data', label: 'Data' },
+  { value: 'technology', label: 'Technology' },
+  { value: 'business', label: 'Business' },
+] as const;
 
 const FONTS = [
   { value: 'google-sans', label: 'Google Sans' },
@@ -63,7 +69,7 @@ const SHORTCUTS: { keys: string[]; label: string }[] = [
 
   <div class="form-group">
     <label class="form-label" for="earth-slug">
-      <span>Slug</span>
+      <span>Article URL name</span>
       <span class="form-label-right">
         <span class="form-label-hint" data-earth-slug-mode>auto</span>
         <button type="button" class="ai-inline-btn" data-earth-ai-inline="auto-slug">✨ AI</button>
@@ -77,7 +83,8 @@ const SHORTCUTS: { keys: string[]; label: string }[] = [
       value={initial.slug ?? ''}
       placeholder="post-url-slug"
       pattern="[a-z0-9]+(-[a-z0-9]+)*"
-      title="Lowercase letters, numbers, and hyphens only"
+      maxlength="120"
+      title="Lowercase English letters, numbers, and hyphens only"
       autocomplete="off"
     />
     <div class="slug-preview">{siteDomain}/articles/<span data-earth-slug-preview>your-slug</span></div>
@@ -133,20 +140,54 @@ const SHORTCUTS: { keys: string[]; label: string }[] = [
   </div>
 
   <div class="form-group">
-    <label class="form-label" for="earth-tags">
+    <fieldset class="topic-fieldset">
+      <legend class="form-label">Primary topic</legend>
+      <div class="topic-segments">
+        {primaryTopics.map((topic) => (
+          <label class="topic-segment">
+            <input
+              type="radio"
+              name="primary-topic"
+              value={topic.value}
+              data-earth-field="primaryTopic"
+              checked={initial.primaryTopic === topic.value}
+            />
+            <span>{topic.label}</span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  </div>
+
+  <div class="form-group">
+    <label class="form-label" for="earth-tag-input">
       <span>Tags</span>
       <button type="button" class="ai-inline-btn" data-earth-ai-inline="auto-tags">✨ AI</button>
     </label>
     <input
       id="earth-tags"
-      type="text"
-      class="form-input"
+      type="hidden"
       data-earth-field="tags"
       value={tags}
-      placeholder="stoicism, discipline"
-      autocomplete="off"
     />
-    <div class="tags-help">Max 2 tags, comma-separated</div>
+    <div class="tag-picker" data-earth-tag-picker>
+      <div class="tag-picker-field">
+        <div class="tag-picker-chips" data-earth-tag-chips></div>
+        <input
+          id="earth-tag-input"
+          type="text"
+          class="tag-picker-input"
+          data-earth-tag-input
+          placeholder="Add a tag…"
+          autocomplete="off"
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded="false"
+          aria-controls="earth-tag-options"
+        />
+      </div>
+      <div id="earth-tag-options" class="tag-picker-options" data-earth-tag-options role="listbox" hidden></div>
+    </div>
   </div>
 
   <div class="form-group">

@@ -12,6 +12,8 @@ import {
   type UpdateSiteSettingsInput,
   SETTINGS_FONTS,
   SETTINGS_AI_PROVIDERS,
+  PRIMARY_TOPICS,
+  type PrimaryTopic,
 } from './contracts.ts';
 
 export class CmsValidationError extends Error {
@@ -85,6 +87,13 @@ function language(value: unknown, field: string): Language {
     throw new CmsValidationError(field, 'must be th or en');
   }
   return value;
+}
+
+function primaryTopic(value: unknown, field: string): PrimaryTopic {
+  if (!(PRIMARY_TOPICS as readonly unknown[]).includes(value)) {
+    throw new CmsValidationError(field, `must be one of ${PRIMARY_TOPICS.join(', ')}`);
+  }
+  return value as PrimaryTopic;
 }
 
 function integer(value: unknown, field: string, minimum = 0): number {
@@ -230,10 +239,13 @@ function publicAsset(value: unknown, field: string): PublicAsset {
 export function parsePublicArticle(value: unknown, field = 'article'): PublicArticle {
   const row = object(value, field, [
     'id', 'lang', 'translationGroupId', 'slug', 'title',
-    'excerpt', 'bodyMarkdown', 'categories', 'tags', 'sources', 'assets', 'publishedAt',
+    'excerpt', 'bodyMarkdown', 'primaryTopic', 'categories', 'tags', 'sources', 'assets', 'publishedAt',
   ]);
   const translationGroupId = optionalString(row.translationGroupId, `${field}.translationGroupId`, 96);
   const excerpt = optionalString(row.excerpt, `${field}.excerpt`, 1_000);
+  const topic = row.primaryTopic === undefined
+    ? undefined
+    : primaryTopic(row.primaryTopic, `${field}.primaryTopic`);
   return {
     id: identifier(row.id, `${field}.id`),
     lang: language(row.lang, `${field}.lang`),
@@ -242,6 +254,7 @@ export function parsePublicArticle(value: unknown, field = 'article'): PublicArt
     title: string(row.title, `${field}.title`, 300),
     ...(excerpt === undefined ? {} : { excerpt }),
     bodyMarkdown: string(row.bodyMarkdown, `${field}.bodyMarkdown`, 1_500_000),
+    ...(topic === undefined ? {} : { primaryTopic: topic }),
     categories: array(row.categories, `${field}.categories`, taxonomy, 20),
     tags: array(row.tags, `${field}.tags`, taxonomy, 100),
     sources: array(row.sources, `${field}.sources`, source, 200),
@@ -253,7 +266,7 @@ export function parsePublicArticle(value: unknown, field = 'article'): PublicArt
 export function parseCreatePostInput(value: unknown): CreatePostInput {
   const row = object(value, 'post', [
     'id', 'lang', 'translationGroupId', 'slug', 'title', 'excerpt', 'bodyMarkdown', 'coverImageUrl',
-    'coverCrop',
+    'coverCrop', 'primaryTopic',
   ]);
   const translationGroupId = optionalIdentifier(row.translationGroupId, 'post.translationGroupId');
   const excerpt = optionalString(row.excerpt, 'post.excerpt', 1_000);
@@ -262,6 +275,9 @@ export function parseCreatePostInput(value: unknown): CreatePostInput {
     ? undefined
     : httpsUrl(row.coverImageUrl, 'post.coverImageUrl');
   const coverCrop = optionalCrop(row.coverCrop, 'post.coverCrop');
+  const topic = row.primaryTopic === undefined
+    ? undefined
+    : primaryTopic(row.primaryTopic, 'post.primaryTopic');
   return {
     id: identifier(row.id, 'post.id'),
     lang: language(row.lang, 'post.lang'),
@@ -272,13 +288,14 @@ export function parseCreatePostInput(value: unknown): CreatePostInput {
     ...(bodyMarkdown === undefined ? {} : { bodyMarkdown }),
     ...(coverImageUrl === undefined ? {} : { coverImageUrl }),
     ...(coverCrop === undefined ? {} : { coverCrop }),
+    ...(topic === undefined ? {} : { primaryTopic: topic }),
   };
 }
 
 export function parseUpdatePostDraftInput(value: unknown): UpdatePostDraftInput {
   const row = object(value, 'post', [
     'expectedDraftVersion', 'lang', 'translationGroupId', 'slug', 'title', 'excerpt', 'bodyMarkdown',
-    'coverImageUrl', 'coverCrop',
+    'coverImageUrl', 'coverCrop', 'primaryTopic',
   ]);
   const translationGroupId = row.translationGroupId === null
     ? null
@@ -286,6 +303,9 @@ export function parseUpdatePostDraftInput(value: unknown): UpdatePostDraftInput 
   const excerpt = nullableString(row.excerpt, 'post.excerpt', 1_000);
   const coverImageUrl = nullableHttpsUrl(row.coverImageUrl, 'post.coverImageUrl');
   const coverCrop = nullableCrop(row.coverCrop, 'post.coverCrop');
+  const topic = row.primaryTopic === undefined || row.primaryTopic === null
+    ? row.primaryTopic
+    : primaryTopic(row.primaryTopic, 'post.primaryTopic');
   return {
     expectedDraftVersion: integer(row.expectedDraftVersion, 'post.expectedDraftVersion', 1),
     lang: language(row.lang, 'post.lang'),
@@ -296,6 +316,7 @@ export function parseUpdatePostDraftInput(value: unknown): UpdatePostDraftInput 
     bodyMarkdown: string(row.bodyMarkdown, 'post.bodyMarkdown', 1_500_000),
     ...(coverImageUrl === undefined ? {} : { coverImageUrl }),
     ...(coverCrop === undefined ? {} : { coverCrop }),
+    ...(topic === undefined ? {} : { primaryTopic: topic }),
   };
 }
 

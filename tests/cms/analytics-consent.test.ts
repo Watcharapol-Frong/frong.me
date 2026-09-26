@@ -44,7 +44,8 @@ test('analytics UI keeps consent optional, bilingual, reversible, and linked to 
   assert.match(analytics, /href="\/privacy\/"/);
   assert.doesNotMatch(analytics, /class="analytics-settings"/);
   assert.match(layout, /language=\{metadata\.language\}/);
-  assert.match(privacy, /Google Analytics 4/);
+  assert.match(privacy, /บริการสถิติการเข้าชมของ Google/);
+  assert.doesNotMatch(privacy, /_ga_|localStorage/);
   assert.match(privacy, /lang="th"/);
   assert.match(privacy, /lang="en"/);
 });

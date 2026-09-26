@@ -54,8 +54,11 @@ application. Do not restore them as dependencies of Earth.
 from remote services and historical data that still require an owner decision.
 Git history preserves removed source and superseded planning documents.
 
-GitHub Actions tests changes; it does **not** deploy. Deployment, remote data
-migrations, service deletion and credential revocation require explicit approval.
+GitHub Actions verifies changes and deploys approved code: pushes to `staging`
+deploy to the test Worker, while production is dispatched manually from `main`
+with an approval rule. Configure both GitHub Environments before enabling these
+workflows; see [the environment guide](docs/cms/environment-map.md). Deployments
+do not apply remote data migrations, delete services or rotate credentials.
 
 ## Current deployment
 

@@ -25,6 +25,12 @@ There is no release manifest, snapshot exporter or GitHub dispatch. Public
 responses are cached, so visibility is not guaranteed to change instantly.
 Publishing is in-place, not an immutable published-copy workflow.
 
+Article discovery has two distinct taxonomy levels. `posts.primary_topic` is
+nullable for legacy content and restricted to `data`, `technology`, or
+`business`; these fixed values drive the homepage navigation. Free-form tags
+remain language-scoped rows in `tags` linked through `post_tags`, and continue
+to describe articles without becoming homepage navigation items.
+
 **Software:** a contributor changes code, opens a pull request and passes CI.
 An authorized maintainer separately builds/deploys the chosen environment.
 Code deployment and article publication are different operations.

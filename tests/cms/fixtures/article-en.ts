@@ -29,6 +29,7 @@ Decoupling mutable post drafts from immutable post revisions ensures editorial w
   published_at: 1789030800000,
   cover_image_url: 'https://images.frong.me/staging/cover-architecture.webp',
   cover_crop: null,
+  primary_topic: 'technology',
 };
 
 /**
@@ -52,6 +53,7 @@ This article explores designing a serverless content management system (CMS) usi
 ## Database Design
 
 Decoupling mutable post drafts from immutable post revisions ensures editorial workflows never compromise production reliability.`,
+  primaryTopic: 'technology',
   categories: [
     {
       id: 'cat_engineering_en',

@@ -17,6 +17,13 @@ const VALID_ENV = {
   ENABLE_ACCESS_DEV_BYPASS: 'false',
 };
 
+const PRODUCTION_ENV = {
+  ...VALID_ENV,
+  CF_D1_DATABASE_ID: 'e8442532-a929-40d5-8ff4-c05510fad616',
+  CF_R2_BUCKET_NAME: 'portfolio-media-prod',
+  CF_ACCESS_AUD: 'test-production-access-aud',
+};
+
 const BASE_WRANGLER_JSONC = `{
   // JSONC comments supported
   "name": "frong-me",
@@ -113,6 +120,29 @@ describe('scripts/build/verify-bindings.mjs', () => {
     assert.ok(logs.some((l) => l.includes('Check 3/5: R2 bucket name matches CF_R2_BUCKET_NAME: PASSED')));
     assert.ok(logs.some((l) => l.includes('Check 4/5: Access Application AUD matches CF_ACCESS_AUD: PASSED')));
     assert.ok(logs.some((l) => l.includes('Check 5/5: Access dev-bypass guard (ENABLE_ACCESS_DEV_BYPASS): PASSED')));
+  });
+
+  it('accepts production only with its own D1 and R2 resources', () => {
+    const result = verifyBindings({
+      envName: 'production',
+      env: PRODUCTION_ENV,
+      configPath: path.resolve(process.cwd(), 'wrangler.jsonc'),
+      log: () => {},
+    });
+    assert.equal(result.d1DatabaseId, PRODUCTION_ENV.CF_D1_DATABASE_ID);
+    assert.equal(result.r2BucketName, PRODUCTION_ENV.CF_R2_BUCKET_NAME);
+
+    assert.throws(() => verifyBindings({
+      envName: 'production',
+      env: { ...PRODUCTION_ENV, CF_D1_DATABASE_ID: VALID_ENV.CF_D1_DATABASE_ID },
+      log: () => {},
+    }), (error: any) => error.checkName === 'd1-binding');
+
+    assert.throws(() => verifyBindings({
+      envName: 'production',
+      env: { ...PRODUCTION_ENV, CF_R2_BUCKET_NAME: VALID_ENV.CF_R2_BUCKET_NAME },
+      log: () => {},
+    }), (error: any) => error.checkName === 'r2-binding');
   });
 
   it('fails immediately if ENABLE_ACCESS_DEV_BYPASS is set to true under any condition', () => {
@@ -247,6 +277,33 @@ describe('scripts/build/verify-bindings.mjs', () => {
           err instanceof BindingVerificationError &&
           err.checkName === 'prod-isolation' &&
           err.message.includes('matches a database in env.production')
+      );
+    } finally {
+      fs.unlinkSync(tmpFile);
+    }
+  });
+
+  it('rejects a production configuration that reuses staging storage', () => {
+    const tmpFile = path.resolve('/tmp', `test-production-leak-${Date.now()}.jsonc`);
+    const withLeak = BASE_WRANGLER_JSONC.replace(
+      '"database_id": "prod-d1-id-12345"',
+      '"database_id": "71cba742-a269-475d-84b0-8df1223a368a"',
+    );
+    fs.writeFileSync(tmpFile, withLeak, 'utf8');
+
+    try {
+      assert.throws(
+        () => verifyBindings({
+          configPath: tmpFile,
+          envName: 'production',
+          env: {
+            ...PRODUCTION_ENV,
+            CF_D1_DATABASE_ID: VALID_ENV.CF_D1_DATABASE_ID,
+            CF_R2_BUCKET_NAME: 'portfolio-media-production',
+          },
+          log: () => {},
+        }),
+        (error: any) => error.checkName === 'prod-isolation',
       );
     } finally {
       fs.unlinkSync(tmpFile);

@@ -31,6 +31,7 @@ export interface PostEditorProps {
     slug?: string;
     excerpt?: string;
     tags?: string[];
+    primaryTopic?: 'data' | 'technology' | 'business' | null;
     font?: string;
     coverUrl?: string;
     status?: 'draft' | 'active';
@@ -38,11 +39,12 @@ export interface PostEditorProps {
   };
   storageKey?: string;
   siteDomain?: string;
+  tagCatalog?: Record<'th' | 'en', string[]>;
 }
 
 interface Props extends PostEditorProps {}
 
-const { initial = {}, storageKey, siteDomain = 'frong.me' } = Astro.props as Props;
+const { initial = {}, storageKey, siteDomain = 'frong.me', tagCatalog = { th: [], en: [] } } = Astro.props as Props;
 
 const resolvedKey = storageKey ?? `earth:draft:${initial.id ?? 'new'}`;
 const seed = {
@@ -52,6 +54,7 @@ const seed = {
   slug: initial.slug ?? '',
   excerpt: initial.excerpt ?? '',
   tags: initial.tags ?? [],
+  primaryTopic: initial.primaryTopic ?? null,
   font: initial.font ?? 'google-sans',
   coverUrl: initial.coverUrl ?? '',
   status: initial.status ?? ('draft' as const),
@@ -66,6 +69,7 @@ const seed = {
   data-earth-storage-custom={storageKey ? 'true' : 'false'}
   data-earth-post-id={seed.id || 'new'}
   data-earth-site-domain={siteDomain}
+  data-earth-tag-catalog={JSON.stringify(tagCatalog)}
 >
   <ActionBar status={seed.status} />
 
@@ -76,6 +80,7 @@ const seed = {
         slug: seed.slug,
         excerpt: seed.excerpt,
         tags: seed.tags,
+        primaryTopic: seed.primaryTopic,
         font: seed.font,
         coverUrl: seed.coverUrl,
         status: seed.status === 'active' ? 'published' : 'draft',
@@ -188,8 +193,14 @@ const seed = {
     PostEditorPublishError,
     type PostEditorDraft,
   } from '../../lib/cms/client/post-editor-api.ts';
+  import { postSlugFeedback } from '../../lib/cms/client/post-slug-feedback.ts';
+  import {
+    MAX_ARTICLE_TAGS,
+    canCreateTag,
+    matchingTagSuggestions,
+    normalizeSelectedTags,
+  } from '../../lib/cms/client/tag-picker.ts';
 
-  const MAX_TAGS = 2;
   const EMOJI = [
     '✨', '✍️', '📝', '🎯', '🧭', '🗺️', '🧩', '📚', '💡', '🔍', '🧠', '⚡',
     '🌱', '🪴', '☕', '🌊', '🏔️', '🧵', '⏳', '🔁', '📊', '🛠️', '🚀', '🎧',
@@ -226,6 +237,7 @@ const seed = {
     let postId = initialPostId === 'new' ? newCmsId('post') : initialPostId;
     let currentPost: PostDetail | null = null;
     let pendingCoverAssetId: string | null = null;
+    const tagCatalog = JSON.parse(form.dataset.earthTagCatalog || '{"th":[],"en":[]}') as Record<'th' | 'en', string[]>;
 
     const field = <T extends HTMLElement>(name: string) =>
       form.querySelector<T>(`[data-earth-field="${name}"]`);
@@ -243,6 +255,13 @@ const seed = {
       status: field<HTMLInputElement>('status'),
       body: field<HTMLTextAreaElement>('body'),
     };
+
+    const topicFields = [...form.querySelectorAll<HTMLInputElement>('[data-earth-field="primaryTopic"]')];
+    const tagPicker = form.querySelector<HTMLElement>('[data-earth-tag-picker]');
+    const tagChips = form.querySelector<HTMLElement>('[data-earth-tag-chips]');
+    const tagInput = form.querySelector<HTMLInputElement>('[data-earth-tag-input]');
+    const tagOptions = form.querySelector<HTMLElement>('[data-earth-tag-options]');
+    let activeTagOption = -1;
 
     let slugTouched = initialPostId !== 'new' || Boolean(fields.slug?.value);
 
@@ -300,12 +319,28 @@ const seed = {
         title: fields.title?.value.trim() ?? '',
         slug: fields.slug?.value.trim() ?? '',
         excerpt: fields.excerpt?.value.trim() ?? '',
-        tagIds: [...new Set(tagsRaw.split(',').map((tag) => tag.trim()).filter(Boolean))].slice(0, MAX_TAGS),
+        tagIds: normalizeSelectedTags(tagsRaw.split(','), currentTagCatalog()),
+        primaryTopic: selectedPrimaryTopic(),
         status: statusOverride ?? (fields.status?.value === 'active' ? 'published' : 'draft'),
         bodyMarkdown: fields.body?.value ?? '',
         coverUrl: fields.coverUrl?.value.trim() ?? '',
         coverCrop: isDefaultCoverCrop(coverCrop) ? null : coverCrop,
       };
+    }
+
+    function selectedPrimaryTopic(): PostEditorDraft['primaryTopic'] {
+      const selected = topicFields.find((input) => input.checked)?.value;
+      return selected === 'data' || selected === 'technology' || selected === 'business'
+        ? selected
+        : null;
+    }
+
+    function setPrimaryTopic(topic: PostEditorDraft['primaryTopic']) {
+      for (const input of topicFields) input.checked = input.value === topic;
+    }
+
+    function currentTagCatalog(): string[] {
+      return tagCatalog[fields.lang?.value === 'en' ? 'en' : 'th'] ?? [];
     }
 
     /* ---------------- Status + local backup ---------------- */
@@ -406,14 +441,99 @@ const seed = {
     function syncSlugFromTitle() {
       if (slugTouched || !fields.slug || !fields.title) return;
       const next = autoSlug(fields.title.value);
-      if (next) fields.slug.value = next;
+      fields.slug.value = next;
+      if (slugMode) slugMode.textContent = next ? 'auto' : 'enter English URL name';
       updateSlugPreview();
     }
 
-    function enforceTagLimit() {
+    function selectedTags(): string[] {
+      return normalizeSelectedTags((fields.tags?.value ?? '').split(','), currentTagCatalog());
+    }
+
+    function closeTagOptions() {
+      if (!tagOptions || !tagInput) return;
+      tagOptions.hidden = true;
+      tagInput.setAttribute('aria-expanded', 'false');
+      tagInput.removeAttribute('aria-activedescendant');
+      activeTagOption = -1;
+    }
+
+    function renderTagChips() {
+      if (!tagChips || !tagInput) return;
+      const tags = selectedTags();
+      tagChips.replaceChildren();
+      for (const tag of tags) {
+        const chip = document.createElement('span');
+        chip.className = 'tag-chip';
+        chip.textContent = tag;
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'tag-chip-remove';
+        remove.dataset.earthRemoveTag = tag;
+        remove.setAttribute('aria-label', `Remove ${tag}`);
+        remove.textContent = '×';
+        chip.append(remove);
+        tagChips.append(chip);
+      }
+      tagInput.disabled = tags.length >= MAX_ARTICLE_TAGS;
+      tagInput.placeholder = tagInput.disabled ? 'Maximum reached' : 'Add tag…';
+    }
+
+    function setSelectedTags(tags: readonly string[], notify = true) {
       if (!fields.tags) return;
-      const tags = fields.tags.value.split(',').map((tag) => tag.trim()).filter(Boolean);
-      if (tags.length > MAX_TAGS) fields.tags.value = tags.slice(0, MAX_TAGS).join(', ');
+      fields.tags.value = normalizeSelectedTags(tags, currentTagCatalog()).join(', ');
+      if (tagInput) tagInput.value = '';
+      renderTagChips();
+      closeTagOptions();
+      if (notify) fields.tags.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    function renderTagOptions() {
+      if (!tagOptions || !tagInput || tagInput.disabled) {
+        closeTagOptions();
+        return;
+      }
+      const selected = selectedTags();
+      const query = tagInput.value;
+      const suggestions = matchingTagSuggestions(currentTagCatalog(), selected, query).slice(0, 8);
+      const options = suggestions.map((tag) => ({ tag, label: tag, create: false }));
+      if (canCreateTag(currentTagCatalog(), selected, query)) {
+        options.push({ tag: query.trim(), label: `Create “${query.trim()}”`, create: true });
+      }
+      tagOptions.replaceChildren();
+      options.forEach((option, index) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.id = `earth-tag-option-${index}`;
+        button.className = 'tag-picker-option';
+        button.dataset.earthTagOption = option.tag;
+        button.setAttribute('role', 'option');
+        button.setAttribute('aria-selected', String(index === activeTagOption));
+        if (option.create) button.classList.add('tag-picker-option--create');
+        button.textContent = option.label;
+        tagOptions.append(button);
+      });
+      tagOptions.hidden = options.length === 0;
+      tagInput.setAttribute('aria-expanded', String(options.length > 0));
+      if (activeTagOption >= options.length) activeTagOption = options.length - 1;
+      const active = tagOptions.querySelector<HTMLElement>(`#earth-tag-option-${activeTagOption}`);
+      tagOptions.querySelectorAll('[role="option"]').forEach((option, index) => {
+        option.setAttribute('aria-selected', String(index === activeTagOption));
+      });
+      if (active) tagInput.setAttribute('aria-activedescendant', active.id);
+      else tagInput.removeAttribute('aria-activedescendant');
+    }
+
+    function addTag(tag: string) {
+      setSelectedTags([...selectedTags(), tag]);
+      tagInput?.focus();
+    }
+
+    function syncTagPickerFromField() {
+      if (!fields.tags) return;
+      fields.tags.value = selectedTags().join(', ');
+      renderTagChips();
+      closeTagOptions();
     }
 
     function updateJsonLd() {
@@ -717,7 +837,9 @@ const seed = {
       if (fields.title) fields.title.value = post.title;
       if (fields.slug) fields.slug.value = post.slug;
       if (fields.excerpt) fields.excerpt.value = post.excerpt ?? '';
-      if (fields.tags) fields.tags.value = post.tagNames.slice(0, MAX_TAGS).join(', ');
+      if (fields.tags) fields.tags.value = post.tagNames.join(', ');
+      setPrimaryTopic(post.primaryTopic);
+      syncTagPickerFromField();
       getBodyEditor()?.setMarkdown(post.bodyMarkdown);
       if (fields.status) fields.status.value = post.lifecycle === 'active' ? 'active' : 'draft';
       if (fields.coverUrl) fields.coverUrl.value = post.coverImageUrl ?? '';
@@ -744,8 +866,10 @@ const seed = {
       if (fields.slug) fields.slug.value = backup.slug;
       if (fields.excerpt) fields.excerpt.value = backup.excerpt;
       if (fields.tags && Array.isArray(backup.tagIds)) {
-        fields.tags.value = backup.tagIds.slice(0, MAX_TAGS).join(', ');
+        fields.tags.value = backup.tagIds.join(', ');
       }
+      setPrimaryTopic(backup.primaryTopic ?? null);
+      syncTagPickerFromField();
       getBodyEditor()?.setMarkdown(backup.bodyMarkdown);
       if (fields.coverUrl && backup.coverUrl) fields.coverUrl.value = backup.coverUrl;
       showCover(fields.coverUrl?.value ?? '');
@@ -761,8 +885,9 @@ const seed = {
         fields.title?.focus();
         return;
       }
-      if (!payload.slug) {
-        setStatus('Slug is required', 'error');
+      const slugError = postSlugFeedback(payload.slug);
+      if (slugError) {
+        setStatus(slugError, 'error');
         fields.slug?.focus();
         return;
       }
@@ -945,6 +1070,49 @@ const seed = {
       zenExcerpt.hidden = !text;
     });
 
+    tagInput?.addEventListener('focus', renderTagOptions);
+    tagInput?.addEventListener('input', () => {
+      activeTagOption = -1;
+      renderTagOptions();
+    });
+    tagInput?.addEventListener('keydown', (event) => {
+      const options = [...(tagOptions?.querySelectorAll<HTMLButtonElement>('[data-earth-tag-option]') ?? [])];
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        if (options.length === 0) return;
+        const direction = event.key === 'ArrowDown' ? 1 : -1;
+        activeTagOption = activeTagOption < 0
+          ? (direction > 0 ? 0 : options.length - 1)
+          : (activeTagOption + direction + options.length) % options.length;
+        renderTagOptions();
+        return;
+      }
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        const option = options[activeTagOption < 0 ? (tagInput.value.trim() ? 0 : -1) : activeTagOption];
+        if (option?.dataset.earthTagOption) addTag(option.dataset.earthTagOption);
+        return;
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeTagOptions();
+      }
+    });
+    tagOptions?.addEventListener('click', (event) => {
+      const option = (event.target as HTMLElement).closest<HTMLElement>('[data-earth-tag-option]');
+      if (option?.dataset.earthTagOption) addTag(option.dataset.earthTagOption);
+    });
+    tagChips?.addEventListener('click', (event) => {
+      const remove = (event.target as HTMLElement).closest<HTMLElement>('[data-earth-remove-tag]');
+      const tag = remove?.dataset.earthRemoveTag;
+      if (!tag) return;
+      setSelectedTags(selectedTags().filter((selected) => selected.toLocaleLowerCase() !== tag.toLocaleLowerCase()));
+      tagInput?.focus();
+    });
+    document.addEventListener('pointerdown', (event) => {
+      if (tagPicker && !tagPicker.contains(event.target as Node)) closeTagOptions();
+    });
+
     /* ---------------- Events ---------------- */
 
     form.addEventListener('input', (event) => {
@@ -956,7 +1124,7 @@ const seed = {
         if (slugMode) slugMode.textContent = 'manual';
         updateSlugPreview();
       }
-      if (target === fields.tags) enforceTagLimit();
+      if (target === fields.tags) syncTagPickerFromField();
       if (target === fields.coverUrl) {
         showCover(fields.coverUrl?.value ?? '');
         setCoverCrop(null);
@@ -1203,6 +1371,7 @@ const seed = {
         }
       }
       restoreBackup();
+      syncTagPickerFromField();
       updateCounters();
       updateSlugPreview();
       updateJsonLd();

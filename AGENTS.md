@@ -35,8 +35,11 @@ and `npm run astro -- dev stop`.
 
 ## Safety
 
-A merge does not deploy. Do not deploy, run remote migrations/seeds, delete
-services, revoke credentials or destroy data without explicit approval.
+Once configured, a push or merge into `staging` starts an automatic staging
+deployment. Production deploys only from a manual workflow dispatch on `main`
+using the protected `production` GitHub Environment. Do not run remote
+migrations/seeds, delete services, revoke credentials or destroy data without
+explicit approval.
 Never edit applied migrations. Default D1 bindings target staging; production
 is a separate named environment in `wrangler.jsonc`.
 

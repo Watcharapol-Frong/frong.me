@@ -2,63 +2,227 @@
 import Layout from "@/layouts/Layout.astro";
 import Navbar from "@/components/Navbar";
 import FloatingNav from "@/components/FloatingNav";
+
+const privacyEmail = "admin@frong.me";
+const measurementId = import.meta.env.PUBLIC_GA_MEASUREMENT_ID?.trim();
+const analyticsEnabled = Boolean(measurementId && /^G-[A-Z0-9]+$/.test(measurementId));
 ---
 
 <Layout seo={{
-  title: "Privacy and analytics",
-  description: "How frong.me uses consent-gated Google Analytics and how readers can change their choice.",
+  title: "ความเป็นส่วนตัวและข้อมูลวิเคราะห์ | Privacy and analytics",
+  description: "วิธีที่ frong.me ใช้ข้อมูลเพื่อให้บริการเว็บไซต์ ติดต่อกลับ และวัดการใช้งานเมื่อได้รับความยินยอม พร้อมวิธีใช้สิทธิของคุณ",
+  language: "th",
 }}>
   <main class="min-h-screen bg-background page-transition">
     <Navbar client:load />
-    <article class="mx-auto max-w-2xl px-6 pb-24 pt-28">
+    <article class="mx-auto max-w-3xl px-6 pb-28 pt-28">
       <header class="mb-12">
-        <p class="mb-3 text-xs uppercase tracking-widest text-muted-foreground">Privacy</p>
-        <h1 class="text-headline font-semibold">Privacy and analytics</h1>
-        <p class="mt-4 text-sm text-muted-foreground">Last updated: 22 September 2026</p>
+        <p class="mb-3 text-xs uppercase tracking-widest text-muted-foreground">frong.me / privacy</p>
+        <h1 class="text-headline font-semibold">ความเป็นส่วนตัวและข้อมูลวิเคราะห์</h1>
+        <p class="mt-4 text-base leading-7 text-muted-foreground">
+          ประกาศนี้อธิบายว่าข้อมูลใดเกี่ยวข้องกับการเข้าชมเว็บไซต์ ใครอาจได้รับข้อมูล
+          คุณเลือกการวัดผลได้อย่างไร และติดต่อเราเพื่อใช้สิทธิได้ที่ไหน
+        </p>
+        <p class="mt-4 text-xs text-muted-foreground">ปรับปรุงล่าสุด: 26 กันยายน 2569 · Last updated: 26 September 2026</p>
+        <nav class="mt-6 flex gap-5 text-sm" aria-label="Language sections">
+          <a href="#thai" class="underline underline-offset-4">ภาษาไทย</a>
+          <a href="#english" class="underline underline-offset-4">English</a>
+        </nav>
       </header>
 
-      <section lang="th" class="prose prose-neutral dark:prose-invert max-w-none">
-        <h2>ข้อมูลสำหรับผู้อ่านภาษาไทย</h2>
+      <section id="thai" lang="th" class="prose prose-neutral dark:prose-invert max-w-none">
+        <h2>ประกาศความเป็นส่วนตัว</h2>
         <p>
-          frong.me ใช้ Google Analytics 4 เพื่อดูภาพรวมการเข้าชมและนำข้อมูลไปปรับปรุงเว็บไซต์
-          ระบบจะไม่ดาวน์โหลด Google Analytics หรือส่งข้อมูลให้ Google จนกว่าคุณจะกดอนุญาต
+          frong.me เป็นเว็บไซต์ส่วนตัวสำหรับเผยแพร่ผลงานและบทความ ผู้ดูแลเว็บไซต์คือ
+          <strong>Watcharapol Charoensuk</strong> หากต้องการสอบถามเกี่ยวกับข้อมูลส่วนบุคคล
+          หรือใช้สิทธิ โปรดติดต่อ <a href={`mailto:${privacyEmail}`}>{privacyEmail}</a>
+          ประกาศนี้ใช้กับหน้าเว็บไซต์สาธารณะ ปัจจุบันผู้อ่านไม่ต้องสมัครบัญชี
+          และเว็บไซต์ยังไม่มีแบบฟอร์มรับข้อความหรือจดหมายข่าว
+        </p>
+
+        <h3>ข้อมูลที่เกี่ยวข้องกับการใช้งาน</h3>
+        <ul>
+          <li>
+            <strong>การเข้าชมและความปลอดภัย:</strong> เมื่อเบราว์เซอร์ขอหน้าเว็บหรือรูปภาพ
+            Cloudflare ซึ่งให้บริการโครงสร้างพื้นฐานของเว็บไซต์อาจประมวลผลที่อยู่ IP
+            เวลาและ URL ที่ขอ ข้อมูลเบราว์เซอร์หรืออุปกรณ์ และสัญญาณด้านความปลอดภัย
+            เพื่อส่งเนื้อหา ป้องกันการใช้งานที่ผิดปกติ และแก้ปัญหาการให้บริการ
+          </li>
+          <li>
+            <strong>การตั้งค่าในเบราว์เซอร์:</strong> เว็บไซต์จดจำโหมดสีและคำตอบว่าคุณอนุญาต
+            การวัดสถิติการเข้าชมหรือไม่ ไว้ในอุปกรณ์นี้ การไม่อนุญาตไม่ทำให้คุณอ่านบทความไม่ได้
+          </li>
+          <li>
+            <strong>การติดต่อ:</strong> หากคุณส่งอีเมล เราจะได้รับที่อยู่อีเมล ชื่อหรือข้อมูลติดต่อ
+            ที่คุณระบุ และเนื้อหาข้อความ เพื่อตอบคำถามหรือดำเนินการตามคำขอของคุณ
+            โปรดหลีกเลี่ยงการส่งข้อมูลอ่อนไหวที่ไม่จำเป็น
+          </li>
+        </ul>
+        <p>
+          ข้อมูลการเชื่อมต่อจำเป็นต่อการส่งหน้าเว็บให้คุณ ส่วนอีเมลและความยินยอม Analytics
+          เป็นทางเลือก หากไม่ให้ช่องทางติดต่อกลับ เราอาจตอบคำขอของคุณไม่ได้
         </p>
         <p>
-          เราปิดการจัดเก็บข้อมูลเพื่อการโฆษณา Google Signals และการปรับโฆษณาเฉพาะบุคคล
-          ตัวเลือกของคุณจะถูกเก็บไว้ในเบราว์เซอร์นี้เป็นเวลาไม่เกิน 12 เดือน
+          การประมวลผลที่จำเป็นต่อการแสดงเว็บไซต์และรักษาความปลอดภัยอาศัยประโยชน์โดยชอบด้วยกฎหมาย
+          เท่าที่กฎหมายอนุญาต ข้อมูลที่คุณส่งมาติดต่อใช้เพื่อตอบและจัดการคำขอของคุณ
+          โดยอาศัยประโยชน์โดยชอบด้วยกฎหมายในการติดต่อกลับเท่าที่กฎหมายอนุญาต
+          การวัดสถิติการเข้าชมด้วย Google Analytics จะทำเมื่อคุณยินยอมเท่านั้น
         </p>
-        <h3>เปลี่ยนหรือถอนความยินยอม</h3>
+
+        <h3>สถิติการเข้าชมเว็บไซต์และการเลือกของคุณ</h3>
         <p>
-          ใช้ปุ่ม <strong>ตั้งค่าข้อมูลวิเคราะห์</strong> ที่มุมล่างของหน้าเพื่อเปลี่ยนตัวเลือกได้ทุกเมื่อ
-          เมื่อถอนความยินยอม เว็บไซต์จะหยุดส่งข้อมูลใหม่และพยายามลบคุกกี้ Google Analytics
-          ที่เว็บไซต์เข้าถึงได้ ข้อมูลที่ส่งไปก่อนหน้านั้นไม่สามารถเรียกคืนผ่านเว็บไซต์นี้ได้
+          หากคุณกด <strong>อนุญาต</strong> เราจะเปิดใช้บริการสถิติการเข้าชมของ Google
+          เพื่อดูภาพรวม เช่น มีคนเข้าชมหน้าใดบ้างและใช้เว็บไซต์อย่างไร บริการนี้ใช้คุกกี้
+          ซึ่งเป็นข้อมูลชิ้นเล็ก ๆ ที่บันทึกในเบราว์เซอร์ เพื่อช่วยนับและแยกการเข้าชม
+          เราไม่ได้ตั้งค่าให้ส่งชื่อหรืออีเมลของคุณไปให้บริการนี้ และปิดการใช้ข้อมูลเพื่อโฆษณา
+          รวมถึงการสร้างโฆษณาเฉพาะบุคคล
+        </p>
+        <p>
+          ก่อนคุณอนุญาต เว็บไซต์จะไม่โหลดแท็ก Google Analytics หรือส่งคำขอวัดผลจากแท็กนั้น
+          คุณปฏิเสธหรือเปลี่ยนคำตอบได้โดยใช้ <strong>Contact → Privacy &amp; Analytics</strong>
+          ที่ด้านล่างของหน้า ตัวเลือกจะถูกจดจำในเบราว์เซอร์นี้ไม่เกิน 12 เดือน
+          เมื่อคุณเปลี่ยนเป็นไม่อนุญาต เว็บไซต์จะบันทึกตัวเลือกใหม่และพยายามลบคุกกี้สถิติที่เข้าถึงได้
+          และไม่โหลดแท็กอีกในการเข้าชมหน้าถัดไป การถอนความยินยอมไม่ลบข้อมูลที่ส่งไปก่อนหน้านั้นโดยอัตโนมัติ
+        </p>
+        {analyticsEnabled && (
+          <p>
+            <button type="button" data-privacy-analytics-settings class="rounded-full border border-border px-4 py-2 text-sm font-medium hover:bg-muted">
+              จัดการการยินยอม Analytics
+            </button>
+          </p>
+        )}
+
+        <h3>บริการภายนอกที่อาจได้รับข้อมูล</h3>
+        <p>
+          การปฏิเสธ Analytics ไม่ปิดการเชื่อมต่อที่จำเป็นหรือแหล่งเนื้อหาอื่นของเว็บไซต์:
+          <strong>Cloudflare</strong> ให้บริการหน้าเว็บและรูปภาพ;
+          <strong>Google Fonts</strong> โหลดรูปแบบตัวอักษรเมื่อเปิดหน้าเว็บ;
+          และบางบทความมีวิดีโอ <strong>YouTube</strong> แบบ
+          <code>youtube-nocookie.com</code> ซึ่งเบราว์เซอร์อาจติดต่อเมื่อวิดีโอเลื่อนเข้ามาใกล้หน้าจอ
+          โหมดนี้ลดการใช้ข้อมูลเพื่อปรับประสบการณ์เฉพาะบุคคลของ YouTube แต่ไม่ได้หมายความว่าไม่มีการส่งข้อมูล
+          การกดลิงก์ภายนอกหรือปุ่มแชร์จะพาคุณไปยังบริการที่คุณเลือก ซึ่งมีนโยบายของบริการนั้นเอง
+        </p>
+        <p>
+          ผู้ให้บริการโครงสร้างพื้นฐาน Google และผู้ให้บริการอีเมลที่เกี่ยวข้องอาจประมวลผลข้อมูล
+          ในต่างประเทศตามวิธีให้บริการของตน เราไม่ขายข้อมูลส่วนบุคคลของผู้เข้าชม
+          อ่านรายละเอียดเพิ่มเติมได้จาก
+          <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener noreferrer">Cloudflare</a>,
+          <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Google</a>
+          และ <a href="https://support.google.com/youtube/answer/171780" target="_blank" rel="noopener noreferrer">YouTube</a>
+        </p>
+
+        <h3>ระยะเวลาที่เก็บข้อมูล</h3>
+        <ul>
+          <li>ตัวเลือกการวัดสถิติจะถูกจดจำในเบราว์เซอร์นี้ไม่เกิน 12 เดือน; โหมดสีจะอยู่จนกว่าคุณจะเปลี่ยนหรือลบข้อมูลเว็บไซต์ในเบราว์เซอร์</li>
+          <li>ข้อมูลวิเคราะห์ที่ส่งไปแล้วอยู่ภายใต้การตั้งค่าระยะเวลาเก็บข้อมูลของ Google Analytics ซึ่งแยกจากอายุของตัวเลือกในเบราว์เซอร์</li>
+          <li>ข้อมูลการขอใช้เว็บไซต์และบันทึกด้านความปลอดภัยอยู่ภายใต้การตั้งค่าการเก็บข้อมูลของ Cloudflare และเก็บเท่าที่จำเป็นต่อการให้บริการและตรวจสอบปัญหา</li>
+          <li>อีเมลติดต่อเก็บเท่าที่จำเป็นเพื่อดำเนินการและติดตามเรื่องที่ติดต่อ หรือเพื่อปฏิบัติตามหน้าที่ทางกฎหมายที่เกี่ยวข้อง</li>
+        </ul>
+
+        <h3>การดูแลความปลอดภัย</h3>
+        <p>
+          เว็บไซต์ให้บริการผ่าน HTTPS และจำกัดสิทธิการเข้าถึงเครื่องมือดูแลเว็บไซต์
+          เราพยายามจำกัดการเข้าถึงข้อมูลให้เท่าที่จำเป็น แต่ไม่มีระบบใดรับประกันความปลอดภัยได้ทั้งหมด
+          หากพบปัญหาที่อาจกระทบข้อมูลของคุณ โปรดแจ้งที่อีเมลด้านล่าง
+        </p>
+
+        <h3>สิทธิของคุณและวิธีติดต่อ</h3>
+        <p>
+          ภายใต้เงื่อนไขของกฎหมายที่ใช้บังคับ คุณอาจขอเข้าถึงหรือรับสำเนาข้อมูล
+          ขอแก้ไข ลบ ระงับการใช้ คัดค้าน หรือขอรับและโอนข้อมูล รวมทั้งถอนความยินยอมได้
+          ส่งคำขอไปที่ <a href={`mailto:${privacyEmail}`}>{privacyEmail}</a>
+          พร้อมรายละเอียดที่ช่วยให้เราระบุข้อมูลที่เกี่ยวข้องได้ เราอาจขอข้อมูลเพิ่มเติมเท่าที่จำเป็น
+          เพื่อยืนยันตัวตนก่อนดำเนินการ และจะตอบตามระยะเวลาที่กฎหมายกำหนด
+          หากไม่พอใจกับการดำเนินการ คุณมีสิทธิร้องเรียนต่อ
+          <a href="https://www.pdpc.or.th/" target="_blank" rel="noopener noreferrer">สำนักงานคณะกรรมการคุ้มครองข้อมูลส่วนบุคคล</a>
+        </p>
+
+        <h3>การเปลี่ยนแปลงประกาศ</h3>
+        <p>
+          หากเว็บไซต์เพิ่มฟอร์ม จดหมายข่าว บัญชีผู้ใช้ หรือวิธีใช้ข้อมูลใหม่
+          เราจะปรับประกาศนี้และแจ้งรายละเอียดที่เกี่ยวข้องก่อนเริ่มเก็บข้อมูลเพื่อวัตถุประสงค์นั้น
+          วันที่ปรับปรุงล่าสุดจะแสดงที่ด้านบนของหน้านี้
         </p>
       </section>
 
       <hr class="my-12 border-border" />
 
-      <section lang="en" class="prose prose-neutral dark:prose-invert max-w-none">
-        <h2>English summary</h2>
+      <section id="english" lang="en" class="prose prose-neutral dark:prose-invert max-w-none">
+        <h2>Privacy notice in English</h2>
         <p>
-          frong.me uses Google Analytics 4 to understand aggregate visits and improve the site.
-          The Google tag is not downloaded and no analytics request is sent until you select Allow.
+          frong.me is a personal portfolio and article website operated by <strong>Watcharapol Charoensuk</strong>.
+          For privacy questions or requests, email <a href={`mailto:${privacyEmail}`}>{privacyEmail}</a>.
+          This notice covers the public site. Visitors do not need an account, and the site
+          currently has no contact form or newsletter.
         </p>
+
+        <h3>Information and purposes</h3>
         <p>
-          Advertising storage, Google Signals, and ad personalisation are disabled. Your choice is
-          stored in this browser for no longer than 12 months.
+          Cloudflare processes request information such as IP address, requested URL and time,
+          browser or device details, and security signals to deliver the site and protect it.
+          Your browser stores your theme and analytics choice locally. If you email us, we receive
+          the address, details, and message you provide to respond to your request. Please avoid
+          sending unnecessary sensitive information. Connection data is needed to deliver pages;
+          email and Analytics consent are optional. Without a reply address, we may be unable to
+          respond to your request. Site delivery, security, and responding to
+          messages rely on legitimate interests where applicable; optional analytics relies on consent.
         </p>
-        <h3>Change or withdraw your choice</h3>
+
+        <h3>Optional visit statistics</h3>
         <p>
-          Use the <strong>Analytics settings</strong> button at the bottom of any page. Withdrawing
-          consent stops new analytics collection and the site attempts to remove accessible Google
-          Analytics cookies. Data previously sent cannot be recalled by this site.
+          Google's visit statistics service loads only after you allow it. It provides an overview of
+          which pages people visit and how the site is used. The service uses small pieces of information
+          stored in your browser, called cookies, to help count and distinguish visits. The site does not
+          configure the service to receive your name or email and does not use it for personalized ads.
+          Declining does not prevent you from reading the site. Your choice is remembered in this browser
+          for up to 12 months. Use <strong>Contact → Privacy &amp; Analytics</strong> to change it. If you
+          switch it off, the site records your choice and tries to remove accessible statistics cookies.
+          This does not automatically erase information already sent to Google.
         </p>
+
+        <h3>Other providers</h3>
         <p>
-          Google describes how it processes Analytics data in its
-          <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.
+          Cloudflare serves the site and images. Google Fonts is requested when pages load. Articles
+          with a YouTube video may contact <code>youtube-nocookie.com</code> when the embedded player
+          nears the screen; privacy-enhanced mode does not mean no information is transferred.
+          External links and share buttons open the chosen provider when you use them. These
+          connections are separate from your Analytics choice. Providers and email services may
+          process information outside Thailand. We do not sell visitor personal data. See the
+          <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener noreferrer">Cloudflare</a>
+          and <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Google</a>
+          privacy policies and <a href="https://support.google.com/youtube/answer/171780" target="_blank" rel="noopener noreferrer">YouTube's embed guidance</a>.
+        </p>
+
+        <h3>Retention and your rights</h3>
+        <p>
+          The browser analytics choice expires within 12 months, though its record may remain until
+          replaced or cleared; the theme remains until changed or cleared. Data already sent to
+          Google's visit statistics service follows that service's separate retention settings.
+          Cloudflare request and security records follow its service settings and operational need.
+          We keep correspondence only as long as needed to handle and follow up on the matter or
+          meet applicable legal duties. The site uses HTTPS and restricts access to its management tools;
+          no system can guarantee absolute security. Where the law applies, you may request access, correction,
+          deletion, restriction, objection, or portability, and withdraw consent. Email
+          <a href={`mailto:${privacyEmail}`}>{privacyEmail}</a> with enough detail to locate the data.
+          We may verify your identity before responding. You may also complain to the
+          <a href="https://www.pdpc.or.th/" target="_blank" rel="noopener noreferrer">Thai Personal Data Protection Committee Office</a>.
+        </p>
+
+        <h3>Updates</h3>
+        <p>
+          We will update this notice and explain any new collection before adding features such as
+          forms, newsletters, or visitor accounts. The revision date appears at the top of this page.
         </p>
       </section>
     </article>
   </main>
   <FloatingNav client:load />
+  <script>
+    import { ANALYTICS_SETTINGS_EVENT } from "../lib/analytics-consent.ts";
+
+    document.querySelector<HTMLButtonElement>("[data-privacy-analytics-settings]")
+      ?.addEventListener("click", () => {
+        window.dispatchEvent(new Event(ANALYTICS_SETTINGS_EVENT, { cancelable: true }));
+      });
+  </script>
 </Layout>

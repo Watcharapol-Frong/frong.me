@@ -1,31 +1,142 @@
-import { useState, useEffect } from "react";
-import { Moon, Sun, ChevronDown } from "lucide-react";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { useState, useEffect, useRef } from "react";
+import { Moon, Sun } from "lucide-react";
+import { createPortal } from "react-dom";
 
 interface NavbarProps {
-  selectedCategory?: string;
-  onCategoryChange?: (category: string) => void;
-  categories?: string[];
+  selectedTopic?: string;
+  onTopicChange?: (topic: string) => void;
+  topics?: string[];
+  tags?: string[];
+  selectedTag?: string | null;
+  onTagChange?: (tag: string | null) => void;
 }
 
-const TOP_N_CATEGORIES = 4;
+interface MoreMenuProps {
+  tags: string[];
+  selectedTag?: string | null;
+  onTagChange?: (tag: string | null) => void;
+  mobile?: boolean;
+}
 
-const Navbar = ({ selectedCategory, onCategoryChange, categories: categoriesProp }: NavbarProps) => {
+const MoreMenu = ({ tags, selectedTag, onTagChange, mobile = false }: MoreMenuProps) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [mobilePosition, setMobilePosition] = useState<{ left: number; top: number } | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (!menuRef.current?.contains(target) && !dropdownRef.current?.contains(target)) setIsOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsOpen(false);
+        triggerRef.current?.focus();
+      }
+    };
+    document.addEventListener("pointerdown", closeOnOutsideClick);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsideClick);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!mobile || !isOpen) {
+      setMobilePosition(null);
+      return;
+    }
+
+    const updatePosition = () => {
+      const trigger = triggerRef.current?.getBoundingClientRect();
+      if (!trigger) return;
+      const width = Math.min(320, window.innerWidth - 32);
+      setMobilePosition({
+        left: Math.max(16, Math.min(trigger.right - width, window.innerWidth - width - 16)),
+        top: trigger.bottom + 8,
+      });
+    };
+
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [isOpen, mobile]);
+
+  if (tags.length === 0) return null;
+
+  const dropdown = isOpen ? (
+    <div
+      ref={dropdownRef}
+      className={`${mobile ? "fixed" : "absolute left-1/2 top-full mt-2 -translate-x-1/2"} z-[60] max-h-[65vh] w-80 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-xl border border-border bg-background p-2 shadow-lg`}
+      style={mobile && mobilePosition ? { left: mobilePosition.left, top: mobilePosition.top } : undefined}
+    >
+      <ul aria-label="Filter by tag" className="grid grid-cols-1 gap-1 sm:grid-cols-2">
+        {tags.map((tag) => (
+          <li key={tag}>
+            <button
+              type="button"
+              aria-pressed={selectedTag === tag}
+              onClick={() => {
+                onTagChange?.(tag);
+                setIsOpen(false);
+              }}
+              className={`min-h-11 w-full break-words rounded-lg px-3 py-2 text-left text-sm transition-colors ${selectedTag === tag ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+            >
+              {tag}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  ) : null;
+
+  return (
+    <div
+      ref={menuRef}
+      className={mobile ? "" : "relative"}
+    >
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setIsOpen((open) => !open)}
+        aria-haspopup="true"
+        aria-label={selectedTag ? `More tags, filtered by ${selectedTag}` : "More tags"}
+        aria-expanded={isOpen}
+        className={`px-4 py-1.5 text-sm rounded-full transition-all duration-300 ${
+          selectedTag
+            ? "bg-foreground text-background"
+            : "text-muted-foreground hover:text-foreground"
+        }`}
+      >
+        more
+      </button>
+      {mobile ? mobilePosition && dropdown && createPortal(dropdown, document.body) : dropdown}
+    </div>
+  );
+};
+
+const Navbar = ({
+  selectedTopic,
+  onTopicChange,
+  topics: topicsProp,
+  tags = [],
+  selectedTag,
+  onTagChange,
+}: NavbarProps) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isDark, setIsDark] = useState(false);
   const [pathname, setPathname] = useState("/");
-  const [moreOpen, setMoreOpen] = useState(false);
 
   const isHomePage = pathname === "/";
 
-  const allCategories = categoriesProp ?? [];
-  const topCategories = allCategories.slice(0, TOP_N_CATEGORIES);
-  const moreCategories = allCategories.slice(TOP_N_CATEGORIES);
-  const isMoreActive = moreCategories.includes(selectedCategory ?? "");
+  const topics = topicsProp ?? [];
 
   useEffect(() => {
     setPathname(window.location.pathname);
@@ -69,73 +180,33 @@ const Navbar = ({ selectedCategory, onCategoryChange, categories: categoriesProp
               frong.me
             </a>
 
-            {/* Center: Category Filters (Desktop only, only on Home page) */}
-            {isHomePage && onCategoryChange && (
+            {/* Center: Primary Topic filters (desktop only, home page only) */}
+            {isHomePage && onTopicChange && (
               <div className="hidden md:flex items-center gap-2">
                 <button
-                  onClick={() => onCategoryChange("everything")}
+                  onClick={() => onTopicChange("everything")}
                   className={`px-4 py-1.5 text-sm rounded-full transition-all duration-300 ${
-                    selectedCategory === "everything"
+                    selectedTopic === "everything" && !selectedTag
                       ? "bg-foreground text-background"
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
                   everything
                 </button>
-                {topCategories.map((category) => (
+                {topics.map((topic) => (
                   <button
-                    key={category}
-                    onClick={() => onCategoryChange(category)}
+                    key={topic}
+                    onClick={() => onTopicChange(topic)}
                     className={`px-4 py-1.5 text-sm rounded-full transition-all duration-300 ${
-                      selectedCategory === category
+                      selectedTopic === topic && !selectedTag
                         ? "bg-foreground text-background"
                         : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
-                    {category}
+                    {topic}
                   </button>
                 ))}
-
-                {moreCategories.length > 0 && (
-                  <Popover open={moreOpen} onOpenChange={setMoreOpen}>
-                    <PopoverTrigger asChild>
-                      <button
-                        className={`flex items-center gap-1 px-4 py-1.5 text-sm rounded-full transition-all duration-300 ${
-                          isMoreActive
-                            ? "bg-foreground text-background"
-                            : "text-muted-foreground hover:text-foreground"
-                        }`}
-                      >
-                        {isMoreActive ? selectedCategory : "more"}
-                        <ChevronDown size={14} />
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent
-                      align="center"
-                      className="w-48 p-2 rounded-2xl border border-border bg-background/95 backdrop-blur-md shadow-xl"
-                      sideOffset={8}
-                    >
-                      <div className="flex flex-col gap-1">
-                        {moreCategories.map((category) => (
-                          <button
-                            key={category}
-                            onClick={() => {
-                              onCategoryChange(category);
-                              setMoreOpen(false);
-                            }}
-                            className={`px-3 py-1.5 text-sm rounded-full text-left transition-all duration-300 ${
-                              selectedCategory === category
-                                ? "bg-foreground text-background"
-                                : "text-muted-foreground hover:text-foreground"
-                            }`}
-                          >
-                            {category}
-                          </button>
-                        ))}
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                )}
+                <MoreMenu tags={tags} selectedTag={selectedTag} onTagChange={onTagChange} />
               </div>
             )}
 
@@ -151,24 +222,25 @@ const Navbar = ({ selectedCategory, onCategoryChange, categories: categoriesProp
         </div>
       </nav>
 
-      {/* Mobile: Scrollable Categories below header (only on Home page) */}
-      {isHomePage && onCategoryChange && (
+      {/* Mobile: Scrollable Primary Topics below the header */}
+      {isHomePage && onTopicChange && (
         <div className="fixed top-16 left-0 right-0 z-40 bg-background/95 backdrop-blur-sm md:hidden">
           <div className="overflow-x-auto scrollbar-hide">
             <div className="flex gap-2 px-6 py-3 w-max">
-              {["everything", ...allCategories].map((category) => (
+              {["everything", ...topics].map((topic) => (
                 <button
-                  key={category}
-                  onClick={() => onCategoryChange(category)}
+                  key={topic}
+                  onClick={() => onTopicChange(topic)}
                   className={`px-4 py-2 text-sm rounded-full whitespace-nowrap transition-all duration-300 ${
-                    selectedCategory === category
+                    selectedTopic === topic && !selectedTag
                       ? "bg-foreground text-background"
                       : "bg-muted text-muted-foreground"
                   }`}
                 >
-                  {category}
+                  {topic}
                 </button>
               ))}
+              <MoreMenu tags={tags} selectedTag={selectedTag} onTagChange={onTagChange} mobile />
             </div>
           </div>
         </div>

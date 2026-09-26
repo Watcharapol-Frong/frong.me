@@ -15,6 +15,8 @@ export type EpochMilliseconds = number;
 export type IsoDateTime = string;
 export type Language = 'th' | 'en';
 export type PostLifecycle = 'draft' | 'active' | 'archived';
+export const PRIMARY_TOPICS = ['data', 'technology', 'business'] as const;
+export type PrimaryTopic = (typeof PRIMARY_TOPICS)[number];
 export type AssetMediaKind = 'photo' | 'chart' | 'illustration';
 export type AssetLifecycle = 'private' | 'public' | 'orphaned';
 export type AssetRole = 'cover' | 'body';
@@ -35,6 +37,7 @@ export interface PostRow {
   published_at: EpochMilliseconds | null;
   cover_image_url: string | null;
   cover_crop: string | null;
+  primary_topic: PrimaryTopic | null;
 }
 
 /** Cover image focal point (percentages, 0-100) and zoom (>= 1). */
@@ -145,6 +148,7 @@ export interface PublicArticle {
   title: string;
   excerpt?: string;
   bodyMarkdown: string;
+  primaryTopic?: PrimaryTopic;
   categories: TaxonomySnapshot[];
   tags: TaxonomySnapshot[];
   sources: PublicSource[];
@@ -162,6 +166,7 @@ export interface CreatePostInput {
   bodyMarkdown?: string;
   coverImageUrl?: string;
   coverCrop?: CoverCrop;
+  primaryTopic?: PrimaryTopic;
 }
 
 export interface UpdatePostDraftInput {
@@ -174,6 +179,7 @@ export interface UpdatePostDraftInput {
   bodyMarkdown: string;
   coverImageUrl?: string | null;
   coverCrop?: CoverCrop | null;
+  primaryTopic?: PrimaryTopic | null;
 }
 
 export interface DraftSourceInput {
