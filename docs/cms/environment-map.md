@@ -17,15 +17,17 @@ and `AI`. Production is served at `https://frong.me`; staging is served at
 The two Workers preserve their dashboard runtime variables across Wrangler
 deployments via `keep_vars`; these are separate from GitHub build variables.
 
-As of 2026-09-26, staging runs commit `847d480` and production runs the matching
+As of 2026-09-27, staging runs commit `259011f` and production runs the matching
 application from merge commit `731795c` (Worker version
 `15eb2e34-abcb-4ced-a917-c70d4c34181a`). Migration `0009_primary_topic.sql`
 was applied to staging and production before code deployment; neither database
-has pending migrations. Public route smoke checks passed, and anonymous
-production `/earth` redirected to the Cloudflare Access login. The owner
-confirmed authenticated staging Earth testing. Authenticated production author,
-media and AI flows and backup/restore remain to be checked. See the workflow
-links and exact evidence in the [current handoff](../plan.md).
+had pending migrations at that deployment. The homepage metadata update passed
+[CMS CI](https://github.com/Watcharapol-Frong/frong.me/actions/runs/36286249504)
+and [staging deployment](https://github.com/Watcharapol-Frong/frong.me/actions/runs/36286249492);
+the public staging homepage returned the updated title and description.
+Authenticated production author, media and AI flows and backup/restore remain to
+be checked. See the workflow links and exact evidence in the
+[current handoff](../plan.md).
 
 ## Configuration consumers
 
