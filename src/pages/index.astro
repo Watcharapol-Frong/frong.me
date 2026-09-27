@@ -34,6 +34,6 @@ const articles = cards.map((card) => ({
 
 ---
 
-<Layout>
+<Layout seo={{ title: "Frong — Data, Technology & Business", appendSiteName: false }}>
   <HomeIsland client:load articles={articles} topics={[...PRIMARY_TOPICS]} />
 </Layout>

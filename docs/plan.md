@@ -86,6 +86,8 @@ mixed into this current handoff.
 
 ## Repository maintenance
 
+- 2026-09-27: Public Markdown rendering now keeps consecutive quote lines inside one blockquote and preserves paragraph breaks and hard line breaks. Previously each `>` line emitted a separate block, fragmenting the quote border and spacing compared with Earth Editor. The regression suite passes 242 tests; TypeScript and build pass. [CMS CI](https://github.com/Watcharapol-Frong/frong.me/actions/runs/36287930894) and [staging deployment](https://github.com/Watcharapol-Frong/frong.me/actions/runs/36287930998) succeeded, and the public staging article returned the grouped blockquote markup.
+- 2026-09-27: Updated the homepage title tag to `Frong — Data, Technology & Business` and the default meta description to the requested Thai copy. The homepage title is rendered without the standard site-name suffix. Commit `259011f` passed [CMS CI](https://github.com/Watcharapol-Frong/frong.me/actions/runs/36286249504) and deployed to staging through [run 36286249492](https://github.com/Watcharapol-Frong/frong.me/actions/runs/36286249492); the staging homepage returned the new title and description.
 - 2026-09-26: Rewrote `/privacy/` as a Thai-first, bilingual notice grounded in
   the public site's current data flows. It distinguishes consent-based GA4 from
   Cloudflare request processing, Google Fonts, optional YouTube embeds, and
