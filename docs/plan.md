@@ -86,6 +86,7 @@ mixed into this current handoff.
 
 ## Repository maintenance
 
+- 2026-09-27: Updated the homepage title tag to `Frong — Data, Technology & Business` and the default meta description to the requested Thai copy. The homepage title is rendered without the standard site-name suffix.
 - 2026-09-26: Rewrote `/privacy/` as a Thai-first, bilingual notice grounded in
   the public site's current data flows. It distinguishes consent-based GA4 from
   Cloudflare request processing, Google Fonts, optional YouTube embeds, and

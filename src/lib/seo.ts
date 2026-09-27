@@ -1,12 +1,13 @@
 export const SITE_NAME = 'frong.me';
 export const SITE_OWNER = 'Watcharapol Charoensuk';
-export const DEFAULT_DESCRIPTION = 'Portfolio of Watcharapol Charoensuk (Frong) — connecting data to business and strategy to impact through analytics, AI, and design thinking.';
+export const DEFAULT_DESCRIPTION = 'frong.me รวบรวมโปรเจกต์ แนวคิด เรื่องที่สนใจ และสิ่งที่ได้เรียนรู้เกี่ยวกับ Data, Technology, Business และเรื่องอื่น ๆ ที่อยากนำมาแบ่งปัน';
 
 const OWNER_LINKEDIN = 'https://www.linkedin.com/in/watcharapol-charoensuk-336b4a342';
 const OWNER_GITHUB = 'https://github.com/Watcharapol-Frong';
 
 interface BaseSeo {
   title?: string;
+  appendSiteName?: boolean;
   description?: string;
   image?: string;
   language?: 'th' | 'en';
@@ -57,7 +58,11 @@ export function buildSeoMetadata(
   const language = seo.language ?? 'en';
   const description = seo.description?.trim() || DEFAULT_DESCRIPTION;
   const imageUrl = seo.image || options.defaultImageUrl;
-  const title = seo.title ? `${seo.title} | ${SITE_NAME}` : SITE_NAME;
+  const title = seo.title
+    ? seo.appendSiteName === false
+      ? seo.title
+      : `${seo.title} | ${SITE_NAME}`
+    : SITE_NAME;
   const openGraphType = seo.type ?? 'website';
 
   return {
