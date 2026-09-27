@@ -136,7 +136,8 @@ export function renderMarkdown(markdown: string): RenderedMarkdown {
     }
   }
 
-  for (const rawLine of lines) {
+  for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+    const rawLine = lines[lineIndex];
     if (inFence) {
       if (FENCE_CLOSE_PATTERN.test(rawLine)) {
         flushFence();
@@ -204,7 +205,28 @@ export function renderMarkdown(markdown: string): RenderedMarkdown {
     const quote = rawLine.match(BLOCKQUOTE_PATTERN);
     if (quote) {
       closeList();
-      html.push(`<blockquote>${renderInline(escapeHtml(quote[1]))}</blockquote>`);
+      const quoteParagraphs: string[][] = [[]];
+      while (lineIndex < lines.length) {
+        const quoteLine = lines[lineIndex].match(BLOCKQUOTE_PATTERN);
+        if (!quoteLine) break;
+        if (quoteLine[1].trim() === '') {
+          quoteParagraphs.push([]);
+        } else {
+          quoteParagraphs[quoteParagraphs.length - 1].push(quoteLine[1]);
+        }
+        lineIndex++;
+      }
+      lineIndex--;
+      const paragraphs = quoteParagraphs.map((paragraph) => {
+        let content = '';
+        paragraph.forEach((line, index) => {
+          const hardBreak = / {2,}$/.test(line);
+          content += escapeHtml(line.replace(/ {2,}$/, ''));
+          if (index < paragraph.length - 1) content += hardBreak ? '<br />' : ' ';
+        });
+        return `<p>${renderInline(content)}</p>`;
+      });
+      html.push(`<blockquote>${paragraphs.join('')}</blockquote>`);
       continue;
     }
 

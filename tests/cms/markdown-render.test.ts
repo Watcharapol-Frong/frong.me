@@ -66,8 +66,17 @@ test('lists group consecutive items and close on a blank line or type change', (
 
 test('blockquotes and horizontal rules render as their own elements', () => {
   const { html } = renderMarkdown('> quoted text\n\n---');
-  assert.match(html, /<blockquote>quoted text<\/blockquote>/);
+  assert.match(html, /<blockquote><p>quoted text<\/p><\/blockquote>/);
   assert.match(html, /<hr \/>/);
+});
+
+test('multiline blockquotes stay together and preserve paragraph and hard line breaks', () => {
+  const { html } = renderMarkdown('> first line\n> second line\n>\n> final paragraph\n> hard break  \n> continues');
+  assert.match(
+    html,
+    /<blockquote><p>first line second line<\/p><p>final paragraph hard break<br \/>continues<\/p><\/blockquote>/,
+  );
+  assert.equal((html.match(/<blockquote>/g) ?? []).length, 1);
 });
 
 test('a @[youtube] token on its own line becomes a privacy-preserving embed', () => {
