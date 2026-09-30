@@ -72,6 +72,11 @@ const seed = {
   data-earth-tag-catalog={JSON.stringify(tagCatalog)}
 >
   <ActionBar status={seed.status} />
+  <div data-earth-backup-notice hidden role="status">
+    Unsaved changes are available on this browser.
+    <button type="button" data-earth-action="restore-backup">Restore changes</button>
+    <button type="button" data-earth-action="discard-backup">Keep saved version</button>
+  </div>
 
   <div class="main-layout" data-earth-layout>
     <MetadataForm
@@ -190,7 +195,7 @@ const seed = {
   import {
     createPostEditorApi,
     PostEditorConflictError,
-    PostEditorPublishError,
+    PostEditorSaveError,
     type PostEditorDraft,
   } from '../../lib/cms/client/post-editor-api.ts';
   import { postSlugFeedback } from '../../lib/cms/client/post-slug-feedback.ts';
@@ -234,8 +239,23 @@ const seed = {
     let storageKey = form.dataset.earthStorageKey || 'earth:draft:new';
     const customStorageKey = form.dataset.earthStorageCustom === 'true';
     const initialPostId = form.dataset.earthPostId || 'new';
-    let postId = initialPostId === 'new' ? newCmsId('post') : initialPostId;
+    const editorUrl = new URL(window.location.href);
+    const newSessionId = editorUrl.searchParams.get('new');
+    let postId = initialPostId === 'new'
+      ? (newSessionId && /^post_[a-zA-Z0-9_-]{8,90}$/.test(newSessionId) ? newSessionId : newCmsId('post'))
+      : initialPostId;
+    // A fresh Create gets its own backup. Reloading this unsaved session keeps
+    // that backup reachable without sharing the legacy earth:draft:new slot.
+    if (initialPostId === 'new') {
+      editorUrl.searchParams.set('new', postId);
+      window.history.replaceState(null, '', editorUrl);
+      if (!customStorageKey) storageKey = `earth:draft:${postId}`;
+    }
+    form.dataset.earthPostId = postId;
     let currentPost: PostDetail | null = null;
+    let ready = false;
+    let backupSourceKey = storageKey;
+    let restoredBackupKey: string | null = null;
     let pendingCoverAssetId: string | null = null;
     const tagCatalog = JSON.parse(form.dataset.earthTagCatalog || '{"th":[],"en":[]}') as Record<'th' | 'en', string[]>;
 
@@ -255,6 +275,8 @@ const seed = {
       status: field<HTMLInputElement>('status'),
       body: field<HTMLTextAreaElement>('body'),
     };
+    if (fields.id) fields.id.value = postId;
+    const backupNotice = form.querySelector<HTMLElement>('[data-earth-backup-notice]');
 
     const topicFields = [...form.querySelectorAll<HTMLInputElement>('[data-earth-field="primaryTopic"]')];
     const tagPicker = form.querySelector<HTMLElement>('[data-earth-tag-picker]');
@@ -322,7 +344,7 @@ const seed = {
         tagIds: normalizeSelectedTags(tagsRaw.split(','), currentTagCatalog()),
         primaryTopic: selectedPrimaryTopic(),
         status: statusOverride ?? (fields.status?.value === 'active' ? 'published' : 'draft'),
-        bodyMarkdown: fields.body?.value ?? '',
+        bodyMarkdown: getBodyEditor()?.getMarkdown() ?? fields.body?.value ?? '',
         coverUrl: fields.coverUrl?.value.trim() ?? '',
         coverCrop: isDefaultCoverCrop(coverCrop) ? null : coverCrop,
       };
@@ -366,8 +388,20 @@ const seed = {
 
     function readBackup(): PostEditorDraft | null {
       try {
-        const raw = localStorage.getItem(storageKey);
-        return raw ? (JSON.parse(raw) as PostEditorDraft) : null;
+        backupSourceKey = storageKey;
+        let raw = localStorage.getItem(storageKey);
+        // Retain access to work written before backups were isolated. Restore
+        // only its content after an explicit click, under this session's ID.
+        if (!raw && initialPostId === 'new' && !currentPost) {
+          raw = localStorage.getItem('earth:draft:new');
+          if (raw) backupSourceKey = 'earth:draft:new';
+        }
+        const backup = raw ? JSON.parse(raw) : null;
+        if (!backup || (backupSourceKey === storageKey && backup.id !== postId)
+          || !['th', 'en'].includes(backup.lang)
+          || !['title', 'slug', 'excerpt', 'bodyMarkdown', 'coverUrl'].every((key) => typeof backup[key] === 'string')
+          || backup.bodyMarkdown.length > 1_500_000 || !Array.isArray(backup.tagIds)) return null;
+        return { ...backup, id: postId } as PostEditorDraft;
       } catch {
         return null;
       }
@@ -854,12 +888,6 @@ const seed = {
     function restoreBackup() {
       const backup = readBackup();
       if (!backup) return;
-      if (initialPostId === 'new' && backup.id) {
-        postId = backup.id;
-        form.dataset.earthPostId = postId;
-      } else if (backup.id && backup.id !== postId) {
-        return;
-      }
       if (fields.lang) fields.lang.value = backup.lang;
       if (fields.id) fields.id.value = postId;
       if (fields.title) fields.title.value = backup.title;
@@ -871,14 +899,31 @@ const seed = {
       setPrimaryTopic(backup.primaryTopic ?? null);
       syncTagPickerFromField();
       getBodyEditor()?.setMarkdown(backup.bodyMarkdown);
-      if (fields.coverUrl && backup.coverUrl) fields.coverUrl.value = backup.coverUrl;
+      if (fields.coverUrl) fields.coverUrl.value = backup.coverUrl;
       showCover(fields.coverUrl?.value ?? '');
       setCoverCrop(backup.coverCrop ?? null);
       dirty = true;
-      setStatus('Restored a local draft', 'offline');
+      restoredBackupKey = backupSourceKey;
+      if (backupNotice) backupNotice.hidden = true;
+      setStatus('Restored unsaved changes — save to keep them', 'offline');
+    }
+
+    function rememberSavedPost(post: PostDetail) {
+      currentPost = post;
+      postId = post.id;
+      form.dataset.earthPostId = postId;
+      if (fields.id) fields.id.value = postId;
+      if (!customStorageKey) storageKey = `earth:draft:${postId}`;
+      const url = new URL(window.location.href);
+      url.searchParams.delete('new');
+      url.searchParams.set('id', postId);
+      window.history.replaceState(null, '', url);
+      if (fields.status) fields.status.value = post.lifecycle === 'active' ? 'active' : 'draft';
+      refreshPublishControls();
     }
 
     async function persist(statusOverride: 'draft' | 'published') {
+      if (!ready || saving) return;
       const payload = buildPayload(statusOverride);
       if (!payload.title) {
         setStatus('Title is required', 'error');
@@ -889,6 +934,11 @@ const seed = {
       if (slugError) {
         setStatus(slugError, 'error');
         fields.slug?.focus();
+        return;
+      }
+      if ((statusOverride === 'published' || currentPost?.lifecycle === 'active') && !payload.bodyMarkdown.trim()) {
+        setStatus('Add article content before publishing or updating a published post', 'error');
+        getBodyEditor()?.focus();
         return;
       }
       if (saving) return;
@@ -902,15 +952,19 @@ const seed = {
         const result = statusOverride === 'published'
           ? await api.publish(payload, currentPost)
           : { post: await api.save(payload, currentPost) };
-        currentPost = result.post;
-        postId = result.post.id;
-        form.dataset.earthPostId = postId;
-        if (fields.id) fields.id.value = postId;
-        if (!customStorageKey) storageKey = `earth:draft:${postId}`;
+        rememberSavedPost(result.post);
         await attachPendingCover();
-        localStorage.removeItem(previousStorageKey);
-        localStorage.removeItem(storageKey);
-        dirty = false;
+        const newerChanges = JSON.stringify(buildPayload(statusOverride)) !== JSON.stringify(payload);
+        clearTimeout(saveTimer);
+        try {
+          localStorage.removeItem(previousStorageKey);
+          localStorage.removeItem(storageKey);
+          if (restoredBackupKey) localStorage.removeItem(restoredBackupKey);
+        } catch { /* Browser backup cleanup must not turn a successful server save into a failure. */ }
+        restoredBackupKey = null;
+        if (newerChanges) writeBackup(buildPayload());
+        if (backupNotice) backupNotice.hidden = true;
+        dirty = newerChanges;
         // Read the lifecycle back from the row the server actually returned,
         // not from which button was clicked: a plain Save on an already-
         // published post updates its live content in place and leaves it
@@ -921,7 +975,7 @@ const seed = {
         if (fields.status) fields.status.value = result.post.lifecycle === 'active' ? 'active' : 'draft';
         refreshPublishControls();
         const nowPublished = result.post.lifecycle === 'active';
-        setStatus(nowPublished && statusOverride !== 'published' ? 'Updated' : 'Saved', 'saved');
+        setStatus(newerChanges ? 'Saved — newer changes remain unsaved' : nowPublished && statusOverride !== 'published' ? 'Updated' : 'Saved', 'saved');
         flashIndicator(`${nowPublished && statusOverride !== 'published' ? 'updated' : 'saved'} ${new Date().toLocaleTimeString(undefined, { hour12: false })}`);
         if (statusOverride === 'published') showPublished(result.post);
       } catch (error) {
@@ -930,15 +984,15 @@ const seed = {
         // instead of conflicting forever on the same stale number — we do not
         // resend automatically, so this never silently overwrites a genuine
         // concurrent edit without the user taking another explicit action.
-        if (error instanceof PostEditorPublishError) currentPost = error.post;
+        if (error instanceof PostEditorSaveError) rememberSavedPost(error.post);
         const conflictVersion = error instanceof PostEditorConflictError
           ? error.currentDraftVersion
-          : error instanceof PostEditorPublishError
+          : error instanceof PostEditorSaveError
             ? error.currentDraftVersion
             : undefined;
         const conflictLifecycle = error instanceof PostEditorConflictError
           ? error.currentLifecycle
-          : error instanceof PostEditorPublishError
+          : error instanceof PostEditorSaveError
             ? error.currentLifecycle
             : undefined;
         let suffix = '';
@@ -969,7 +1023,7 @@ const seed = {
     }
 
     async function unpublish() {
-      if (!currentPost) return;
+      if (!ready || saving || !currentPost) return;
       saving = true;
       setBusy(true);
       setStatus('Unpublishing…');
@@ -1151,6 +1205,13 @@ const seed = {
       const action = trigger.dataset.earthAction;
 
       switch (action) {
+        case 'restore-backup':
+          if (ready && !saving) restoreBackup();
+          break;
+        case 'discard-backup':
+          try { localStorage.removeItem(backupSourceKey); } catch { /* Best-effort local storage. */ }
+          if (backupNotice) backupNotice.hidden = true;
+          break;
         case 'save-draft':
           void persist('draft');
           break;
@@ -1342,6 +1403,7 @@ const seed = {
     /* ---------------- Boot ---------------- */
 
     async function boot() {
+      setBusy(true);
       // Fetched/backup content is loaded into the rich editor below — it
       // must exist first (React/TipTap mount asynchronously, on a
       // different island than this script).
@@ -1351,11 +1413,12 @@ const seed = {
         setStatus('Loading…');
         try {
           applyPost(await api.fetch(initialPostId));
+          ready = true;
           setStatus('Loaded', 'saved');
         } catch (error) {
-          setStatus(`Load failed — local draft kept: ${(error as Error).message}`, 'error');
+          setStatus(`Load failed — reload before saving: ${(error as Error).message}`, 'error');
         } finally {
-          setBusy(false);
+          setBusy(!ready);
         }
       } else {
         // Only a starting point for a brand-new post — never overrides an
@@ -1369,8 +1432,10 @@ const seed = {
         } catch {
           // Non-fatal: the hardcoded defaults already rendered server-side.
         }
+        ready = true;
+        setBusy(false);
       }
-      restoreBackup();
+      if (ready && backupNotice) backupNotice.hidden = !readBackup();
       syncTagPickerFromField();
       updateCounters();
       updateSlugPreview();

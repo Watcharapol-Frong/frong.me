@@ -674,3 +674,31 @@ test('post query parsing enforces valid lifecycle_state filter', () => {
     );
   }
 });
+
+test('an unfinished empty draft can be saved and reopened, but cannot be published', async () => {
+  const { db, binding } = createCmsDbFixture();
+  try {
+    const created = await createPost(db, { id: 'post_emptydraft01', lang: 'th', slug: 'empty-draft', title: 'Work in progress', bodyMarkdown: '' }, NOW);
+    const saved = await updatePostDraft(db, created.id, { expectedDraftVersion: created.draft_version, lang: 'th', slug: created.slug, title: created.title, bodyMarkdown: '' }, NOW + 1);
+    assert.equal((await getPostDraft(db, saved.id)).body_markdown, '');
+    await assert.rejects(() => publishPost(db, saved.id, saved.draft_version), CmsValidationError);
+    assert.equal((await getPostDraft(db, saved.id)).lifecycle, 'draft');
+  } finally { binding.close(); }
+});
+
+test('one database row moves Draft → Published → Draft without duplicating content', async () => {
+  const { db, binding } = createCmsDbFixture();
+  try {
+    const created = await createPost(db, { id: 'post_workflow001', lang: 'th', slug: 'workflow', title: 'Workflow', bodyMarkdown: 'เนื้อหา' }, NOW);
+    assert.deepEqual((await listPostDrafts(db, { lifecycle: 'draft' })).map(row => row.id), [created.id]);
+    const live = await publishPost(db, created.id, created.draft_version, NOW + 1);
+    assert.equal((await listPostDrafts(db, { lifecycle: 'draft' })).length, 0);
+    assert.deepEqual((await listPostDrafts(db, { lifecycle: 'active' })).map(row => row.id), [created.id]);
+    await assert.rejects(() => updatePostDraft(db, live.id, { expectedDraftVersion: live.draft_version, lang: live.lang, slug: live.slug, title: live.title, bodyMarkdown: '' }), CmsValidationError);
+    const draft = await unpublishPost(db, live.id, live.draft_version, NOW + 2);
+    assert.equal(draft.body_markdown, 'เนื้อหา');
+    assert.equal((await listPostDrafts(db, { lifecycle: 'active' })).length, 0);
+    assert.deepEqual((await listPostDrafts(db, { lifecycle: 'draft' })).map(row => row.id), [created.id]);
+    assert.equal((await listPostDrafts(db)).length, 1);
+  } finally { binding.close(); }
+});

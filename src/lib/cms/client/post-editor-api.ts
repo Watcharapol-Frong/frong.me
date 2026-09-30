@@ -29,8 +29,8 @@ export interface PostEditorPublishResult {
   post: PostDetail;
 }
 
-/** Publish failed after the draft may already have been saved successfully. */
-export class PostEditorPublishError extends Error {
+/** A later step failed after a post was already saved successfully. */
+export class PostEditorSaveError extends Error {
   readonly post: PostDetail;
   /** Set when the failure was a 409 that reported the server's current version. */
   readonly currentDraftVersion?: number;
@@ -39,7 +39,7 @@ export class PostEditorPublishError extends Error {
 
   constructor(message: string, post: PostDetail, options: { cause?: unknown } = {}) {
     super(message, options);
-    this.name = 'PostEditorPublishError';
+    this.name = 'PostEditorSaveError';
     this.post = post;
     this.currentDraftVersion = options.cause instanceof PostEditorConflictError
       ? options.cause.currentDraftVersion
@@ -47,6 +47,14 @@ export class PostEditorPublishError extends Error {
     this.currentLifecycle = options.cause instanceof PostEditorConflictError
       ? options.cause.currentLifecycle
       : undefined;
+  }
+}
+
+/** Publish failed after the draft may already have been saved successfully. */
+export class PostEditorPublishError extends PostEditorSaveError {
+  constructor(message: string, post: PostDetail, options: { cause?: unknown } = {}) {
+    super(message, post, options);
+    this.name = 'PostEditorPublishError';
   }
 }
 
@@ -148,18 +156,23 @@ export function createPostEditorApi(options?: CmsClientOptions): PostEditorApi {
       options,
     );
     if (!created.ok) {
-      // A POST may have reached D1 even if its response was lost. Reusing the
-      // client-generated id lets a retry recover that row without duplicating it.
-      try {
-        return await update(draft, await getPost(draft.id, options));
-      } catch {
-        throw conflictError(created);
-      }
+      // A collision is not proof that this editor owns the existing row.
+      // Never turn Create into Update: a stale browser backup can carry an
+      // unrelated published post's ID. Reopen the saved post explicitly.
+      throw conflictError(created);
     }
 
     // CreatePostInput intentionally contains no taxonomy. Apply selected tag
     // ids through the version-guarded PUT bundle after the row exists.
-    return draft.tagIds.length > 0 ? update(draft, created.data) : created.data;
+    try {
+      return draft.tagIds.length > 0 ? await update(draft, created.data) : created.data;
+    } catch (cause) {
+      throw new PostEditorSaveError(
+        cause instanceof Error ? cause.message : 'The post was created but its tags could not be saved.',
+        created.data,
+        { cause },
+      );
+    }
   }
 
   return {
