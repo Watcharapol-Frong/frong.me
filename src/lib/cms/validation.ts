@@ -56,6 +56,14 @@ function optionalString(value: unknown, field: string, maximum = 10_000): string
   return value === undefined ? undefined : string(value, field, maximum);
 }
 
+/** Incomplete drafts may have no body yet; public articles remain non-empty. */
+function draftBody(value: unknown): string {
+  if (typeof value !== 'string' || value.length > 1_500_000) {
+    throw new CmsValidationError('post.bodyMarkdown', 'must be a string of at most 1500000 characters');
+  }
+  return value;
+}
+
 function nullableString(
   value: unknown,
   field: string,
@@ -270,7 +278,7 @@ export function parseCreatePostInput(value: unknown): CreatePostInput {
   ]);
   const translationGroupId = optionalIdentifier(row.translationGroupId, 'post.translationGroupId');
   const excerpt = optionalString(row.excerpt, 'post.excerpt', 1_000);
-  const bodyMarkdown = optionalString(row.bodyMarkdown, 'post.bodyMarkdown', 1_500_000);
+  const bodyMarkdown = row.bodyMarkdown === undefined ? undefined : draftBody(row.bodyMarkdown);
   const coverImageUrl = row.coverImageUrl === undefined
     ? undefined
     : httpsUrl(row.coverImageUrl, 'post.coverImageUrl');
@@ -313,7 +321,7 @@ export function parseUpdatePostDraftInput(value: unknown): UpdatePostDraftInput 
     slug: slug(row.slug, 'post.slug'),
     title: string(row.title, 'post.title', 300),
     ...(excerpt === undefined ? {} : { excerpt }),
-    bodyMarkdown: string(row.bodyMarkdown, 'post.bodyMarkdown', 1_500_000),
+    bodyMarkdown: draftBody(row.bodyMarkdown),
     ...(coverImageUrl === undefined ? {} : { coverImageUrl }),
     ...(coverCrop === undefined ? {} : { coverCrop }),
     ...(topic === undefined ? {} : { primaryTopic: topic }),
