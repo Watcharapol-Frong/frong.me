@@ -5,6 +5,7 @@ import {
   createPostEditorApi,
   PostEditorConflictError,
   PostEditorPublishError,
+  PostEditorSaveError,
   type PostEditorDraft,
 } from '../../src/lib/cms/client/post-editor-api.ts';
 import type { CmsClientOptions, PostDetail } from '../../src/lib/cms/client/api.ts';
@@ -280,4 +281,26 @@ test('loading a post reads tag names from the detail payload, never the raw tag 
     ['เขียนบล็อก', 'cms'],
     'the editor fills its tag field from these; ids here would be re-upserted as literal tag names on the next save',
   );
+});
+
+test('a create conflict never updates an existing article, even when its ID can be fetched', async () => {
+  const { api, requests } = client(request => request.method === 'POST'
+    ? { status: 409, body: { error: { code: 'CONFLICT', message: 'A CMS record with the same unique value already exists' } } }
+    : { body: { ...POST, lifecycle: 'active' } });
+  await assert.rejects(() => api.save(DRAFT, null), PostEditorConflictError);
+  assert.deepEqual(requests.map(request => request.method), ['POST']);
+});
+
+
+test('a tag-save failure preserves the newly created row for an Update retry', async () => {
+  const { api, requests } = client((_request, index) => index === 0
+    ? { status: 201, body: POST }
+    : { status: 400, body: { error: { code: 'BAD_REQUEST', message: 'Tag save failed' } } });
+  await assert.rejects(() => api.save(DRAFT, null), (error: unknown) => {
+    assert.ok(error instanceof PostEditorSaveError);
+    assert.equal(error.post.id, POST.id);
+    assert.equal(error.post.draftVersion, 1);
+    return true;
+  });
+  assert.deepEqual(requests.map(request => request.method), ['POST', 'PUT']);
 });

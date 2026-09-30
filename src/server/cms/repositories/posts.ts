@@ -10,6 +10,7 @@ import {
   parseCreatePostInput,
   parseUpdatePostDraftInput,
   parseUpdatePostBundleInput,
+  CmsValidationError,
 } from '../../../lib/cms/validation.ts';
 import { MAX_DRAFT_POSTS } from '../../../lib/cms/contracts.ts';
 import { type CmsDatabase, requireChanged } from '../db.ts';
@@ -143,6 +144,7 @@ export async function updatePostDraft(
   now = Date.now(),
 ): Promise<PostRow> {
   const input: UpdatePostDraftInput = parseUpdatePostDraftInput(value);
+  await assertBodyCanBeSaved(db, postId, input.bodyMarkdown);
   const result = await db.run<PostRow>(
     `UPDATE posts
      SET lang = ?1,
@@ -192,6 +194,7 @@ export async function updatePostBundle(
   now = Date.now(),
 ): Promise<PostRow> {
   const input: UpdatePostBundleInput = parseUpdatePostBundleInput(value);
+  await assertBodyCanBeSaved(db, postId, input.draft.bodyMarkdown);
   const version = input.draft.expectedDraftVersion;
   const sourcesJson = JSON.stringify(input.sources);
   // input.tagIds is free-typed tag text from the editor, not tags(id) values —
@@ -319,6 +322,10 @@ export async function publishPost(
   expectedDraftVersion: number,
   now = Date.now(),
 ): Promise<PostRow> {
+  const post = await getPostDraft(db, postId);
+  if (!post.body_markdown.trim()) {
+    throw new CmsValidationError('post.bodyMarkdown', 'add article content before publishing');
+  }
   const result = await db.run<PostRow>(
     `UPDATE posts
      SET lifecycle = 'active',
@@ -336,6 +343,12 @@ export async function publishPost(
     'DRAFT_VERSION_CONFLICT',
   );
   return requiredReturnedRow(result.results[0], 'post', postId);
+}
+
+async function assertBodyCanBeSaved(db: CmsDatabase, postId: string, body: string): Promise<void> {
+  if (!body.trim() && (await getPostDraft(db, postId)).lifecycle === 'active') {
+    throw new CmsValidationError('post.bodyMarkdown', 'published articles need content; unpublish to save an empty draft');
+  }
 }
 
 export async function unpublishPost(
