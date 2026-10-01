@@ -1,6 +1,6 @@
 # Current handoff
 
-Updated: 2026-09-30. Scope: maintainer handoff, article lifecycle repair, and the
+Updated: 2026-10-01. Scope: maintainer handoff, article lifecycle repair, and the
 latest staging and production deployment.
 
 ## Architecture
@@ -86,6 +86,44 @@ mixed into this current handoff.
 
 ## Repository maintenance
 
+- 2026-10-01: Add the link repair to the pending media fix. Reproduced typed
+  Markdown links remaining raw text with the real ProseMirror input path;
+  StarterKit's `markdownLinks` option was disabled. Enable its input/paste rules
+  and add Command+K (macOS), Ctrl+K (Windows), and a Link selection-toolbar button.
+  A native dialog adds, edits or removes a link without replacing selected text,
+  handles cursor insertion, preserves cancellation, and rejects unsafe schemes.
+  Open link provides navigation without disrupting editing. Force explicit
+  `[label](URL)` serialization: the default `<URL>` form used when the label is
+  the URL is not supported by the public renderer. Regression coverage drives
+  typing, Markdown save/reopen/public rendering, both platform keymaps, and the
+  actual React dialog including unsafe URL rejection, cancellation and Enter.
+  All 261 CMS tests, TypeScript and diff checks pass. Local build bundling
+  succeeds, but Cloudflare prerendering remains blocked by the runtime's
+  `uv_interface_addresses` restriction. The owner approved submitting and deploying the combined
+  media/link repair on 2026-10-01; full CI and live browser checks are still
+  required before declaring deployment acceptance.
+
+- 2026-10-01: Fix repeat image uploads returning HTTP 409. The real upload route
+  reproduced the error against SQLite: R2 uses a deterministic key, but the
+  handler inserted a new asset ID into a unique private-key column every time.
+  Direct uploads now atomically create/reuse a public asset by that key, preserving
+  identity and metadata; retries repair interrupted registration or missing bytes.
+  New URLs use the environment's own public `/media/assets/` route, avoiding the
+  hardcoded shared CDN origin. Delivery requires a matching public database row;
+  unknown/private/unsafe keys are not exposed. No migration, remote data rewrite
+  or asset deletion is needed. Existing CDN URLs are unchanged. Regression tests
+  cover repeats, concurrent requests, interrupted registration, delivery bytes,
+  HEAD, environment isolation and storage failures. All 257 CMS tests pass
+  through `node --import tsx --test tests/cms/*.test.ts`; TypeScript and diff
+  checks pass. Local migrations and database integrity verification pass. The npm test wrapper cannot
+  create its IPC socket here, and local build bundling succeeds but Cloudflare
+  prerendering fails at `uv_interface_addresses`. Full GitHub CI and live
+  authenticated upload acceptance remain deployment gates for this change.
+  Automatic approval review blocked pushing this new payload to GitHub because
+  the previous deployment authorization covered the earlier lifecycle change;
+  the owner subsequently authorized the combined media/link submission, merge
+  and production deployment on 2026-10-01.
+
 - 2026-09-30: Repair article creation and backup identity isolation. Create no
   longer automatically imports the ID/content from the shared browser backup;
   recovery is explicit and copies content only. New editor sessions have unique
@@ -99,8 +137,11 @@ mixed into this current handoff.
   required. The existing three-draft capacity rule is unchanged. Regression
   coverage exercises the actual editor script, API request sequence, and SQLite
   lifecycle. All 252 CMS tests, TypeScript, the full local build, local D1
-  migrations/integrity verification, and `git diff --check` pass. Production deployment and authenticated browser acceptance are
-  pending for this change.
+  migrations/integrity verification, and `git diff --check` pass. The lifecycle repair was merged to staging as
+  `91f332b` and deployed successfully; main merge `5632512` was deployed via
+  [production workflow](https://github.com/Watcharapol-Frong/frong.me/actions/runs/36697377227).
+  Public homepage/article browser checks passed. Authenticated browser acceptance
+  remained pending; the owner subsequently reported the media upload issue above.
 
 - 2026-09-27: Public Markdown rendering now keeps consecutive quote lines inside one blockquote and preserves paragraph breaks and hard line breaks. Previously each `>` line emitted a separate block, fragmenting the quote border and spacing compared with Earth Editor. The regression suite passes 242 tests; TypeScript and build pass. [CMS CI](https://github.com/Watcharapol-Frong/frong.me/actions/runs/36287930894) and [staging deployment](https://github.com/Watcharapol-Frong/frong.me/actions/runs/36287930998) succeeded, and the public staging article returned the grouped blockquote markup.
 - 2026-09-27: Updated the homepage title tag to `Frong — Data, Technology & Business` and the default meta description to the requested Thai copy. The homepage title is rendered without the standard site-name suffix. Commit `259011f` passed [CMS CI](https://github.com/Watcharapol-Frong/frong.me/actions/runs/36286249504) and deployed to staging through [run 36286249492](https://github.com/Watcharapol-Frong/frong.me/actions/runs/36286249492); the staging homepage returned the new title and description.

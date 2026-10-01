@@ -84,6 +84,36 @@ export async function getAsset(db: CmsDatabase, assetId: string): Promise<AssetR
   return requiredAsset(asset ?? undefined, assetId);
 }
 
+/** Register a direct upload atomically; retries retain the existing asset identity. */
+export async function registerUploadedAsset(
+  db: CmsDatabase,
+  input: CreateAssetInput,
+  now = Date.now(),
+): Promise<AssetRow> {
+  validateAsset(input);
+  const result = await db.run<AssetRow>(
+    `INSERT INTO assets (
+       id, media_kind, lifecycle, private_r2_key, public_r2_key,
+       original_name, mime_type, width, height, byte_size, sha256,
+       created_at, promoted_at
+     ) VALUES (?1, ?2, 'public', ?3, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?10)
+     ON CONFLICT(private_r2_key) DO UPDATE SET
+       lifecycle = 'public',
+       public_r2_key = COALESCE(assets.public_r2_key, excluded.public_r2_key),
+       promoted_at = COALESCE(assets.promoted_at, excluded.promoted_at)
+     WHERE assets.sha256 = excluded.sha256
+       AND assets.mime_type = excluded.mime_type
+       AND assets.width = excluded.width AND assets.height = excluded.height
+       AND assets.byte_size = excluded.byte_size
+     RETURNING *`,
+    [input.id, input.mediaKind, input.privateR2Key, input.originalName ?? null,
+      input.mimeType, input.width, input.height, input.byteSize, input.sha256, now],
+  );
+  const asset = result.results[0];
+  if (!asset) throw new CmsConflictError('Stored asset metadata does not match the uploaded image');
+  return asset;
+}
+
 export async function promoteAsset(
   db: CmsDatabase,
   assetId: string,
