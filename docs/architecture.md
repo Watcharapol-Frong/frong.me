@@ -50,6 +50,16 @@ slug. Publish and updates to a published article require nonblank body content.
 The existing three-draft capacity rule remains in force for Create and Unpublish.
 Existing-post load failures disable saving until the post is successfully loaded.
 
+The rich editor converts typed/pasted `[label](URL)` Markdown into link marks.
+Select text and use Command+K on macOS or Ctrl+K on other desktops (or the Link
+selection-toolbar button) to add/edit a link. The native dialog preserves the
+selection, supports insertion at the cursor, cancellation and removing a link
+without removing its text. Plain clicks keep editing; Open link opens the target
+separately. Unsafe schemes are rejected. Link serialization always emits explicit
+Markdown links, including URL-as-label links, because the public renderer does
+not understand CommonMark `<URL>` autolinks. URL parentheses/quotes are encoded
+for the public renderer's supported link syntax.
+
 Article discovery has two distinct taxonomy levels. `posts.primary_topic` is
 nullable for legacy content and restricted to `data`, `technology`, or
 `business`; these fixed values drive the homepage navigation. Free-form tags
@@ -87,9 +97,19 @@ live in D1's `ai_provider_configs.api_key` column without application-level
 encryption. Treat database access and backups as sensitive. AI suggestions
 require an author action before they become content; they do not publish.
 
-The media origin is currently `https://images.frong.me` in code. Verify routing
-and environment separation before relying on image uploads in staging/production.
-A passing mock storage test is not proof of live delivery.
+Direct image uploads register a public asset atomically after R2 storage succeeds.
+Repeating the same content-addressed key returns the existing asset identity;
+retries can finish an interrupted private registration and restore missing bytes.
+Removing an image from Markdown removes its reference, not the stored asset.
+The original media kind/name are preserved on reuse.
+
+New uploads return an absolute URL under the current site's `/media/assets/`
+route. Delivery reads that Worker's own D1/R2 bindings and serves only registered
+public assets with immutable caching. Private, unknown and unsafe keys return
+uncached 404 responses. Staging does not depend on production's media domain.
+Historical content using `https://images.frong.me` is not rewritten by this change;
+its external routing still needs separate verification. A passing storage test
+is not proof of live delivery.
 
 ## Historical material is not architecture
 

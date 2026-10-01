@@ -6,7 +6,7 @@ import { CmsValidationError } from '../../../../lib/cms/validation.ts';
 import { resolveCmsEnvironment, privateJson } from '../../../../server/cms/api.ts';
 import { createCmsDatabase } from '../../../../server/cms/db.ts';
 import { CmsBadRequestError, CmsDatabaseError, cmsErrorResponse } from '../../../../server/cms/errors.ts';
-import { createAsset, promoteAsset } from '../../../../server/cms/repositories/assets.ts';
+import { registerUploadedAsset } from '../../../../server/cms/repositories/assets.ts';
 
 export const prerender = false;
 
@@ -48,7 +48,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     });
 
     const assetId = `asset_${crypto.randomUUID().replace(/-/g, '')}`;
-    await createAsset(db, {
+    const asset = await registerUploadedAsset(db, {
       id: assetId,
       mediaKind,
       privateR2Key: uploaded.key,
@@ -59,12 +59,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
       byteSize: metadata.byteSize,
       sha256: metadata.sha256,
     });
-    const asset = await promoteAsset(db, assetId, uploaded.key);
 
     return privateJson({
       id: asset.id,
       mediaKind: asset.media_kind,
-      url: uploaded.url,
+      url: new URL(`/media/${asset.public_r2_key!.split('/').map(encodeURIComponent).join('/')}`, request.url).href,
       mimeType: asset.mime_type,
       width: asset.width,
       height: asset.height,

@@ -46,6 +46,27 @@ const ItalicNoShortcut = Italic.extend({ addKeyboardShortcuts: () => ({}) });
 const CodeNoShortcut = Code.extend({ addKeyboardShortcuts: () => ({}) });
 const StrikeNoShortcut = Strike.extend({ addKeyboardShortcuts: () => ({}) });
 
+/** The public renderer accepts explicit Markdown links, not <URL> autolinks. */
+const MarkdownStarterKit = StarterKit.extend({
+  addExtensions() {
+    return (this.parent?.() ?? []).map(extension => extension.name !== 'link' ? extension : extension.extend({
+      addStorage() {
+        return {
+          ...this.parent?.(),
+          markdown: {
+            serialize: {
+              open: '[',
+              close: (_state: unknown, mark: { attrs: { href: string } }) =>
+                `](${mark.attrs.href.replace(/\(/g, '%28').replace(/\)/g, '%29').replace(/"/g, '%22')})`,
+              mixable: true,
+            },
+          },
+        };
+      },
+    }));
+  },
+});
+
 /**
  * `tiptap-markdown` uses ProseMirror's inline image serializer even though
  * TipTap configures Image as a block node. Without closing the block, an
@@ -416,13 +437,14 @@ export interface BodyEditorBridge {
 
 const HEADING_LEVELS = [1, 2, 3] as const;
 
-function SelectionToolbar({ editor }: { editor: Editor }) {
+function SelectionToolbar({ editor, onEditLink }: { editor: Editor; onEditLink: (editor: Editor) => void }) {
   const state = useEditorState({
     editor,
     selector: (ctx) => ({
       isBold: ctx.editor.isActive('bold'),
       isItalic: ctx.editor.isActive('italic'),
       isHighlight: ctx.editor.isActive('highlight'),
+      isLink: ctx.editor.isActive('link'),
       activeHeading: HEADING_LEVELS.find((level) => ctx.editor.isActive('heading', { level })) ?? null,
     }),
   });
@@ -459,6 +481,16 @@ function SelectionToolbar({ editor }: { editor: Editor }) {
       >
         <span className="rich-bubble-highlight-icon">H</span>
       </button>
+      <button
+        type="button"
+        className="rich-bubble-btn"
+        data-active={state.isLink}
+        title="Add or edit link (⌘K / Ctrl+K)"
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={() => onEditLink(editor)}
+      >
+        Link
+      </button>
       <span className="rich-bubble-divider" />
       {HEADING_LEVELS.map((level) => (
         <button
@@ -492,9 +524,19 @@ interface RichBodyEditorProps {
   placeholder?: string;
 }
 
-export function createRichBodyEditorExtensions(placeholder?: string) {
+export function createRichBodyEditorExtensions(placeholder?: string, onEditLink?: (editor: Editor) => void) {
   return [
-    StarterKit.configure({ link: { openOnClick: false }, italic: false, code: false, strike: false }),
+    MarkdownStarterKit.configure({ link: { openOnClick: false, markdownLinks: true }, italic: false, code: false, strike: false }),
+    Extension.create({
+      name: 'linkShortcut',
+      addKeyboardShortcuts() {
+        return { 'Mod-k': () => {
+          if (!onEditLink) return false;
+          onEditLink(this.editor);
+          return true;
+        } };
+      },
+    }),
     ItalicNoShortcut,
     CodeNoShortcut,
     StrikeNoShortcut,
@@ -511,9 +553,24 @@ export default function RichBodyEditor({ initial = '', placeholder }: RichBodyEd
   const wrapperRef = useRef<HTMLDivElement>(null);
   const hiddenTextareaRef = useRef<HTMLTextAreaElement>(null);
   const [isEmpty, setIsEmpty] = useState(!initial.trim());
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const [linkDraft, setLinkDraft] = useState<{ from: number; to: number; text: string; href: string; originalHref: string } | null>(null);
+  const [linkError, setLinkError] = useState('');
+
+  function openLinkEditor(current: Editor) {
+    if (current.isActive('link')) current.commands.extendMarkRange('link');
+    const { from, to } = current.state.selection;
+    const href = current.getAttributes('link').href ?? '';
+    setLinkDraft({ from, to, text: current.state.doc.textBetween(from, to, ' '), href, originalHref: href });
+    setLinkError('');
+  }
+
+  useEffect(() => {
+    if (linkDraft && dialogRef.current && !dialogRef.current.open) dialogRef.current.showModal();
+  }, [!!linkDraft]);
 
   const editor = useEditor({
-    extensions: createRichBodyEditorExtensions(placeholder),
+    extensions: createRichBodyEditorExtensions(placeholder, openLinkEditor),
     content: initial,
     immediatelyRender: false,
     onUpdate: ({ editor: ed }) => {
@@ -526,6 +583,29 @@ export default function RichBodyEditor({ initial = '', placeholder }: RichBodyEd
       }
     },
   });
+
+  function closeLinkEditor() {
+    dialogRef.current?.close();
+    setLinkDraft(null);
+    editor?.commands.focus();
+  }
+
+  function applyLink(remove = false) {
+    if (!editor || !linkDraft) return;
+    const href = linkDraft.href.trim();
+    if (!remove && !/^(https?:\/\/\S+|mailto:\S+|\/(?!\/)\S*)$/i.test(href)) {
+      setLinkError('Use an https://, http://, mailto: or site-relative URL.');
+      return;
+    }
+    const chain = editor.chain().setTextSelection({ from: linkDraft.from, to: linkDraft.to });
+    let changed: boolean;
+    if (remove) changed = chain.unsetLink().run();
+    else if (linkDraft.from === linkDraft.to) {
+      changed = chain.insertContent({ type: 'text', text: linkDraft.text.trim() || href, marks: [{ type: 'link', attrs: { href } }] }).run();
+    } else changed = chain.setLink({ href }).run();
+    if (changed) closeLinkEditor();
+    else setLinkError('This URL could not be added.');
+  }
 
   // The bridge: attached to the wrapper element so PostEditor.astro's and
   // AiPanel.astro's plain <script> blocks — separate Astro islands, no
@@ -573,9 +653,34 @@ export default function RichBodyEditor({ initial = '', placeholder }: RichBodyEd
 
   return (
     <div ref={wrapperRef} className="rich-body-editor" data-earth-body-editor data-empty={isEmpty}>
-      {editor && <SelectionToolbar editor={editor} />}
+      {editor && <SelectionToolbar editor={editor} onEditLink={openLinkEditor} />}
       <EditorContent editor={editor} className="body-input" />
       <textarea data-earth-field="body" hidden defaultValue={initial} ref={hiddenTextareaRef} />
+      {linkDraft && (
+        <dialog ref={dialogRef} className="modal link-dialog" aria-labelledby="earth-link-title" onCancel={closeLinkEditor} onKeyDown={event => {
+          if (event.key === 'Enter' && (event.target as HTMLElement).tagName === 'INPUT') {
+            event.preventDefault();
+            applyLink();
+          }
+        }}>
+          <h2 id="earth-link-title" className="modal-title">{linkDraft.originalHref ? 'Edit link' : 'Add link'}</h2>
+          {linkDraft.from === linkDraft.to && (
+            <label>Text
+              <input className="form-input" value={linkDraft.text} onChange={event => setLinkDraft({ ...linkDraft, text: event.target.value })} />
+            </label>
+          )}
+          <label>URL
+            <input className="form-input" autoFocus value={linkDraft.href} placeholder="https://" onChange={event => setLinkDraft({ ...linkDraft, href: event.target.value })} />
+          </label>
+          {linkError && <p className="upload-error" role="alert">{linkError}</p>}
+          {/^(https?:\/\/\S+|mailto:\S+|\/(?!\/)\S*)$/i.test(linkDraft.originalHref) && <a href={linkDraft.originalHref} target="_blank" rel="noopener noreferrer">Open link ↗</a>}
+          <div className="modal-actions">
+            {linkDraft.originalHref && <button type="button" className="modal-btn modal-btn-cancel" onClick={() => applyLink(true)}>Remove link</button>}
+            <button type="button" className="modal-btn modal-btn-cancel" onClick={closeLinkEditor}>Cancel</button>
+            <button type="button" className="modal-btn modal-btn-confirm" onClick={() => applyLink()}>Apply</button>
+          </div>
+        </dialog>
+      )}
     </div>
   );
 }
