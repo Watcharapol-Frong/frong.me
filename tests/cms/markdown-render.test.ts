@@ -86,6 +86,19 @@ test('a @[youtube] token on its own line becomes a privacy-preserving embed', ()
   assert.match(html, /<p>After<\/p>/);
 });
 
+test('quote backslash breaks preserve formatting and do not consume escaped or final backslashes', () => {
+  assert.equal(
+    renderMarkdown('> **กาแฟ**\\\n> จำนวนคงเหลือ = 12').html,
+    '<blockquote><p><strong>กาแฟ</strong><br />จำนวนคงเหลือ = 12</p></blockquote>',
+  );
+  assert.equal(renderMarkdown('> escaped\\\\\n> next').html, '<blockquote><p>escaped\\\\ next</p></blockquote>');
+  assert.equal(renderMarkdown('> final\\').html, '<blockquote><p>final\\</p></blockquote>');
+  assert.equal(
+    renderMarkdown('> first\\\n> second\n>\n> final paragraph').html,
+    '<blockquote><p>first<br />second</p><p>final paragraph</p></blockquote>',
+  );
+});
+
 test('a malformed or hostile youtube token stays inert text instead of building a src', () => {
   const attempts = [
     '@[youtube](short)',

@@ -67,6 +67,26 @@ with no version changes for retained package paths. All three archive checksums
 match the baseline. The suite removes two callback-only tests and adds seven
 retirement/read-only verification checks, for a net increase from 210 to 215.
 
+## Combined media and link deployment — 2026-10-01
+
+The owner authorized submission, merge and production deployment of the combined
+repair. Application commit `0abe33d` passed the full [PR #18 CI](https://github.com/Watcharapol-Frong/frong.me/actions/runs/36838500712).
+[PR #18](https://github.com/Watcharapol-Frong/frong.me/pull/18) merged to staging
+as `3556f13`; [staging deployment](https://github.com/Watcharapol-Frong/frong.me/actions/runs/36838622609)
+and staging/release CI completed successfully. [PR #19](https://github.com/Watcharapol-Frong/frong.me/pull/19)
+merged to main as `13f82af`. The owner-authorized protected production gate was
+approved without changing protection settings; [production deployment](https://github.com/Watcharapol-Frong/frong.me/actions/runs/36838852056)
+completed successfully, including CMS tests, TypeScript, production binding
+verification, production build and Worker deployment. Deployed application
+revision: `13f82af1142ebadda024d1895226d7a09fe327e8`.
+
+Public staging/production homepage and production article browser checks passed.
+Authenticated live upload/link acceptance remains pending; automatic tests cover
+upload retries, media bytes and environment isolation, Markdown input/save/reopen,
+both keyboard platforms and the real React link dialog. No remote migrations,
+asset deletions or existing article rewrites were performed. Existing CDN URLs
+are unchanged; re-uploading an image now returns its environment's media URL.
+
 ## Next gates
 
 1. Complete the authenticated browser checklist in production: sign in,
@@ -85,6 +105,18 @@ Historical requirements/session logs are linked from the retirement record, not
 mixed into this current handoff.
 
 ## Repository maintenance
+
+- 2026-10-01: Repair published quote line breaks. A regression using the actual
+  rich-editor extension factory reproduced Thai quote text joined onto one line
+  with a visible backslash: TipTap saves hard breaks as a trailing backslash,
+  while the shared public/preview renderer previously recognized only two spaces.
+  Recognize unescaped backslash breaks inside quotes, preserving soft wraps,
+  paragraph breaks, formatting, escaped backslashes and final literal backslashes.
+  Existing saved articles need no database migration or content rewrite. Tests
+  cover editor save/reopen/public rendering and Markdown edge cases. All 263 CMS
+  tests, TypeScript and diff checks pass locally. Server/client bundling succeeds;
+  full local build remains blocked by `uv_interface_addresses` in Cloudflare
+  prerendering. Full CI is required before merge and deployment.
 
 - 2026-10-01: Add the link repair to the pending media fix. Reproduced typed
   Markdown links remaining raw text with the real ProseMirror input path;

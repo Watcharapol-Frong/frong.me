@@ -46,6 +46,29 @@ function typeText(editor: Editor, text: string) {
   }
 }
 
+test('a quote hard break keeps the editor line break when published and reopened', () => {
+  const editor = createEditor();
+  try {
+    editor.commands.setContent({
+      type: 'doc',
+      content: [{ type: 'blockquote', content: [{ type: 'paragraph', content: [
+        { type: 'text', text: 'กาแฟ' },
+        { type: 'hardBreak' },
+        { type: 'text', text: 'จำนวนคงเหลือ = 12' },
+      ] }] }],
+    });
+    const saved = editor.storage.markdown.getMarkdown();
+    assert.equal(renderMarkdown(saved).html, '<blockquote><p>กาแฟ<br />จำนวนคงเหลือ = 12</p></blockquote>', saved);
+    const reopened = createEditor(saved);
+    try {
+      // StarterKit may append an empty paragraph after a terminal quote.
+      assert.equal(reopened.state.doc.firstChild?.toJSON().type, 'blockquote');
+      assert.deepEqual(reopened.state.doc.firstChild?.toJSON(), editor.state.doc.firstChild?.toJSON());
+    }
+    finally { reopened.destroy(); }
+  } finally { editor.destroy(); }
+});
+
 test('typing Markdown link syntax converts the label to a real link and survives reopening', () => {
   const editor = createEditor();
   try {
