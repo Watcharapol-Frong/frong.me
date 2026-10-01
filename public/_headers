@@ -1,0 +1,3 @@
+# Static files bypass Astro middleware. Exclude staging and Worker aliases.
+https://:worker.:account.workers.dev/*
+  X-Robots-Tag: noindex, nofollow
