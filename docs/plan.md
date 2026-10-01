@@ -106,6 +106,29 @@ mixed into this current handoff.
 
 ## Repository maintenance
 
+- 2026-10-01: The owner authorized push and production deployment of the search
+  foundations. [PR #22](https://github.com/Watcharapol-Frong/frong.me/pull/22)
+  passed full [CI](https://github.com/Watcharapol-Frong/frong.me/actions/runs/36876337481)
+  and merged to staging as `cc4595e`. [Staging deploy](https://github.com/Watcharapol-Frong/frong.me/actions/runs/36876526666)
+  passed. Live curl checks returned 200/noindex for staging robots, article
+  sitemap, SSR home and static About; robots disallows crawling and the article
+  sitemap is empty. Browser home/article checks also passed. Node smoke timed
+  out on staging and the default urllib user-agent received 403; browser/curl
+  checks verified the same requirements instead. These client differences do
+  not establish verified crawler access or a specific WAF cause.
+  [PR #23](https://github.com/Watcharapol-Frong/frong.me/pull/23) merged to main as
+  `9b01acaa4a9833f0e825228751c19f4fcb18aa8e`; [main CI](https://github.com/Watcharapol-Frong/frong.me/actions/runs/36877286094)
+  passed. The owner-authorized production review gate was approved without
+  changing protection rules. [Production deployment](https://github.com/Watcharapol-Frong/frong.me/actions/runs/36877471021)
+  passed CMS tests, TypeScript, production binding checks, build and upload.
+  Worker version: `d128b688-5054-4034-b6de-516d45975307`.
+  `node scripts/build/verify-search.mjs` passed on production, confirming the
+  new robots exclusions, combined sitemap index, one article's SSR/JSON-LD/time
+  metadata under three search user-agent strings and anonymous Earth denial.
+  No migration, article rewrite, model invocation or training-policy change.
+  Cloudflare verified-crawler event review and Search Console indexing inspection
+  remain account-side checks; a successful user-agent test does not prove them.
+
 - 2026-10-01: Add safe public search foundations. Retain SSR article content,
   automatic metadata/JSON-LD and active-only sitemap reads. Replace static
   robots with a host-aware route and identical Earth exclusions for named
