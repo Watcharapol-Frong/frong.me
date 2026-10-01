@@ -60,6 +60,12 @@ Markdown links, including URL-as-label links, because the public renderer does
 not understand CommonMark `<URL>` autolinks. URL parentheses/quotes are encoded
 for the public renderer's supported link syntax.
 
+Quote rendering recognizes both TipTap's trailing-backslash hard breaks and
+Markdown's two-space hard breaks. Consecutive quote lines share one blockquote;
+blank quote lines separate paragraphs and soft line wraps remain spaces.
+The public reader and Zen preview use the same renderer, so existing saved
+quotes receive this behavior without rewriting article rows.
+
 Article discovery has two distinct taxonomy levels. `posts.primary_topic` is
 nullable for legacy content and restricted to `data`, `technology`, or
 `business`; these fixed values drive the homepage navigation. Free-form tags

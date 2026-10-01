@@ -220,9 +220,15 @@ export function renderMarkdown(markdown: string): RenderedMarkdown {
       const paragraphs = quoteParagraphs.map((paragraph) => {
         let content = '';
         paragraph.forEach((line, index) => {
-          const hardBreak = / {2,}$/.test(line);
-          content += escapeHtml(line.replace(/ {2,}$/, ''));
-          if (index < paragraph.length - 1) content += hardBreak ? '<br />' : ' ';
+          const hasNextLine = index < paragraph.length - 1;
+          // TipTap serializes hard breaks as a trailing backslash. An even
+          // number of backslashes is escaped text, not a line-break marker.
+          const trailingBackslashes = line.match(/\\+$/)?.[0].length ?? 0;
+          const backslashBreak = hasNextLine && trailingBackslashes % 2 === 1;
+          const hardBreak = / {2,}$/.test(line) || backslashBreak;
+          const text = backslashBreak ? line.slice(0, -1) : line.replace(/ {2,}$/, '');
+          content += escapeHtml(text);
+          if (hasNextLine) content += hardBreak ? '<br />' : ' ';
         });
         return `<p>${renderInline(content)}</p>`;
       });

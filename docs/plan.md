@@ -106,6 +106,18 @@ mixed into this current handoff.
 
 ## Repository maintenance
 
+- 2026-10-01: Repair published quote line breaks. A regression using the actual
+  rich-editor extension factory reproduced Thai quote text joined onto one line
+  with a visible backslash: TipTap saves hard breaks as a trailing backslash,
+  while the shared public/preview renderer previously recognized only two spaces.
+  Recognize unescaped backslash breaks inside quotes, preserving soft wraps,
+  paragraph breaks, formatting, escaped backslashes and final literal backslashes.
+  Existing saved articles need no database migration or content rewrite. Tests
+  cover editor save/reopen/public rendering and Markdown edge cases. All 263 CMS
+  tests, TypeScript and diff checks pass locally. Server/client bundling succeeds;
+  full local build remains blocked by `uv_interface_addresses` in Cloudflare
+  prerendering. Full CI is required before merge and deployment.
+
 - 2026-10-01: Add the link repair to the pending media fix. Reproduced typed
   Markdown links remaining raw text with the real ProseMirror input path;
   StarterKit's `markdownLinks` option was disabled. Enable its input/paste rules
