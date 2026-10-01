@@ -106,6 +106,9 @@ mixed into this current handoff.
 
 ## Repository maintenance
 
+- 2026-10-01: The owner explicitly approved production deployment of the Quote repair. PR #21 merged staging into main as `1288b418a10998285ba0fb70ae075c9c47cbfb52`. [Production deployment](https://github.com/Watcharapol-Frong/frong.me/actions/runs/36868443039) succeeded after CMS tests, TypeScript, production binding verification and full build. Live browser verification of `/articles/line-stock-checker` returned `<p>กาแฟ<br>จำนวนคงเหลือ = 12</p>` inside its blockquote, with two visible lines and no stray backslash. No article rewrite, migration or republish was performed.
+
+
 - 2026-10-01: Repair published quote line breaks. A regression using the actual
   rich-editor extension factory reproduced Thai quote text joined onto one line
   with a visible backslash: TipTap saves hard breaks as a trailing backslash,
