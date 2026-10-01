@@ -34,6 +34,17 @@ test('buildSeoMetadata centralizes canonical, social, and article structured dat
   assert.equal(article?.keywords, 'data, strategy');
 });
 
+test('article canonical matches the sitemap for trailing-slash request aliases', () => {
+  const seo = {
+    type: 'article' as const,
+    title: 'Data Story',
+    publishedAt: '2026-09-20T00:00:00.000Z',
+    modifiedAt: '2026-09-21T00:00:00.000Z',
+  };
+  assert.equal(buildSeoMetadata(seo, { ...options, pathname: '/articles/data-story/' }).canonicalUrl,
+    buildSeoMetadata(seo, options).canonicalUrl);
+});
+
 test('buildSeoMetadata gives ordinary pages safe defaults and supports noindex', () => {
   const metadata = buildSeoMetadata({ noIndex: true }, {
     ...options,

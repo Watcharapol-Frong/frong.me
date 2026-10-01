@@ -19,6 +19,7 @@ import {
 import { getPostTaxonomy, listPostSources } from "@/server/cms/repositories/taxonomy.ts";
 import { publicAssetUrl } from "@/lib/cms/markdown/asset-resolver.ts";
 import { renderMarkdown } from "@/lib/cms/markdown/render.ts";
+import { SITE_OWNER } from "@/lib/seo.ts";
 
 export const prerender = false;
 
@@ -117,7 +118,9 @@ const publishedAtIso = new Date(post.published_at ?? post.created_at).toISOStrin
         <div class="mb-8 fade-in-up fade-in-up-delay-1">
           <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
             <p class="text-sm text-muted-foreground">
-              {new Date(publishedAtIso).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
+              <a href="/about/" class="underline underline-offset-2">{SITE_OWNER}</a>
+              {" · "}
+              <time datetime={publishedAtIso}>{new Date(publishedAtIso).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</time>
               {tags.length > 0 && " · "}
               {tags.map((tag, i) => (
                 <>

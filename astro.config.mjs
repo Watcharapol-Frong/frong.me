@@ -23,6 +23,7 @@ export default defineConfig({
     // "https://frong.me/earth/".
     sitemap({
       filter: (page) => !page.includes('/earth'),
+      customSitemaps: ['https://frong.me/articles-sitemap.xml'],
     }),
   ],
 
