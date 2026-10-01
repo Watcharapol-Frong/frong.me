@@ -85,8 +85,14 @@ These read-only checks cover production robots, combined sitemap index,
 article HTML/metadata under three search user-agent strings, staging discovery
 and SSR/static noindex, plus anonymous Earth denial. They do not follow Access
 redirects, write content, invoke AI, verify source IPs or establish indexing.
-The production script currently fails at the missing named search-bot rule,
-as expected before deployment. Actual indexing needs Search Console inspection.
+Production verification passed after deployment of `9b01aca` on 2026-10-01.
+Staging browser/curl checks passed for robots exclusions, empty article sitemap,
+and SSR/static noindex. The Node script timed out on staging and default urllib
+requests received 403, so its full staging run is not claimed as passing.
+Production's Node check passed, including three article search user-agents and
+anonymous Earth denial. Actual verified crawler access and indexing still need
+Cloudflare event review and Search Console inspection. See the deployment links
+and Worker version in [the handoff](plan.md).
 
 ## Release and measurement
 
