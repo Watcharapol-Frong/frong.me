@@ -54,7 +54,8 @@ export function buildSeoMetadata(
   seo: PageSeo = {},
   options: BuildSeoOptions,
 ): SeoMetadata {
-  const canonicalUrl = new URL(options.pathname, options.siteUrl).toString();
+  const pathname = seo.type === 'article' ? options.pathname.replace(/\/$/, '') : options.pathname;
+  const canonicalUrl = new URL(pathname, options.siteUrl).toString();
   const language = seo.language ?? 'en';
   const description = seo.description?.trim() || DEFAULT_DESCRIPTION;
   const imageUrl = seo.image || options.defaultImageUrl;

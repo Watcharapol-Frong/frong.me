@@ -1,7 +1,7 @@
 # Article SEO: editor review and discovery
 
-Updated: 2026-09-23. Scope: Earth Editor review and article sitemaps. Public
-page design and homepage content are owned separately by the site maintainer.
+Updated: 2026-10-01. Scope: editor review, article discovery, metadata and safe
+public search access. Public design and homepage content are owned separately.
 
 ## Goal and limits
 
@@ -29,6 +29,64 @@ search queries and indexing after deployment.
    advertises this endpoint alongside Astro's static `sitemap-index.xml`.
    The static index does not enumerate D1 articles because they are served at
    request time.
+
+3. **Search boundaries.** Host-aware robots permits public content on `frong.me`
+   and excludes Earth for every named search bot. Other hosts disallow crawling,
+   advertise no sitemaps and return an empty article sitemap. SSR headers and
+   host-scoped static headers mark staging and Worker aliases as noindex.
+   Access remains the private-data boundary. Training policy is unchanged.
+4. **Article metadata.** Canonicals normalize trailing slashes to match sitemap
+   entries. Articles show the author/profile and machine-readable published
+   date. Open Graph includes publication/modification times and author URL;
+   existing title, excerpt, language and JSON-LD remain automatic.
+5. **One submission point.** The static sitemap index now includes the D1
+   article sitemap. The direct article sitemap remains advertised as well.
+
+## Live baseline and operational limits
+
+On 2026-10-01, direct HTTP checks returned 200 for production home, robots,
+static sitemap index, article sitemap and `/articles/line-stock-checker`.
+Browser, Googlebot, OAI-SearchBot, ChatGPT-User and Claude-SearchBot user-agent
+strings received the expected article heading. Anonymous Earth redirected to
+Cloudflare Access. Staging still emitted `index, follow` without an X-Robots-Tag
+before this change. These checks establish reachability from this test origin,
+not from verified crawler IP ranges. The search tool's direct-open attempts
+failed despite successful HTTP reads; that alone does not establish a WAF block.
+
+No Cloudflare security account or Search Console session is available in this
+workspace. After deployment, inspect Cloudflare Security events and the effective
+robots response, including managed additions. Verify crawler identities using
+Cloudflare verified-bot facilities or providers' published IP ranges, then
+adjust only the specific blocking/challenge rule for public GET/HEAD requests.
+Never disable WAF, DDoS protection, rate limits or Access globally. A spoofable
+user-agent is insufficient evidence for a security exception. Keep Earth
+excluded from every exception. Existing indexed staging URLs may need Search
+Console removal: disallow can prevent crawlers from seeing noindex headers.
+
+Search and training access are separate preferences. This change preserves
+training policy; an owner can later opt out of GPTBot or ClaudeBot separately
+from search. Google's AI Search uses normal crawl/index eligibility. No special
+schema or `llms.txt` is required for that eligibility or guarantees discovery.
+
+Primary references: [Google AI search](https://developers.google.com/search/docs/appearance/ai-features),
+[OpenAI crawlers and IP ranges](https://developers.openai.com/api/docs/bots),
+[Anthropic crawler roles](https://support.claude.com/en/articles/8896518-does-anthropic-crawl-data-from-the-web-and-how-can-site-owners-block-the-crawler),
+[Cloudflare static headers](https://developers.cloudflare.com/workers/static-assets/headers/),
+and [managed robots](https://developers.cloudflare.com/bots/additional-configurations/managed-robots-txt/).
+
+After an authorized deployment, run:
+
+```sh
+node scripts/build/verify-search.mjs
+node scripts/build/verify-search.mjs --origin https://frong-me-staging.frongbook.workers.dev
+```
+
+These read-only checks cover production robots, combined sitemap index,
+article HTML/metadata under three search user-agent strings, staging discovery
+and SSR/static noindex, plus anonymous Earth denial. They do not follow Access
+redirects, write content, invoke AI, verify source IPs or establish indexing.
+The production script currently fails at the missing named search-bot rule,
+as expected before deployment. Actual indexing needs Search Console inspection.
 
 ## Release and measurement
 

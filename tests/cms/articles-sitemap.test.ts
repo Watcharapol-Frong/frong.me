@@ -34,7 +34,7 @@ test('article sitemap follows public slug routing and never exposes drafts', asy
     await stmt.run();
   }
 
-  const response = await GET({ locals: { env: { DB: binding } } } as never);
+  const response = await GET({ url: new URL('https://frong.me/articles-sitemap.xml'), locals: { env: { DB: binding } } } as never);
   const xml = await response.text();
   assert.equal(response.status, 200);
   assert.match(response.headers.get('content-type') ?? '', /^application\/xml/);
@@ -43,4 +43,13 @@ test('article sitemap follows public slug routing and never exposes drafts', asy
   assert.match(xml, new RegExp(`<loc>https://frong\\.me/articles/shared-story</loc><lastmod>${new Date(now).toISOString()}</lastmod>`));
   assert.doesNotMatch(xml, new RegExp(new Date(now + 86_400_000).toISOString()));
   assert.doesNotMatch(xml, /private-draft|old-archived/);
+});
+
+test('staging sitemap does not read or advertise its database', async () => {
+  const response = await GET({
+    url: new URL('https://frong-me-staging.frongbook.workers.dev/articles-sitemap.xml'),
+    locals: {},
+  } as never);
+  assert.equal(response.status, 200);
+  assert.doesNotMatch(await response.text(), /<url>|<loc>|<lastmod>/);
 });

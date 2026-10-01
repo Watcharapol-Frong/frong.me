@@ -106,6 +106,24 @@ mixed into this current handoff.
 
 ## Repository maintenance
 
+- 2026-10-01: Add safe public search foundations. Retain SSR article content,
+  automatic metadata/JSON-LD and active-only sitemap reads. Replace static
+  robots with a host-aware route and identical Earth exclusions for named
+  search crawlers. Add post-Access SSR noindex headers and Worker-host static
+  header rules; noncanonical article sitemaps no longer advertise staging rows.
+  Include the D1 sitemap in the static index, normalize article canonicals and
+  expose author/publication metadata. No migration, article rewrite, model
+  inference or training-policy change. All 271 CMS tests pass through
+  `node --import tsx --test tests/cms/*.test.ts`; TypeScript passes. The ordinary
+  npm wrapper hits IPC EPERM; server/client build bundles pass before Cloudflare
+  prerendering fails at `uv_interface_addresses`. Require green GitHub CI before
+  merge. Deployment, Cloudflare verified-crawler/security-event review and
+  Search Console inspection remain outstanding. See the updated [SEO plan](seo-plan.md)
+  and the read-only `scripts/build/verify-search.mjs` post-deploy check.
+
+- 2026-10-01: The owner explicitly approved production deployment of the Quote repair. PR #21 merged staging into main as `1288b418a10998285ba0fb70ae075c9c47cbfb52`. [Production deployment](https://github.com/Watcharapol-Frong/frong.me/actions/runs/36868443039) succeeded after CMS tests, TypeScript, production binding verification and full build. Live browser verification of `/articles/line-stock-checker` returned `<p>กาแฟ<br>จำนวนคงเหลือ = 12</p>` inside its blockquote, with two visible lines and no stray backslash. No article rewrite, migration or republish was performed.
+
+
 - 2026-10-01: Repair published quote line breaks. A regression using the actual
   rich-editor extension factory reproduced Thai quote text joined onto one line
   with a visible backslash: TipTap saves hard breaks as a trailing backslash,

@@ -43,11 +43,33 @@ the sitemap and page performance.
 
 Astro emits `sitemap-index.xml` for statically generated pages. Articles use
 D1 at request time and are listed instead by `/articles-sitemap.xml`. Both
-sitemaps are advertised in `public/robots.txt`; the dynamic one includes only
+sitemaps are advertised by `src/pages/robots.txt.ts`; the dynamic one includes only
 active article slugs and is edge-cached for up to 15 minutes. The Earth Editor
 review supports writing, while Google Search Console is the source for actual
 indexing status and search queries. The [article SEO plan](../seo-plan.md)
 records verification after deployment.
+
+## Search access boundaries
+
+`src/lib/search-policy.ts` limits discovery to `frong.me`. The shared robots
+user-agent group allows public pages for general, Google, Bing, OpenAI search
+and Claude search crawlers with identical Earth exclusions. Training preferences
+are unchanged. Other hosts disallow crawling, advertise no sitemaps and return
+an empty article sitemap instead of presenting staging rows as production URLs.
+The static sitemap index includes the D1 article sitemap.
+
+SSR middleware applies `X-Robots-Tag: noindex, nofollow` after the unchanged
+Access guard to Earth responses and noncanonical hosts. `public/_headers`
+protects static assets on `*.*.workers.dev`, which bypass Astro middleware.
+New custom staging domains require matching static header rules. Robots/noindex
+are search instructions, not authentication; never bypass Access for a bot.
+Disallow may prevent crawlers seeing noindex, so previously indexed staging
+URLs may also require Search Console removal. Article canonical URLs normalize
+trailing slashes to match sitemap entries. Public articles show the real author
+and published date alongside JSON-LD; Open Graph includes publication and
+modification dates and the author's profile URL.
+
+See [the SEO plan](../seo-plan.md) for read-only verification and provider setup.
 
 ## Configuration
 
