@@ -57,7 +57,7 @@ test('historical exports retain their original bytes after relocation', () => {
 });
 
 test('operational Access verification is read-only and targets existing routes', () => {
-  const script = read('scripts/build/verify-access-staging.mjs');
+  const script = read('scripts/build/verify-access.mjs');
   assert.doesNotMatch(script, /\/earth\/api\/releases|RELEASE_CALLBACK_SECRET|createCallbackProbe/);
   assert.doesNotMatch(script, /method:\s*['"](?:POST|PUT|PATCH|DELETE)['"]/);
   assert.match(script, /\/earth\/api\/posts/);

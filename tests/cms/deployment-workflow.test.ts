@@ -24,7 +24,7 @@ test('production keeps binding safeguards and never migrates or seeds automatica
   assert.match(deployment, /wrangler deploy --env production/);
   assert.match(deployment, /verify-search\.mjs/);
   assert.match(deployment, /cancel-in-progress: false/);
-  assert.doesNotMatch(workflow, /migrations apply|db\/seeds|--env staging/);
+  assert.doesNotMatch(workflow, /migrations apply|db\/seeds|--env local/);
 });
 
 test('local bindings do not reference retired or production storage', () => {
@@ -38,6 +38,17 @@ test('local bindings do not reference retired or production storage', () => {
   assert.equal(config.env.production.d1_databases[0].database_id, 'e8442532-a929-40d5-8ff4-c05510fad616');
   assert.equal(config.env.production.r2_buckets[0].bucket_name, 'portfolio-media-prod');
   const scripts = JSON.parse(readFileSync('package.json', 'utf8')).scripts;
-  assert.equal(scripts['deploy:staging'], undefined);
-  assert.equal(scripts['deploy:staging:dry'], undefined);
+  assert.equal(scripts['deploy:local'], undefined);
+  assert.equal(scripts['deploy:local:dry'], undefined);
+});
+
+test('maintained commands and fixture paths use their current names', () => {
+  const scripts = JSON.parse(readFileSync('package.json', 'utf8')).scripts;
+  assert.equal(scripts['verify:access'], 'node scripts/build/verify-access.mjs');
+  assert.equal(scripts['verify:access:dry'], 'node scripts/build/verify-access.mjs --dry-run');
+  assert.equal(scripts['verify:r2:dry'], 'node scripts/db/verify-r2.mjs --dry-run');
+  for (const file of ['scripts/build/verify-access.mjs', 'scripts/db/verify-r2.mjs',
+    'scripts/db/verify-database.mjs', 'db/seeds/local.sql']) {
+    assert.ok(readFileSync(file, 'utf8').length > 0, `${file} must exist`);
+  }
 });

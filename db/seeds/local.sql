@@ -1,4 +1,4 @@
--- Deterministic and idempotent staging seed data for frong.me CMS.
+-- Deterministic and idempotent local seed data for frong.me CMS.
 -- Timestamps use epoch milliseconds.
 -- Foreign keys are enforced and all statements use INSERT OR IGNORE / conflict guards
 -- so this script can be executed repeatedly without errors or violating immutability triggers.
@@ -357,8 +357,8 @@ INSERT OR IGNORE INTO release_attempts (
   'att_rel_live001_01',
   'rel_20260910_live001',
   1,
-  'run_staging_123456',
-  'cf_dep_staging_789012',
+  'run_local_123456',
+  'cf_dep_local_789012',
   'confirmed',
   NULL,
   1789030800000,

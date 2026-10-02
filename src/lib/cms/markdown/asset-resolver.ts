@@ -14,7 +14,7 @@
 import type { PostRevisionAssetRow } from '../contracts.ts';
 import { CmsValidationError } from '../validation.ts';
 
-/** Canonical public asset base URL for the staging environment. */
+/** Canonical public asset base URL for public media. */
 export const PUBLIC_ASSET_BASE_URL = 'https://images.frong.me';
 
 const ASSET_SCHEME_PATTERN = /^asset:\/\/([A-Za-z0-9][A-Za-z0-9_-]{7,95})$/;

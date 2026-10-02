@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Zero Trust Verification Script for Cloudflare Staging.
+ * Zero Trust Verification Script for Cloudflare Access.
  *
  * Verifies Cloudflare Access protection and routing behavior:
  * Case 1 (Unauthenticated Admin/API):
@@ -22,7 +22,6 @@ import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const DEFAULT_STAGING_HOST = ''; // Live checks require an explicit host.
 
 export class AccessVerificationError extends Error {
   /**
@@ -67,7 +66,7 @@ export function createMockAccessServer(options = {}) {
     expectedClientId = 'mock-dry-run-client-id',
     expectedClientSecret = 'mock-dry-run-client-secret',
     expectedJwt = 'mock-dry-run-jwt-assertion',
-    loginRedirectUrl = 'https://staging.cloudflareaccess.com/cdn-cgi/access/login/mock-staging-app',
+    loginRedirectUrl = 'https://local.cloudflareaccess.com/cdn-cgi/access/login/mock-local-app',
   } = options;
 
   return http.createServer(async (req, res) => {
@@ -146,10 +145,10 @@ export function createMockAccessServer(options = {}) {
 }
 
 /**
- * Executes Zero Trust staging access verification against the target host.
+ * Executes Zero Trust access verification against the target host.
  *
  * @param {object} [options]
- * @param {string} [options.host] Target staging host (required for live checks, or set CMS_STAGING_HOST)
+ * @param {string} [options.host] Target host (required for live checks, or set CMS_VERIFY_HOST)
  * @param {boolean} [options.dryRun] If true, run locally against mock server stubs
  * @param {string} [options.clientId] Cloudflare Access Service Token Client ID
  * @param {string} [options.clientSecret] Cloudflare Access Service Token Client Secret
@@ -160,7 +159,7 @@ export function createMockAccessServer(options = {}) {
  * @param {(msg: string) => void} [options.log] Logger function
  * @returns {Promise<{ success: boolean, host: string, dryRun: boolean, results: Record<string, any> }>}
  */
-export async function verifyAccessStaging(options = {}) {
+export async function verifyAccess(options = {}) {
   const {
     dryRun = false,
     publicPath = '/',
@@ -171,11 +170,11 @@ export async function verifyAccessStaging(options = {}) {
 
   let serverInstance = null;
   // Dry-run ignores configured live hosts; explicit hosts are used by local tests.
-  let targetHost = options.host || (dryRun ? '' : env.CMS_STAGING_HOST || env.STAGING_HOST || env.CMS_STAGING_URL || '');
+  let targetHost = options.host || (dryRun ? '' : env.CMS_VERIFY_HOST || '');
 
-  let clientId = options.clientId || env.CF_ACCESS_CLIENT_ID || env.STAGING_CF_ACCESS_CLIENT_ID || '';
-  let clientSecret = options.clientSecret || env.CF_ACCESS_CLIENT_SECRET || env.STAGING_CF_ACCESS_CLIENT_SECRET || '';
-  let jwtAssertion = options.jwtAssertion || env.CF_ACCESS_JWT_ASSERTION || env.STAGING_CF_ACCESS_JWT_ASSERTION || '';
+  let clientId = options.clientId || env.CF_ACCESS_CLIENT_ID || '';
+  let clientSecret = options.clientSecret || env.CF_ACCESS_CLIENT_SECRET || '';
+  let jwtAssertion = options.jwtAssertion || env.CF_ACCESS_JWT_ASSERTION || '';
   if (dryRun) {
     // If dry-run without a custom host, spin up the local mock server
     if (!targetHost) {
@@ -213,10 +212,10 @@ export async function verifyAccessStaging(options = {}) {
   }
 
   if (!targetHost) {
-    throw new AccessVerificationError('Live Access verification requires an explicit --host; the staging Worker is retired.', 'missing-host');
+    throw new AccessVerificationError('Live Access verification requires an explicit --host; no default remote host is configured.', 'missing-host');
   }
   const baseHost = normalizeHost(targetHost);
-  log(`[verify-access-staging] Target Host: ${baseHost} (${dryRun ? 'mode: DRY-RUN / mock stub' : 'mode: LIVE staging'})`);
+  log(`[verify-access] Target Host: ${baseHost} (${dryRun ? 'mode: DRY-RUN / mock stub' : 'mode: LIVE'})`);
 
   const results = {
     case1: {},
@@ -228,11 +227,11 @@ export async function verifyAccessStaging(options = {}) {
     // =========================================================================
     // CASE 1: Unauthenticated Admin / API Access
     // =========================================================================
-    log('\n[verify-access-staging] === Case 1: Unauthenticated Admin/API Access ===');
+    log('\n[verify-access] === Case 1: Unauthenticated Admin/API Access ===');
 
     // 1.1 Query GET /earth without auth headers
     const earthUrl = `${baseHost}/earth`;
-    log(`[verify-access-staging] Step 1.1: GET /earth (unauthenticated)...`);
+    log(`[verify-access] Step 1.1: GET /earth (unauthenticated)...`);
     const earthRes = await fetch(earthUrl, {
       method: 'GET',
       redirect: 'manual',
@@ -252,12 +251,12 @@ export async function verifyAccessStaging(options = {}) {
     const earthDetail = earthRes.status === 302
       ? `HTTP 302 Redirect to ${redirectLocation || 'Cloudflare Access login'}`
       : `HTTP ${earthRes.status}`;
-    log(`[verify-access-staging] Step 1.1: PASSED (${earthDetail})`);
+    log(`[verify-access] Step 1.1: PASSED (${earthDetail})`);
     results.case1.earth = { status: earthRes.status, location: redirectLocation, passed: true };
 
     // 1.2 Query GET /earth/api/posts without auth headers
     const apiPostsUrl = `${baseHost}/earth/api/posts`;
-    log(`[verify-access-staging] Step 1.2: GET /earth/api/posts (unauthenticated)...`);
+    log(`[verify-access] Step 1.2: GET /earth/api/posts (unauthenticated)...`);
     const apiRes = await fetch(apiPostsUrl, {
       method: 'GET',
       redirect: 'manual',
@@ -272,13 +271,13 @@ export async function verifyAccessStaging(options = {}) {
         apiRes.status
       );
     }
-    log(`[verify-access-staging] Step 1.2: PASSED (HTTP ${apiRes.status})`);
+    log(`[verify-access] Step 1.2: PASSED (HTTP ${apiRes.status})`);
     results.case1.api = { status: apiRes.status, passed: true };
 
     // =========================================================================
     // CASE 2: Authenticated via Access Service Token / Assertion
     // =========================================================================
-    log('\n[verify-access-staging] === Case 2: Authenticated via Access Service Token / Assertion ===');
+    log('\n[verify-access] === Case 2: Authenticated via Access Service Token / Assertion ===');
 
     const authHeaders = {};
     if (clientId && clientSecret) {
@@ -290,7 +289,7 @@ export async function verifyAccessStaging(options = {}) {
     }
 
     // 2.1 Query GET /earth with auth headers
-    log(`[verify-access-staging] Step 2.1: GET /earth (authenticated)...`);
+    log(`[verify-access] Step 2.1: GET /earth (authenticated)...`);
     const authEarthRes = await fetch(earthUrl, {
       method: 'GET',
       headers: authHeaders,
@@ -305,11 +304,11 @@ export async function verifyAccessStaging(options = {}) {
         authEarthRes.status
       );
     }
-    log(`[verify-access-staging] Step 2.1: PASSED (HTTP 200 OK)`);
+    log(`[verify-access] Step 2.1: PASSED (HTTP 200 OK)`);
     results.case2.earth = { status: authEarthRes.status, passed: true };
 
     // 2.2 Query GET /earth/api/posts with auth headers
-    log(`[verify-access-staging] Step 2.2: GET /earth/api/posts (authenticated)...`);
+    log(`[verify-access] Step 2.2: GET /earth/api/posts (authenticated)...`);
     const authApiRes = await fetch(apiPostsUrl, {
       method: 'GET',
       headers: authHeaders,
@@ -324,17 +323,17 @@ export async function verifyAccessStaging(options = {}) {
         authApiRes.status
       );
     }
-    log(`[verify-access-staging] Step 2.2: PASSED (HTTP 200 OK)`);
+    log(`[verify-access] Step 2.2: PASSED (HTTP 200 OK)`);
     results.case2.api = { status: authApiRes.status, passed: true };
 
     // =========================================================================
     // CASE 3: Public Route Bypass
     // =========================================================================
-    log('\n[verify-access-staging] === Case 3: Public Route Bypass ===');
+    log('\n[verify-access] === Case 3: Public Route Bypass ===');
 
     let testedPublicPath = publicPath;
     let publicUrl = `${baseHost}${testedPublicPath.startsWith('/') ? testedPublicPath : `/${testedPublicPath}`}`;
-    log(`[verify-access-staging] Step 3.1: GET ${testedPublicPath} (public route without auth)...`);
+    log(`[verify-access] Step 3.1: GET ${testedPublicPath} (public route without auth)...`);
 
     let pubRes = await fetch(publicUrl, {
       method: 'GET',
@@ -344,7 +343,7 @@ export async function verifyAccessStaging(options = {}) {
 
     // If specific article returns 404 in live environment (e.g. unseeded), attempt fallback to public root /
     if (pubRes.status === 404 && testedPublicPath !== '/') {
-      log(`[verify-access-staging] Notice: ${testedPublicPath} returned 404 Not Found. Attempting fallback to public root /`);
+      log(`[verify-access] Notice: ${testedPublicPath} returned 404 Not Found. Attempting fallback to public root /`);
       testedPublicPath = '/';
       publicUrl = `${baseHost}/`;
       pubRes = await fetch(publicUrl, {
@@ -370,10 +369,10 @@ export async function verifyAccessStaging(options = {}) {
       );
     }
 
-    log(`[verify-access-staging] Step 3.1: PASSED (HTTP 200 OK for ${testedPublicPath})`);
+    log(`[verify-access] Step 3.1: PASSED (HTTP 200 OK for ${testedPublicPath})`);
     results.case3.publicRoute = { path: testedPublicPath, status: pubRes.status, passed: true };
 
-    log('\n[verify-access-staging] All Zero Trust staging access verifications PASSED successfully.');
+    log('\n[verify-access] All Zero Trust access verifications PASSED successfully.');
     return {
       success: true,
       host: baseHost,
@@ -418,12 +417,12 @@ export function parseCliArgs(args) {
     } else if (arg === '--public-path' && args[i + 1]) {
       options.publicPath = args[++i];
     } else if (arg === '--help' || arg === '-h') {
-      console.log(`Usage: node scripts/build/verify-access-staging.mjs [options]
+      console.log(`Usage: node scripts/build/verify-access.mjs [options]
 
-Zero Trust Verification Script for Cloudflare Staging.
+Zero Trust Verification Script for Cloudflare Access.
 
 Options:
-  --host <url>           Target host (required in live mode; CMS_STAGING_HOST may supply it)
+  --host <url>           Target host (required in live mode; CMS_VERIFY_HOST may supply it)
   --dry-run              Verify assertions locally using mock stub server
   --client-id <id>       Access Service Token Client ID (or CF_ACCESS_CLIENT_ID env var)
   --client-secret <sec>  Access Service Token Client Secret (or CF_ACCESS_CLIENT_SECRET env var)
@@ -445,13 +444,13 @@ if (isDirectRun) {
   (async () => {
     try {
       const options = parseCliArgs(process.argv.slice(2));
-      await verifyAccessStaging(options);
+      await verifyAccess(options);
       process.exit(0);
     } catch (err) {
       if (err instanceof AccessVerificationError) {
-        console.error(`\n[verify-access-staging] FAILED [${err.caseName}]: ${err.message}`);
+        console.error(`\n[verify-access] FAILED [${err.caseName}]: ${err.message}`);
       } else {
-        console.error(`\n[verify-access-staging] UNEXPECTED ERROR:`, err.message || err);
+        console.error(`\n[verify-access] UNEXPECTED ERROR:`, err.message || err);
       }
       process.exit(1);
     }

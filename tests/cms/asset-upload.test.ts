@@ -94,20 +94,20 @@ test('retry completes an interrupted private registration without replacing its 
 });
 
 test('media delivery separates environments and rejects unknown or unsafe keys', async () => {
-  const staging = fixture('https://staging.example.test');
+  const local = fixture('https://local.example.test');
   const production = fixture('https://production.example.test');
   try {
-    const upload = await staging.upload();
+    const upload = await local.upload();
     const asset = await upload.json();
-    assert.equal(new URL(asset.url).origin, 'https://staging.example.test');
-    assert.equal((await staging.read(asset.url)).status, 200);
+    assert.equal(new URL(asset.url).origin, 'https://local.example.test');
+    assert.equal((await local.read(asset.url)).status, 200);
     assert.equal((await production.read(asset.url)).status, 404);
     for (const suffix of ['invalid/photo.png', `${'a'.repeat(64)}/photo.png`, `${'a'.repeat(64)}/nested/photo.png`]) {
-      const response = await staging.read(`https://staging.example.test/media/assets/${suffix}`);
+      const response = await local.read(`https://local.example.test/media/assets/${suffix}`);
       assert.equal(response.status, 404);
       assert.equal(response.headers.get('cache-control'), 'no-store');
     }
-  } finally { staging.binding.close(); production.binding.close(); }
+  } finally { local.binding.close(); production.binding.close(); }
 });
 
 test('failed storage writes do not register a public asset', async () => {

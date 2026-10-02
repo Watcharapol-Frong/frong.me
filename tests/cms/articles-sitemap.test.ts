@@ -45,9 +45,9 @@ test('article sitemap follows public slug routing and never exposes drafts', asy
   assert.doesNotMatch(xml, /private-draft|old-archived/);
 });
 
-test('staging sitemap does not read or advertise its database', async () => {
+test('local sitemap does not read or advertise its database', async () => {
   const response = await GET({
-    url: new URL('https://frong-me-staging.frongbook.workers.dev/articles-sitemap.xml'),
+    url: new URL('https://frong-me-local.frongbook.workers.dev/articles-sitemap.xml'),
     locals: {},
   } as never);
   assert.equal(response.status, 200);

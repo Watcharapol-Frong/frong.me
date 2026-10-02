@@ -11,10 +11,10 @@
     "preview": "astro preview",
     "astro": "astro",
     "test:cms": "tsx --test \"tests/cms/*.test.ts\"",
-    "verify:r2:dry": "node scripts/db/verify-r2-staging.mjs --dry-run",
+    "verify:r2:dry": "node scripts/db/verify-r2.mjs --dry-run",
     "verify:bindings": "node scripts/build/verify-bindings.mjs",
-    "verify:access": "node scripts/build/verify-access-staging.mjs",
-    "verify:access:dry": "node scripts/build/verify-access-staging.mjs --dry-run"
+    "verify:access": "node scripts/build/verify-access.mjs",
+    "verify:access:dry": "node scripts/build/verify-access.mjs --dry-run"
   },
   "dependencies": {
     "@astrojs/cloudflare": "14.3.1",

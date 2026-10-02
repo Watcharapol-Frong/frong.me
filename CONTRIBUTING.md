@@ -17,7 +17,7 @@ and author UI in `src/components/earth/`. Import shared AI types directly from
 ```sh
 npm ci
 npx wrangler d1 migrations apply DB --local
-node scripts/db/verify-staging.mjs --wrangler --local
+node scripts/db/verify-database.mjs --wrangler --local
 npm run dev -- --background
 ```
 
@@ -62,7 +62,7 @@ policies, backups or a browser workflow are configured.
 ## Operational safety
 
 - A push or merge to `main` automatically deploys production after checks.
-  Pull requests run verification only; the staging Worker and D1 are retired. Follow the
+  Pull requests run verification only; production is the only deployed environment. Follow the
   [environment guide](docs/cms/environment-map.md).
 - Do not deploy, run remote migrations/seeds, delete services or rotate secrets
   as part of routine refactoring.

@@ -9,11 +9,11 @@ import {
 } from '../../scripts/build/verify-bindings.mjs';
 
 const VALID_ENV = {
-  CLOUDFLARE_ACCOUNT_ID: 'account-staging-001',
-  CF_D1_DATABASE_ID: '71cba742-a269-475d-84b0-8df1223a368a',
-  CF_R2_BUCKET_NAME: 'portfolio-media-staging',
-  CF_ACCESS_AUD: 'test-staging-access-aud',
-  CF_ACCESS_TEAM_DOMAIN: 'https://staging.cloudflareaccess.com',
+  CLOUDFLARE_ACCOUNT_ID: 'account-local-001',
+  CF_D1_DATABASE_ID: '11111111-1111-1111-1111-111111111111',
+  CF_R2_BUCKET_NAME: 'portfolio-media-local',
+  CF_ACCESS_AUD: 'test-local-access-aud',
+  CF_ACCESS_TEAM_DOMAIN: 'https://local.cloudflareaccess.com',
   ENABLE_ACCESS_DEV_BYPASS: 'false',
 };
 
@@ -32,30 +32,30 @@ const BASE_WRANGLER_JSONC = `{
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "portfolio-db-staging",
-      "database_id": "71cba742-a269-475d-84b0-8df1223a368a",
+      "database_name": "portfolio-db-local",
+      "database_id": "11111111-1111-1111-1111-111111111111",
     }
   ],
   "r2_buckets": [
     {
       "binding": "MEDIA_BUCKET",
-      "bucket_name": "portfolio-media-staging",
+      "bucket_name": "portfolio-media-local",
     }
   ],
   "env": {
-    "staging": {
-      "name": "frong-me-staging",
+    "local": {
+      "name": "frong-me-local",
       "d1_databases": [
         {
           "binding": "DB",
-          "database_name": "portfolio-db-staging",
-          "database_id": "71cba742-a269-475d-84b0-8df1223a368a",
+          "database_name": "portfolio-db-local",
+          "database_id": "11111111-1111-1111-1111-111111111111",
         }
       ],
       "r2_buckets": [
         {
           "binding": "MEDIA_BUCKET",
-          "bucket_name": "portfolio-media-staging",
+          "bucket_name": "portfolio-media-local",
         }
       ]
     },
@@ -84,7 +84,7 @@ const fixturePath = path.join(fixtureDir, 'wrangler.jsonc');
 fs.writeFileSync(fixturePath, BASE_WRANGLER_JSONC);
 after(() => fs.rmSync(fixtureDir, { recursive: true, force: true }));
 function verifyBindings(options: Parameters<typeof verifyBindingsImpl>[0]) {
-  return verifyBindingsImpl({ configPath: fixturePath, ...options });
+  return verifyBindingsImpl({ configPath: fixturePath, envName: 'local', ...options });
 }
 
 describe('scripts/build/verify-bindings.mjs', () => {
@@ -94,7 +94,7 @@ describe('scripts/build/verify-bindings.mjs', () => {
     try {
       const parsed = parseWranglerJsonc(tmpFile);
       assert.equal(parsed.name, 'frong-me');
-      assert.equal(parsed.env.staging.d1_databases[0].database_id, '71cba742-a269-475d-84b0-8df1223a368a');
+      assert.equal(parsed.env.local.d1_databases[0].database_id, '11111111-1111-1111-1111-111111111111');
     } finally {
       fs.unlinkSync(tmpFile);
     }
@@ -230,8 +230,8 @@ describe('scripts/build/verify-bindings.mjs', () => {
   it('verifies configured Access Application AUD if present in wrangler.jsonc', () => {
     const tmpFile = path.resolve('/tmp', `test-aud-${Date.now()}.jsonc`);
     const withAud = BASE_WRANGLER_JSONC.replace(
-      '"name": "frong-me-staging",',
-      '"name": "frong-me-staging",\n      "vars": { "CF_ACCESS_AUD": "expected-aud-123" },'
+      '"name": "frong-me",',
+      '"name": "frong-me",\n      "vars": { "CF_ACCESS_AUD": "expected-aud-123" },'
     );
     fs.writeFileSync(tmpFile, withAud, 'utf8');
 
@@ -266,11 +266,11 @@ describe('scripts/build/verify-bindings.mjs', () => {
     }
   });
 
-  it('fails if any staging binding points at env.production', () => {
+  it('fails if any local binding points at env.production', () => {
     const tmpFile = path.resolve('/tmp', `test-prod-leak-${Date.now()}.jsonc`);
-    // Staging D1 database_id points to production database_id
+    // Local D1 database_id points to production database_id
     const withProdLeak = BASE_WRANGLER_JSONC.replaceAll(
-      '"database_id": "71cba742-a269-475d-84b0-8df1223a368a"',
+      '"database_id": "11111111-1111-1111-1111-111111111111"',
       '"database_id": "prod-d1-id-12345"'
     );
     fs.writeFileSync(tmpFile, withProdLeak, 'utf8');
@@ -295,11 +295,11 @@ describe('scripts/build/verify-bindings.mjs', () => {
     }
   });
 
-  it('rejects a production configuration that reuses staging storage', () => {
+  it('rejects a production configuration that reuses local storage', () => {
     const tmpFile = path.resolve('/tmp', `test-production-leak-${Date.now()}.jsonc`);
     const withLeak = BASE_WRANGLER_JSONC.replace(
       '"database_id": "prod-d1-id-12345"',
-      '"database_id": "71cba742-a269-475d-84b0-8df1223a368a"',
+      '"database_id": "11111111-1111-1111-1111-111111111111"',
     );
     fs.writeFileSync(tmpFile, withLeak, 'utf8');
 
@@ -322,10 +322,10 @@ describe('scripts/build/verify-bindings.mjs', () => {
     }
   });
 
-  it('fails if staging binding names reference production', () => {
+  it('fails if local binding names reference production', () => {
     const tmpFile = path.resolve('/tmp', `test-prod-name-${Date.now()}.jsonc`);
     const withProdName = BASE_WRANGLER_JSONC.replaceAll(
-      '"database_name": "portfolio-db-staging"',
+      '"database_name": "portfolio-db-local"',
       '"database_name": "portfolio-db-production"'
     );
     fs.writeFileSync(tmpFile, withProdName, 'utf8');
@@ -347,27 +347,23 @@ describe('scripts/build/verify-bindings.mjs', () => {
     }
   });
 
-  it('falls back to legacy account/D1/R2 names when SSOT names are absent', () => {
+  it('accepts the read-only account alias while storage uses canonical names', () => {
     const logs: string[] = [];
     const result = verifyBindings({
       configPath: fixturePath,
       env: {
         ...VALID_ENV,
         CLOUDFLARE_ACCOUNT_ID: undefined,
-        CF_D1_DATABASE_ID: undefined,
-        CF_R2_BUCKET_NAME: undefined,
-        CF_ACCOUNT_ID: 'account-staging-001',
-        STAGING_D1_DATABASE_ID: '71cba742-a269-475d-84b0-8df1223a368a',
-        STAGING_R2_BUCKET_NAME: 'portfolio-media-staging',
+        CF_ACCOUNT_ID: 'account-local-001',
       },
       dryRun: true,
       log: (msg) => logs.push(msg),
     });
 
     assert.equal(result.success, true);
-    assert.equal(result.accountId, 'account-staging-001');
-    assert.equal(result.d1DatabaseId, '71cba742-a269-475d-84b0-8df1223a368a');
-    assert.equal(result.r2BucketName, 'portfolio-media-staging');
+    assert.equal(result.accountId, 'account-local-001');
+    assert.equal(result.d1DatabaseId, '11111111-1111-1111-1111-111111111111');
+    assert.equal(result.r2BucketName, 'portfolio-media-local');
   });
 
   it('fails if required environment variables are missing', () => {
@@ -428,8 +424,7 @@ describe('scripts/build/verify-bindings.mjs', () => {
         env: {
           ...VALID_ENV,
           CF_D1_DATABASE_ID: '   ',
-          STAGING_D1_DATABASE_ID: '71cba742-a269-475d-84b0-8df1223a368a',
-        },
+          },
       }),
       (err: any) =>
         err instanceof BindingVerificationError

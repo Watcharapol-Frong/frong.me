@@ -10,7 +10,7 @@ Repository retirement and remote destruction are different operations.
 | Standalone AI Worker | Remove independent source, manifest and deployment config | Inspect outside consumers/traffic; retire remote Worker only with approval |
 | Weekly Sanity export | Remove scheduled workflow | Confirm final export and retention before remote data deletion |
 | Three historical exports | Move unchanged to `archive/sanity/` | Owner selects durable retention and verifies recovery |
-| Release callback probes | Remove obsolete mutating probes and callback-only tests | No active caller or callback secret required; remove the stale staging secret only with explicit approval |
+| Release callback probes | Remove obsolete mutating probes and callback-only tests | No active caller or callback secret required; the former test Environment and its stored secrets were removed by the owner |
 | Historical release tables | Preserve migrations, rows and integrity checks | Inventory rows and review a forward migration before any drop |
 | Superseded plans/spikes/session docs | Remove from current docs; retain in Git | Historical evidence only |
 | Embedded Earth AI | Keep routes, settings, provider calls and tests | Verify real provider access separately |
@@ -23,7 +23,7 @@ outside clients still use remote services.
 
 No deployment, remote deletion, credential revocation or database drop was part
 of the cleanup change itself. Commit `039d7ba` was subsequently deployed to
-staging and production on 2026-09-22; no remote migration was pending and no
+the then-active environments on 2026-09-22; no remote migration was pending and no
 legacy service or credential was removed. `archive/` contains data, not another supported system.
 Do not import it, extract it into fixtures, or include it in deployment assets.
 [Checksums](../archive/sanity/README.md) verify relocation integrity, not backup
@@ -42,7 +42,7 @@ An authorized operator must:
    Disable/delete only those targets; record recovery limits.
 5. Establish tested D1/R2 backup and restore procedures.
 6. For release-table retirement, inventory real rows/relationships and review a
-   new migration; test locally/staging before separately approved production work.
+   new migration; test locally before separately approved production work.
 
 Do not mark remote retirement complete just because source was removed.
 
