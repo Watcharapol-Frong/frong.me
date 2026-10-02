@@ -75,77 +75,83 @@ deployment bindings. Dry-run checks are mocks, not live-account verification.
 
 ## GitHub deployment configuration
 
-The long-lived branches are `staging` (test Worker) and `main` (production
-Worker). Changes merge to `staging` for testing; only accepted code is merged
-into `main`. CI verifies pull requests and pushes to both branches. Pushing to
-`staging` triggers **Deploy CMS staging**; it checks configuration, tests and
-TypeScript, then builds and deploys `frong-me-staging` using the GitHub
-Environment `staging`. A manual rerun must also select the `staging` branch.
-The GitHub build forces local bindings for prerendering, avoiding a Cloudflare
-remote preview session; the subsequent Wrangler deployment still targets the
-real staging Worker and its bound D1/R2 resources.
-**Deploy CMS production** runs only when manually dispatched from `main`. It
-uses the GitHub Environment `production`, repeats tests and preflight, builds
-for production and deploys `frong-me`. Configure a required reviewer on that
-environment before activating the workflow; do not allow bypass of its rules.
+`main` is the only maintained release branch. Use a short-lived branch and a
+pull request for each change; remove the branch after merging. The single
+`.github/workflows/cms-ci.yml` workflow verifies pull requests and pushes to
+`main`. A successful push or merge to `main` then deploys production automatically.
+There is no staging promotion or separate production dispatch. Manual dispatch
+on `main` is available for retrying the current release.
 
-Create both GitHub Environments under repository Settings > Environments before
-merging these workflows. Restrict deployments to the exact matching branch
-(`staging` or `main`); require a reviewer for `production`. For each environment,
-configure the following values for *that* target only:
+Verification runs without deployment credentials. Only the production job uses
+the existing `production` GitHub Environment. Keep its branch restriction at
+`main`; for the owner's automatic flow, no required reviewer is needed. If an
+existing reviewer rule remains, GitHub will still pause the deployment for
+approval; repository code cannot remove account-side environment rules.
+The verification check name remains `CMS Verification and Build` so existing
+required checks can continue to reference it. Deployments are serialized and
+never cancel an in-progress production upload.
 
-| GitHub setting | `staging` | `production` |
-| --- | --- | --- |
-| Secret: `CLOUDFLARE_API_TOKEN` | Token permitted to deploy test Worker | Token permitted to deploy production Worker |
-| Variable: `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account ID | Cloudflare account ID (same account if shared) |
-| Variable: `CF_D1_DATABASE_ID` | `portfolio-db-staging` database ID from `wrangler.jsonc` | `portfolio-db-prod` database ID from `wrangler.jsonc` |
-| Variable: `CF_R2_BUCKET_NAME` | `portfolio-media-staging` | `portfolio-media-prod` |
-| Variable: `CF_ACCESS_TEAM_DOMAIN` | Staging Access team domain | Production Access team domain |
-| Secret or variable: `CF_ACCESS_AUD` | Staging `/earth` Access application AUD | Production `/earth` Access application AUD |
-| Optional variable: `PUBLIC_GA_MEASUREMENT_ID` | Staging measurement ID, if analytics is desired | Production measurement ID, if analytics is desired |
+Configure only the production environment for the maintained workflow:
+
+| GitHub setting | Value |
+| --- | --- |
+| Secret: `CLOUDFLARE_API_TOKEN` | Token permitted to deploy production Worker |
+| Variable: `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account ID |
+| Variable: `CF_D1_DATABASE_ID` | Production database ID from `wrangler.jsonc` |
+| Variable: `CF_R2_BUCKET_NAME` | `portfolio-media-prod` |
+| Variable: `CF_ACCESS_TEAM_DOMAIN` | Production Access team domain |
+| Secret or variable: `CF_ACCESS_AUD` | Production `/earth` Access application AUD |
+| Optional variable: `PUBLIC_GA_MEASUREMENT_ID` | Production measurement ID |
+
+Staging's workflow is removed. Its Worker, D1, R2, Access configuration and
+named Wrangler environment remain isolated and dormant for optional large
+experiments. Do not delete remote resources or a branch containing unmerged
+work as incidental cleanup. The old staging branch is no longer part of normal
+work; inspect its unique commits before any deletion. The checked-in local
+fixtures and tested operational scripts remain available for local development.
 
 For `CF_ACCESS_AUD`, the workflows read an Environment secret first and then an
 Environment variable. The secret is suitable if the AUD is already stored there;
-there is no need to copy it into a variable. Both deployment jobs fail before
+there is no need to copy it into a variable. The production deployment job fails before
 building if a required value is missing. The
-production preflight rejects mismatched production D1/R2 bindings; staging has
-the equivalent guard. GitHub Environment variables exist only during the build
+production preflight rejects mismatched production D1/R2 bindings. GitHub Environment variables exist only during the build
 and deploy. In **Workers & Pages > each Worker > Settings > Variables and
 Secrets**, also configure the runtime values `CF_ACCESS_TEAM_DOMAIN` and
 `CF_ACCESS_AUD` for its own Access application. `ENABLE_ACCESS_DEV_BYPASS` must
-never be set on a deployed Worker. Verify the `staging` Access application covers
-`/earth` and its descendants while public pages remain accessible.
+never be set on a deployed Worker. Keep production Access covering `/earth` and its descendants while public pages remain accessible.
 
-The old `cms-staging` GitHub Environment can be deleted only after the new
-`staging` environment has been configured and a deployment from it succeeds.
-GitHub does not reveal existing secret values for copying; recreate the deploy
-token from your secure copy or rotate it. Do not copy obsolete callback secrets
-or Access service tokens into the new deployment environments unless a separate
-workflow requires them. Do not trigger Cloudflare's Git integration as a second
-deployment path for these Workers.
+Do not enable Cloudflare Git integration as a second deployment path.
 
-## Deployment runbook — approval required
+## Routine deployment and recovery
 
-Publishing content does not deploy code. Staging deploys on an authorized push
-to `staging`; production requires a manual workflow dispatch from `main` plus
-its GitHub Environment protection rule. Neither workflow runs remote database
-migrations or seeds content.
+Publishing content does not deploy code. Open a PR to `main`, wait for the
+verification check, and merge the approved change. The same workflow checks the
+merge commit and automatically builds/deploys production, then checks public
+search routes and anonymous Earth denial. No remote migrations or seeds run.
+Review migration changes separately; apply approved migrations explicitly,
+with a data recovery plan, before deploying code that needs them.
+For larger risky changes, use the retained staging helper explicitly; it is
+not required for ordinary releases.
 
-1. Confirm target, approved commit, green CI, operator access and recovery plan.
-   Never deploy with the development Access bypass enabled.
-2. Review migrations. If approved, apply to staging first:
-   `npx wrangler d1 migrations apply DB --env staging --remote`.
-   After staging verification and production approval, use
-   `--env production --remote`. Never edit applied migrations or seed remotely.
-3. Staging workflow: `npm run deploy:staging` performs preflight, build and
-   deploy. Production workflow checks production bindings, runs
-   `CLOUDFLARE_VITE_FORCE_LOCAL=true CLOUDFLARE_ENV=production npm run build`, then
-   `npx wrangler deploy --env production`. Never reuse a staging build.
-4. Verify public pages, authenticated Earth, an approved test article, image
-   delivery and authorized AI. Account for response caching.
-5. Record deployed commit, environment and observations in the handoff.
-   Rollback means redeploying a known-good matching build; it does not undo data
-   migrations, which require their own recovery plan.
+For a code rollback, revert the faulty change in a short-lived branch, pass CI,
+and merge the revert to `main`; that automatically deploys the reverted code.
+Do not reset or force-push `main`. For an urgent outage, an authorized operator
+can restore a known-good Worker version in Cloudflare, then revert the change
+in GitHub so the next deployment matches it. Worker rollback does not restore
+article rows, database schema or deleted images.
 
-Deploying does not apply migrations automatically. D1/R2 backup and restore
-verification remains a separate operational requirement.
+## Data recovery
+
+Production D1 and R2 are separate from Git history. Before an approved schema
+change, record a production D1 Time Travel recovery point and export the
+production database to secure storage outside this repository. For example:
+`npx wrangler d1 export DB --env production --remote --output <secure-path>/production.sql`.
+Database exports can contain provider keys; never upload them to public GitHub
+or ordinary CI artifacts. Keep a separate recoverable copy of production R2
+objects before any operation that overwrites/deletes media. Routine code
+releases neither migrate D1 nor delete R2 objects.
+
+A D1/R2 backup and restore drill is still unverified. Retained staging resources
+and historical Sanity archives are not backups of current production data.
+Deleting remote staging services or rotating credentials requires a separate
+explicitly scoped operation after dependency and data checks.

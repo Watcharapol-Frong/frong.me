@@ -53,7 +53,7 @@ the full suite, TypeScript and build on the proposed commit before merging.
 
 ## Human acceptance before deployment
 
-In an authorized test environment: sign in, create/save/reopen a draft, insert an
+For changes to author/media/publishing behavior, in an authorized local or optional test environment: sign in, create/save/reopen a draft, insert an
 image, preview, publish, check the public article, unpublish, then check visibility
 after cache expiry. Exercise AI only with an approved account. Check navigation
 and Thai/English text. Automated tests do not establish that remote DNS, Access
@@ -61,8 +61,8 @@ policies, backups or a browser workflow are configured.
 
 ## Operational safety
 
-- A push or merge to `staging` deploys its Worker after checks; production
-  requires a manual dispatch from `main` and approval. Follow the
+- A push or merge to `main` automatically deploys production after checks.
+  Pull requests run verification only; staging is optional and manual. Follow the
   [environment guide](docs/cms/environment-map.md).
 - Do not deploy, run remote migrations/seeds, delete services or rotate secrets
   as part of routine refactoring.

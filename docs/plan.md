@@ -1,7 +1,25 @@
 # Current handoff
 
-Updated: 2026-10-01. Scope: maintainer handoff, article lifecycle repair, and the
+Updated: 2026-10-02. Scope: maintainer handoff, article lifecycle repair, and the
 latest staging and production deployment.
+
+## Simplified deployment — 2026-10-02
+
+Owner approved the main-only flow: short-lived branch → PR verification →
+merge to `main` → automatic production deployment. One CMS CI workflow retains
+tests, TypeScript, build, production binding checks, Access protection and a
+read-only post-deploy search smoke check. Old staging/production workflows are
+removed. No migrations, remote content changes or remote service deletion.
+Staging resources remain isolated for optional experiments; the staging branch
+must be inspected for unique commits before deletion. Production Environment
+reviewer rules are account-side and may still require approval.
+Recovery and backup procedures are in the environment guide. Existing Sanity
+archives are not current D1/R2 backups; backup/restore acceptance remains open.
+Local verification: all 271 existing tests and both new deployment safety
+regressions pass through `node --import tsx --test`; TypeScript, YAML parsing
+and diff checks pass. The npm test wrapper is blocked by IPC EPERM and full
+Cloudflare prerendering is blocked by `uv_interface_addresses`; require the
+full GitHub CI run before merge. Deployment evidence follows after execution.
 
 ## Architecture
 
