@@ -26,3 +26,18 @@ test('production keeps binding safeguards and never migrates or seeds automatica
   assert.match(deployment, /cancel-in-progress: false/);
   assert.doesNotMatch(workflow, /migrations apply|db\/seeds|--env staging/);
 });
+
+test('local bindings do not reference retired or production storage', () => {
+  const config = JSON.parse(readFileSync('wrangler.jsonc', 'utf8'));
+  assert.deepEqual(Object.keys(config.env), ['production']);
+  assert.equal(config.name, 'frong-me-local');
+  assert.equal(config.d1_databases[0].database_id, '00000000-0000-0000-0000-000000000000');
+  assert.equal(config.d1_databases[0].database_name, 'portfolio-db-local');
+  assert.equal(config.r2_buckets[0].bucket_name, 'portfolio-media-local');
+  assert.equal(config.env.production.name, 'frong-me');
+  assert.equal(config.env.production.d1_databases[0].database_id, 'e8442532-a929-40d5-8ff4-c05510fad616');
+  assert.equal(config.env.production.r2_buckets[0].bucket_name, 'portfolio-media-prod');
+  const scripts = JSON.parse(readFileSync('package.json', 'utf8')).scripts;
+  assert.equal(scripts['deploy:staging'], undefined);
+  assert.equal(scripts['deploy:staging:dry'], undefined);
+});

@@ -1,47 +1,29 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "frong-me",
+  "name": "frong-me-local",
   "compatibility_date": "2026-09-10",
-  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
   "keep_vars": true,
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "portfolio-db-staging",
-      "database_id": "71cba742-a269-475d-84b0-8df1223a368a",
+      "database_name": "portfolio-db-local",
+      "database_id": "00000000-0000-0000-0000-000000000000",
       "migrations_dir": "db/migrations"
     }
   ],
   "r2_buckets": [
     {
       "binding": "MEDIA_BUCKET",
-      "bucket_name": "portfolio-media-staging"
+      "bucket_name": "portfolio-media-local"
     }
   ],
   "ai": {
     "binding": "AI"
   },
   "env": {
-    "staging": {
-      "name": "frong-me-staging",
-      "d1_databases": [
-        {
-          "binding": "DB",
-          "database_name": "portfolio-db-staging",
-          "database_id": "71cba742-a269-475d-84b0-8df1223a368a",
-          "migrations_dir": "db/migrations"
-        }
-      ],
-      "r2_buckets": [
-        {
-          "binding": "MEDIA_BUCKET",
-          "bucket_name": "portfolio-media-staging"
-        }
-      ],
-      "ai": {
-        "binding": "AI"
-      }
-    },
     "production": {
       "name": "frong-me",
       "d1_databases": [

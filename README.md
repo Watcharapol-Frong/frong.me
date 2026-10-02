@@ -57,12 +57,11 @@ Git history preserves removed source and superseded planning documents.
 GitHub Actions uses one workflow: pull requests to `main` run checks, and
 pushes/merges to `main` deploy production automatically after verification.
 Use short-lived branches for changes, then remove them after merging.
-Staging is an optional isolated environment; it is no longer a release gate.
+Development uses isolated local bindings; staging Worker and D1 are retired.
 See [operations](docs/cms/environment-map.md) for configuration, recovery and
 backup limitations. Code deployments never apply remote migrations or seeds.
 
 ## Current deployment
 
 Production is `https://frong.me`. Deployment history and verification evidence
-are recorded in [the current handoff](docs/plan.md). Retained staging resources
-are dormant unless a maintainer explicitly deploys a larger experiment.
+are recorded in [the current handoff](docs/plan.md). The owner deleted the staging Worker and D1 on 2026-10-02.

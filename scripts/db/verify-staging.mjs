@@ -187,7 +187,7 @@ export function createD1HttpExecutor({
  * Create a query function using the Wrangler CLI.
  */
 export function createWranglerExecutor({
-  databaseName = 'portfolio-db-staging',
+  databaseName = 'DB',
   local = false,
   env: wranglerEnv,
   cwd = process.cwd(),
@@ -206,7 +206,7 @@ export function createWranglerExecutor({
       `--command=${sql}`,
     ];
 
-    // Named-environment bindings (env.staging.d1_databases) are invisible to
+    // Named-environment bindings (env.production.d1_databases) are invisible to
     // `wrangler d1 execute` unless --env is passed explicitly.
     if (wranglerEnv) args.push('--env', wranglerEnv);
 
@@ -281,9 +281,9 @@ export async function runVerification(queryFn, options = {}) {
 export function parseArgs(argv) {
   const args = {
     mode: 'auto',
-    databaseName: process.env.CF_D1_DATABASE_NAME || 'portfolio-db-staging',
+    databaseName: process.env.CF_D1_DATABASE_NAME || 'DB',
     local: false,
-    env: process.env.CF_WRANGLER_ENV || 'staging',
+    env: process.env.CF_WRANGLER_ENV || null,
     sqlitePath: null,
   };
 
@@ -322,8 +322,8 @@ Options:
   --http               Force D1 HTTP API mode (requires CF_ACCOUNT_ID, CF_D1_DATABASE_ID, CF_D1_READ_TOKEN)
   --wrangler           Force Wrangler CLI mode
   --local              Use --local flag with Wrangler
-  --database <name>    Database name for Wrangler (default: portfolio-db-staging)
-  --env <name>         Wrangler named environment to scope the D1 binding lookup (default: staging)
+  --database <name>    Database name for Wrangler (default: DB)
+  --env <name>         Wrangler named environment to scope the D1 binding lookup (default: top-level local binding)
   --no-env             Do not pass --env to Wrangler (use the top-level binding)
   --sqlite <path>      Verify local SQLite database file using node:sqlite
   --help, -h           Show this help message

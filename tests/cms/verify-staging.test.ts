@@ -167,7 +167,8 @@ test('parseArgs parses CLI arguments into structured configuration', () => {
   const args1 = parseArgs(['node', 'verify-staging.mjs']);
   assert.equal(args1.mode, 'auto');
   assert.equal(args1.local, false);
-  assert.equal(args1.databaseName, 'portfolio-db-staging');
+  assert.equal(args1.env, null);
+  assert.equal(args1.databaseName, 'DB');
 
   const args2 = parseArgs(['node', 'verify-staging.mjs', '--http']);
   assert.equal(args2.mode, 'http');
