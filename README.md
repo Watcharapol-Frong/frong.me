@@ -54,19 +54,15 @@ application. Do not restore them as dependencies of Earth.
 from remote services and historical data that still require an owner decision.
 Git history preserves removed source and superseded planning documents.
 
-GitHub Actions verifies changes and deploys approved code: pushes to `staging`
-deploy to the test Worker, while production is dispatched manually from `main`
-with an approval rule. Configure both GitHub Environments before enabling these
-workflows; see [the environment guide](docs/cms/environment-map.md). Deployments
-do not apply remote data migrations, delete services or rotate credentials.
+GitHub Actions uses one workflow: pull requests to `main` run checks, and
+pushes/merges to `main` deploy production automatically after verification.
+Use short-lived branches for changes, then remove them after merging.
+Staging is an optional isolated environment; it is no longer a release gate.
+See [operations](docs/cms/environment-map.md) for configuration, recovery and
+backup limitations. Code deployments never apply remote migrations or seeds.
 
 ## Current deployment
 
-Application commit `847d480` is on staging, and merge commit `731795c` was
-deployed to production as of 2026-09-26. The public production site is
-`https://frong.me`; the staging Worker is
-`https://frong-me-staging.frongbook.workers.dev`. Automated checks and public
-route smoke tests passed. The owner confirmed staging Earth testing;
-authenticated production author, media and AI acceptance remains a maintainer
-browser task; see the
-[current handoff](docs/plan.md).
+Production is `https://frong.me`. Deployment history and verification evidence
+are recorded in [the current handoff](docs/plan.md). Retained staging resources
+are dormant unless a maintainer explicitly deploys a larger experiment.

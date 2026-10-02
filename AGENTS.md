@@ -35,11 +35,12 @@ and `npm run astro -- dev stop`.
 
 ## Safety
 
-Once configured, a push or merge into `staging` starts an automatic staging
-deployment. Production deploys only from a manual workflow dispatch on `main`
-using the protected `production` GitHub Environment. Do not run remote
-migrations/seeds, delete services, revoke credentials or destroy data without
-explicit approval.
+The maintained branch is `main`. The single CMS CI workflow verifies pull
+requests and pushes; after successful checks, a push to `main` automatically
+deploys production using the `production` GitHub Environment. Merging to `main`
+is therefore a production action. Staging is optional, isolated and has no
+automatic deployment. Do not run remote migrations/seeds, delete services,
+revoke credentials or destroy data without explicit approval.
 Never edit applied migrations. Default D1 bindings target staging; production
 is a separate named environment in `wrangler.jsonc`.
 

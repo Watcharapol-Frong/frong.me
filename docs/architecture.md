@@ -73,7 +73,8 @@ remain language-scoped rows in `tags` linked through `post_tags`, and continue
 to describe articles without becoming homepage navigation items.
 
 **Software:** a contributor changes code, opens a pull request and passes CI.
-An authorized maintainer separately builds/deploys the chosen environment.
+Merging to `main` automatically deploys production after verification in the
+single CMS CI workflow. Staging is an optional experiment, not a release gate.
 Code deployment and article publication are different operations.
 
 ## Placement rules
