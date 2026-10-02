@@ -62,7 +62,7 @@ policies, backups or a browser workflow are configured.
 ## Operational safety
 
 - A push or merge to `main` automatically deploys production after checks.
-  Pull requests run verification only; staging is optional and manual. Follow the
+  Pull requests run verification only; the staging Worker and D1 are retired. Follow the
   [environment guide](docs/cms/environment-map.md).
 - Do not deploy, run remote migrations/seeds, delete services or rotate secrets
   as part of routine refactoring.

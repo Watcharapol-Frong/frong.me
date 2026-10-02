@@ -10,9 +10,9 @@ merge to `main` → automatic production deployment. One CMS CI workflow retains
 tests, TypeScript, build, production binding checks, Access protection and a
 read-only post-deploy search smoke check. Old staging/production workflows are
 removed. No migrations, remote content changes or remote service deletion.
-Staging resources remain isolated for optional experiments; the staging branch
-must be inspected for unique commits before deletion. Production Environment
-reviewer rules are account-side and may still require approval.
+The staging Worker and D1 were subsequently deleted by the owner; the staging branch
+must be inspected for unique commits before deletion. The owner-approved production Environment reviewer-rule removal is complete;
+main-only deployment restriction remains.
 Recovery and backup procedures are in the environment guide. Existing Sanity
 archives are not current D1/R2 backups; backup/restore acceptance remains open.
 Local verification: all 271 existing tests and both new deployment safety
@@ -20,6 +20,22 @@ regressions pass through `node --import tsx --test`; TypeScript, YAML parsing
 and diff checks pass. The npm test wrapper is blocked by IPC EPERM and full
 Cloudflare prerendering is blocked by `uv_interface_addresses`; require the
 full GitHub CI run before merge. Deployment evidence follows after execution.
+
+## Staging retirement follow-up — 2026-10-02
+
+The owner reported deleting the staging Worker and D1. Remove their named
+Wrangler environment, deleted remote IDs, staging deploy helper and npm deploy
+commands. Top-level bindings now identify isolated local resources with a
+placeholder D1 ID; production bindings are unchanged. The database integrity
+verifier defaults to top-level `DB`, and live Access checks require an explicit
+host rather than falling back to the deleted Worker. Retain applied migrations,
+local fixtures, and security/data regression tests. Staging R2, Access and GitHub
+Environment removal was not reported and is not performed by this change.
+All 275 CMS tests, TypeScript and diff checks pass locally. The local production
+build still encounters the Cloudflare `uv_interface_addresses` restriction;
+full GitHub verification is required before merging this follow-up.
+Main-only automatic production deployment succeeded after the owner-approved
+reviewer-rule removal (run 36948557973); public/anonymous Earth checks passed.
 
 ## Architecture
 

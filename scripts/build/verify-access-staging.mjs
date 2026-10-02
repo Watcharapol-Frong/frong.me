@@ -22,7 +22,7 @@ import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const DEFAULT_STAGING_HOST = 'https://frong-me-staging.frongbook.workers.dev';
+export const DEFAULT_STAGING_HOST = ''; // Live checks require an explicit host.
 
 export class AccessVerificationError extends Error {
   /**
@@ -149,7 +149,7 @@ export function createMockAccessServer(options = {}) {
  * Executes Zero Trust staging access verification against the target host.
  *
  * @param {object} [options]
- * @param {string} [options.host] Target staging host (default: CMS_STAGING_HOST or the staging workers.dev URL)
+ * @param {string} [options.host] Target staging host (required for live checks, or set CMS_STAGING_HOST)
  * @param {boolean} [options.dryRun] If true, run locally against mock server stubs
  * @param {string} [options.clientId] Cloudflare Access Service Token Client ID
  * @param {string} [options.clientSecret] Cloudflare Access Service Token Client Secret
@@ -199,10 +199,6 @@ export async function verifyAccessStaging(options = {}) {
       });
     }
   } else {
-    // In live mode, use the reachable staging Worker as the primary endpoint.
-    if (!targetHost) {
-      targetHost = DEFAULT_STAGING_HOST;
-    }
 
     // Ensure credentials exist for Case 2
     const hasServiceToken = Boolean(clientId && clientSecret);
@@ -216,6 +212,9 @@ export async function verifyAccessStaging(options = {}) {
 
   }
 
+  if (!targetHost) {
+    throw new AccessVerificationError('Live Access verification requires an explicit --host; the staging Worker is retired.', 'missing-host');
+  }
   const baseHost = normalizeHost(targetHost);
   log(`[verify-access-staging] Target Host: ${baseHost} (${dryRun ? 'mode: DRY-RUN / mock stub' : 'mode: LIVE staging'})`);
 
@@ -424,7 +423,7 @@ export function parseCliArgs(args) {
 Zero Trust Verification Script for Cloudflare Staging.
 
 Options:
-  --host <url>           Target host (default: ${DEFAULT_STAGING_HOST}; CMS_STAGING_HOST overrides)
+  --host <url>           Target host (required in live mode; CMS_STAGING_HOST may supply it)
   --dry-run              Verify assertions locally using mock stub server
   --client-id <id>       Access Service Token Client ID (or CF_ACCESS_CLIENT_ID env var)
   --client-secret <sec>  Access Service Token Client Secret (or CF_ACCESS_CLIENT_SECRET env var)

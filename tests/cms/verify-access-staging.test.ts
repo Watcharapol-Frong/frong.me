@@ -45,11 +45,17 @@ describe('scripts/build/verify-access-staging.mjs', () => {
   });
 
   it('normalizes host URLs properly', () => {
-    assert.equal(DEFAULT_STAGING_HOST, 'https://frong-me-staging.frongbook.workers.dev');
-    assert.equal(normalizeHost('frong-me-staging.frongbook.workers.dev'), DEFAULT_STAGING_HOST);
-    assert.equal(normalizeHost('frong-me-staging.frongbook.workers.dev/'), DEFAULT_STAGING_HOST);
+    assert.equal(DEFAULT_STAGING_HOST, '');
+    assert.equal(normalizeHost('example.test'), 'https://example.test');
+    assert.equal(normalizeHost('example.test/'), 'https://example.test');
     assert.equal(normalizeHost('http://localhost:8787///'), 'http://localhost:8787');
     assert.equal(normalizeHost('https://cms-staging.frong.me'), 'https://cms-staging.frong.me');
+  });
+
+  it('requires an explicit host instead of contacting the retired Worker', async () => {
+    await assert.rejects(verifyAccessStaging({
+      env: {}, clientId: 'test-id', clientSecret: 'test-secret', log: () => {},
+    }), (error: any) => error.caseName === 'missing-host');
   });
 
   it('completes all 3 cases in --dry-run mode against mock server', async () => {

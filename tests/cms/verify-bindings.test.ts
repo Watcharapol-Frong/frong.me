@@ -1,9 +1,9 @@
-import { describe, it } from 'node:test';
+import { describe, it, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
-  verifyBindings,
+  verifyBindings as verifyBindingsImpl,
   parseWranglerJsonc,
   BindingVerificationError,
 } from '../../scripts/build/verify-bindings.mjs';
@@ -78,6 +78,15 @@ const BASE_WRANGLER_JSONC = `{
   }
 }`;
 
+// Isolation cases use a synthetic two-environment fixture, not retired resources.
+const fixtureDir = fs.mkdtempSync('/tmp/frong-bindings-');
+const fixturePath = path.join(fixtureDir, 'wrangler.jsonc');
+fs.writeFileSync(fixturePath, BASE_WRANGLER_JSONC);
+after(() => fs.rmSync(fixtureDir, { recursive: true, force: true }));
+function verifyBindings(options: Parameters<typeof verifyBindingsImpl>[0]) {
+  return verifyBindingsImpl({ configPath: fixturePath, ...options });
+}
+
 describe('scripts/build/verify-bindings.mjs', () => {
   it('parses valid JSONC with comments and trailing commas without using JSON.parse', () => {
     const tmpFile = path.resolve('/tmp', `test-wrangler-${Date.now()}.jsonc`);
@@ -108,7 +117,8 @@ describe('scripts/build/verify-bindings.mjs', () => {
     const logs: string[] = [];
     const result = verifyBindings({
       configPath: path.resolve(process.cwd(), 'wrangler.jsonc'),
-      env: VALID_ENV,
+      envName: 'production',
+      env: PRODUCTION_ENV,
       dryRun: true,
       log: (msg) => logs.push(msg),
     });
@@ -134,12 +144,14 @@ describe('scripts/build/verify-bindings.mjs', () => {
 
     assert.throws(() => verifyBindings({
       envName: 'production',
+      configPath: path.resolve(process.cwd(), 'wrangler.jsonc'),
       env: { ...PRODUCTION_ENV, CF_D1_DATABASE_ID: VALID_ENV.CF_D1_DATABASE_ID },
       log: () => {},
     }), (error: any) => error.checkName === 'd1-binding');
 
     assert.throws(() => verifyBindings({
       envName: 'production',
+      configPath: path.resolve(process.cwd(), 'wrangler.jsonc'),
       env: { ...PRODUCTION_ENV, CF_R2_BUCKET_NAME: VALID_ENV.CF_R2_BUCKET_NAME },
       log: () => {},
     }), (error: any) => error.checkName === 'r2-binding');
@@ -338,7 +350,7 @@ describe('scripts/build/verify-bindings.mjs', () => {
   it('falls back to legacy account/D1/R2 names when SSOT names are absent', () => {
     const logs: string[] = [];
     const result = verifyBindings({
-      configPath: path.resolve(process.cwd(), 'wrangler.jsonc'),
+      configPath: fixturePath,
       env: {
         ...VALID_ENV,
         CLOUDFLARE_ACCOUNT_ID: undefined,

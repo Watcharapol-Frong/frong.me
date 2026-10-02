@@ -74,7 +74,7 @@ to describe articles without becoming homepage navigation items.
 
 **Software:** a contributor changes code, opens a pull request and passes CI.
 Merging to `main` automatically deploys production after verification in the
-single CMS CI workflow. Staging is an optional experiment, not a release gate.
+single CMS CI workflow. Development uses local bindings; the staging Worker and D1 are retired.
 Code deployment and article publication are different operations.
 
 ## Placement rules

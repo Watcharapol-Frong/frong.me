@@ -7,35 +7,26 @@ This describes repository configuration, not a live account audit.
 | Environment | Worker | D1 database | R2 bucket |
 | --- | --- | --- | --- |
 | Local | Development runtime | Local D1 state | Local R2 state |
-| Staging | `frong-me-staging` | `portfolio-db-staging` | `portfolio-media-staging` |
+| Retired staging | Deleted by owner | Deleted by owner | Not confirmed deleted |
 | Production | `frong-me` | `portfolio-db-prod` | `portfolio-media-prod` |
 
-`wrangler.jsonc` is the source of truth. Default bindings target staging; select
+`wrangler.jsonc` is the source of truth. Default bindings use local-only placeholder names and an all-zero D1 ID; select
 named environments explicitly for deployment. All declare `DB`, `MEDIA_BUCKET`
-and `AI`. Production is served at `https://frong.me`; staging is served at
-`https://frong-me-staging.frongbook.workers.dev`.
-The two Workers preserve their dashboard runtime variables across Wrangler
-deployments via `keep_vars`; these are separate from GitHub build variables.
-
-As of 2026-09-27, staging runs code commit `dd2bbf6` and production runs the matching
-application from merge commit `731795c` (Worker version
-`15eb2e34-abcb-4ced-a917-c70d4c34181a`). Migration `0009_primary_topic.sql`
-was applied to staging and production before code deployment; neither database
-had pending migrations at that deployment. The multiline blockquote update passed
-[CMS CI](https://github.com/Watcharapol-Frong/frong.me/actions/runs/36287930894)
-and [staging deployment](https://github.com/Watcharapol-Frong/frong.me/actions/runs/36287930998);
-the public staging article returned the grouped quote markup.
-Authenticated production author, media and AI flows and backup/restore remain to
-be checked. See the workflow links and exact evidence in the
-[current handoff](../plan.md).
+and `AI`. Production is served at `https://frong.me`. The owner reported deleting the
+staging Worker and D1 on 2026-10-02. The top-level `frong-me-local` bindings
+have no remote production identity; local development uses Wrangler's local
+D1/R2 state. Production retains its exact named bindings and `keep_vars`.
+GitHub's production required-reviewer rule was removed after owner approval;
+main-only deployment restriction remains. Run 36948557973 succeeded on retry,
+including production upload and public/anonymous-Access smoke checks.
 
 ## Configuration consumers
 
 | Names | Consumer / storage |
 | --- | --- |
 | `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` | Authorized local Wrangler commands |
-| `CF_D1_DATABASE_ID`, `CF_R2_BUCKET_NAME` | Local staging preflight; must match named bindings |
-| `CF_ACCESS_TEAM_DOMAIN`, `CF_ACCESS_AUD` | Main Worker runtime and local preflight |
+| `CF_D1_DATABASE_ID`, `CF_R2_BUCKET_NAME` | Production preflight; must match named bindings |
+| `CF_ACCESS_TEAM_DOMAIN`, `CF_ACCESS_AUD` | Main Worker runtime and production preflight |
 | `ENABLE_ACCESS_DEV_BYPASS` | Local development only; false/unset elsewhere |
 | `CF_ACCOUNT_ID`, `CF_D1_DATABASE_NAME`, `CF_D1_READ_TOKEN` | Optional read-only D1 HTTP verifier; database ID also required |
 | `CMS_STAGING_HOST` | Optional Access verifier target |
@@ -103,12 +94,12 @@ Configure only the production environment for the maintained workflow:
 | Secret or variable: `CF_ACCESS_AUD` | Production `/earth` Access application AUD |
 | Optional variable: `PUBLIC_GA_MEASUREMENT_ID` | Production measurement ID |
 
-Staging's workflow is removed. Its Worker, D1, R2, Access configuration and
-named Wrangler environment remain isolated and dormant for optional large
-experiments. Do not delete remote resources or a branch containing unmerged
-work as incidental cleanup. The old staging branch is no longer part of normal
-work; inspect its unique commits before any deletion. The checked-in local
-fixtures and tested operational scripts remain available for local development.
+Staging has no workflow, Wrangler environment or deploy command. Its Worker
+and D1 were deleted by the owner. R2, Access applications and GitHub staging
+Environment settings are not confirmed deleted. Do not delete those as part of
+code cleanup. Historical tests/fixtures and verifier filenames containing
+`staging` remain for local checks and migration reproduction. Live Access
+verification now requires an explicitly supplied host and credentials.
 
 For `CF_ACCESS_AUD`, the workflows read an Environment secret first and then an
 Environment variable. The secret is suitable if the AUD is already stored there;
@@ -130,8 +121,8 @@ merge commit and automatically builds/deploys production, then checks public
 search routes and anonymous Earth denial. No remote migrations or seeds run.
 Review migration changes separately; apply approved migrations explicitly,
 with a data recovery plan, before deploying code that needs them.
-For larger risky changes, use the retained staging helper explicitly; it is
-not required for ordinary releases.
+For larger risky changes, test locally or provision a separately approved
+temporary environment; no staging deploy helper remains.
 
 For a code rollback, revert the faulty change in a short-lived branch, pass CI,
 and merge the revert to `main`; that automatically deploys the reverted code.
@@ -151,7 +142,6 @@ or ordinary CI artifacts. Keep a separate recoverable copy of production R2
 objects before any operation that overwrites/deletes media. Routine code
 releases neither migrate D1 nor delete R2 objects.
 
-A D1/R2 backup and restore drill is still unverified. Retained staging resources
-and historical Sanity archives are not backups of current production data.
+A D1/R2 backup and restore drill is still unverified. Historical Sanity archives are not backups of current production data.
 Deleting remote staging services or rotating credentials requires a separate
 explicitly scoped operation after dependency and data checks.

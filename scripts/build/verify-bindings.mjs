@@ -293,7 +293,7 @@ export function verifyBindings({
 function parseCliArgs(args) {
   const options = {
     configPath: path.resolve(process.cwd(), 'wrangler.jsonc'),
-    envName: 'staging',
+    envName: 'production',
     dryRun: false,
   };
   for (let i = 0; i < args.length; i++) {
@@ -308,7 +308,7 @@ function parseCliArgs(args) {
 
 Options:
   --config <path>   Path to wrangler.jsonc (default: ./wrangler.jsonc)
-  --env <name>      Target environment (default: staging)
+  --env <name>      Target environment (default: production)
   --dry-run         Run verification in dry-run mode
   --help, -h        Show this help message
 `);
