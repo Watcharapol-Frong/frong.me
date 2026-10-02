@@ -13,7 +13,7 @@ function escapeXml(value: string): string {
 }
 
 export const GET: APIRoute = async ({ locals, url }) => {
-  // Never advertise staging database content as canonical production articles.
+  // Never advertise noncanonical host content as canonical production articles.
   const posts = isPublicSearchHost(url)
     ? await listPublishedSitemapEntries(await resolveCmsDatabase(locals))
     : [];

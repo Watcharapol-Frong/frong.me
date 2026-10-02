@@ -55,15 +55,15 @@ records verification after deployment.
 user-agent group allows public pages for general, Google, Bing, OpenAI search
 and Claude search crawlers with identical Earth exclusions. Training preferences
 are unchanged. Other hosts disallow crawling, advertise no sitemaps and return
-an empty article sitemap instead of presenting staging rows as production URLs.
+an empty article sitemap instead of presenting noncanonical rows as production URLs.
 The static sitemap index includes the D1 article sitemap.
 
 SSR middleware applies `X-Robots-Tag: noindex, nofollow` after the unchanged
 Access guard to Earth responses and noncanonical hosts. `public/_headers`
 protects static assets on `*.*.workers.dev`, which bypass Astro middleware.
-New custom staging domains require matching static header rules. Robots/noindex
+New noncanonical domains require matching static header rules. Robots/noindex
 are search instructions, not authentication; never bypass Access for a bot.
-Disallow may prevent crawlers seeing noindex, so previously indexed staging
+Disallow may prevent crawlers seeing noindex, so previously indexed noncanonical
 URLs may also require Search Console removal. Article canonical URLs normalize
 trailing slashes to match sitemap entries. Public articles show the real author
 and published date alongside JSON-LD; Open Graph includes publication and
@@ -78,7 +78,7 @@ time (format `G-XXXXXXXXXX`). It is a public identifier, not a credential.
 Leave it unset to emit no consent UI and make no Google Analytics request. The
 small local consent controller may remain in the application bundle but exits
 when there is no rendered consent root. Because Vite embeds `PUBLIC_` values
-into the build, staging and production builds must receive their intended IDs
+into the build, production builds must receive the intended ID
 separately; changing a Worker runtime variable alone does not update an
 existing build.
 

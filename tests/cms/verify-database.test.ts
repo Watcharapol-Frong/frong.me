@@ -9,7 +9,7 @@ import {
   createSqliteExecutor,
   createD1HttpExecutor,
   parseArgs,
-} from '../../scripts/db/verify-staging.mjs';
+} from '../../scripts/db/verify-database.mjs';
 
 function createMigratedAndSeededDb(): DatabaseSync {
   const db = new DatabaseSync(':memory:');
@@ -18,7 +18,7 @@ function createMigratedAndSeededDb(): DatabaseSync {
   db.exec(readFileSync('db/migrations/0002_taxonomy_assets.sql', 'utf8'));
   db.exec(readFileSync('db/migrations/0003_releases.sql', 'utf8'));
   db.exec(readFileSync('db/migrations/0004_direct_publish.sql', 'utf8'));
-  db.exec(readFileSync('db/seeds/staging.sql', 'utf8'));
+  db.exec(readFileSync('db/seeds/local.sql', 'utf8'));
   return db;
 }
 
@@ -116,7 +116,7 @@ test('runVerification executes full verification suite against seeded database',
 
   assert.ok(logs.some((l) => l.includes('Foreign keys OK')));
   assert.ok(logs.some((l) => l.includes('Partial index idx_one_cover_per_post verified')));
-  assert.ok(logs.some((l) => l.includes('All staging database verifications PASSED')));
+  assert.ok(logs.some((l) => l.includes('All local database verifications PASSED')));
 
   db.close();
 });
@@ -164,21 +164,21 @@ test('createD1HttpExecutor constructs parameterized query and handles API respon
 });
 
 test('parseArgs parses CLI arguments into structured configuration', () => {
-  const args1 = parseArgs(['node', 'verify-staging.mjs']);
+  const args1 = parseArgs(['node', 'verify-database.mjs']);
   assert.equal(args1.mode, 'auto');
   assert.equal(args1.local, false);
   assert.equal(args1.env, null);
   assert.equal(args1.databaseName, 'DB');
 
-  const args2 = parseArgs(['node', 'verify-staging.mjs', '--http']);
+  const args2 = parseArgs(['node', 'verify-database.mjs', '--http']);
   assert.equal(args2.mode, 'http');
 
-  const args3 = parseArgs(['node', 'verify-staging.mjs', '--wrangler', '--local', '--database=custom-db']);
+  const args3 = parseArgs(['node', 'verify-database.mjs', '--wrangler', '--local', '--database=custom-db']);
   assert.equal(args3.mode, 'wrangler');
   assert.equal(args3.local, true);
   assert.equal(args3.databaseName, 'custom-db');
 
-  const args4 = parseArgs(['node', 'verify-staging.mjs', '--sqlite', '/tmp/my.db']);
+  const args4 = parseArgs(['node', 'verify-database.mjs', '--sqlite', '/tmp/my.db']);
   assert.equal(args4.mode, 'sqlite');
   assert.equal(args4.sqlitePath, '/tmp/my.db');
 });

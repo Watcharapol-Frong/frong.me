@@ -17,7 +17,7 @@
  * - `--dry-run` (default): uses an in-memory Map-backed mock R2 bucket. Runs
  *   instantly, no network, no credentials, no bucket mutation.
  * - `--remote`: requires an injected R2 bucket binding (pass `{ bucket }`
- *   when calling `verifyR2Staging` programmatically, e.g. from workerd where
+ *   when calling `verifyR2` programmatically, e.g. from workerd where
  *   `MEDIA_BUCKET` is bound). Performs a real put/get/delete and cleans up.
  *
  * Exit code: 0 on success, 1 on any failure.
@@ -132,7 +132,7 @@ export function createMemoryBucket() {
 }
 
 /**
- * Run the single-pass R2 staging smoke verification.
+ * Run the single-pass R2 local smoke verification.
  *
  * @param {object} [options]
  * @param {boolean} [options.dryRun=false] Force the in-memory mock bucket.
@@ -145,7 +145,7 @@ export function createMemoryBucket() {
  * @returns {Promise<{ok: boolean, urlPatternMatch: boolean, idempotent: boolean,
  *   cleanedUp: boolean, sha256: string, url: string, key: string}>}
  */
-export async function verifyR2Staging({
+export async function verifyR2({
   dryRun = false,
   remote = false,
   bucket = null,
@@ -266,7 +266,7 @@ async function main() {
 
   if (args.help) {
     console.log(`
-Usage: node scripts/db/verify-r2-staging.mjs [options]
+Usage: node scripts/db/verify-r2.mjs [options]
 
 Options:
   --dry-run   Run against an in-memory mock R2 bucket (default; no network, no credentials)
@@ -278,7 +278,7 @@ Options:
     return;
   }
 
-  const results = await verifyR2Staging({ dryRun: args.dryRun, remote: args.remote });
+  const results = await verifyR2({ dryRun: args.dryRun, remote: args.remote });
   console.log(
     `[verify-r2] Summary: urlPatternMatch=${results.urlPatternMatch} idempotent=${results.idempotent} ` +
     `cleanedUp=${results.cleanedUp} sha256=${results.sha256}`,

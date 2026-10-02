@@ -20,8 +20,8 @@ test('production robots permits search and keeps every named bot in the private-
   assert.match(text, /Sitemap: https:\/\/frong.me\/articles-sitemap.xml/);
 });
 
-test('staging and other hosts block discovery without advertising production sitemaps', async () => {
-  for (const host of ['frong-me-staging.frongbook.workers.dev', 'frong-me.frongbook.workers.dev', 'frong.me.attacker.test', 'localhost']) {
+test('local and other hosts block discovery without advertising production sitemaps', async () => {
+  for (const host of ['frong-me-local.frongbook.workers.dev', 'frong-me.frongbook.workers.dev', 'frong.me.attacker.test', 'localhost']) {
     const url = new URL(`https://${host}/robots.txt`);
     assert.equal(isPublicSearchHost(url), false);
     const response = await robots({ url } as never);
@@ -37,7 +37,7 @@ test('search headers preserve indexable production and existing explicit noindex
 });
 
 test('SSR aliases and Earth responses get noindex without losing status, cache or content', async () => {
-  for (const url of ['https://frong.me/earth', 'https://frong.me/earth/api/posts', 'https://frong-me-staging.frongbook.workers.dev/articles/story']) {
+  for (const url of ['https://frong.me/earth', 'https://frong.me/earth/api/posts', 'https://frong-me-local.frongbook.workers.dev/articles/story']) {
     const response = applySearchHeaders(new URL(url), new Response('protected', {
       status: 401, headers: { 'cache-control': 'no-store', 'content-type': 'application/json' },
     }));

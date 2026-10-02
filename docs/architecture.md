@@ -74,7 +74,7 @@ to describe articles without becoming homepage navigation items.
 
 **Software:** a contributor changes code, opens a pull request and passes CI.
 Merging to `main` automatically deploys production after verification in the
-single CMS CI workflow. Development uses local bindings; the staging Worker and D1 are retired.
+single CMS CI workflow. Development uses local bindings; production is the only deployed environment.
 Code deployment and article publication are different operations.
 
 ## Placement rules
@@ -113,7 +113,7 @@ The original media kind/name are preserved on reuse.
 New uploads return an absolute URL under the current site's `/media/assets/`
 route. Delivery reads that Worker's own D1/R2 bindings and serves only registered
 public assets with immutable caching. Private, unknown and unsafe keys return
-uncached 404 responses. Staging does not depend on production's media domain.
+uncached 404 responses. Local test data does not depend on production media.
 Historical content using `https://images.frong.me` is not rewritten by this change;
 its external routing still needs separate verification. A passing storage test
 is not proof of live delivery.

@@ -6,10 +6,10 @@
  * Verifies that the wrangler.jsonc configuration and selected build environment
  * are properly wired before deployment:
  * 1. All five SSOT variables are present and non-blank, including legacy fallback resolution.
- * 2. D1 database binding matches CF_D1_DATABASE_ID (legacy: STAGING_D1_DATABASE_ID).
- * 3. R2 bucket binding matches CF_R2_BUCKET_NAME (legacy: STAGING_R2_BUCKET_NAME).
+ * 2. D1 database binding matches CF_D1_DATABASE_ID.
+ * 3. R2 bucket binding matches CF_R2_BUCKET_NAME.
  * 4. Configured Access Application AUD (if present in wrangler.jsonc) matches CF_ACCESS_AUD.
- * 5. Dev-bypass guard: ENABLE_ACCESS_DEV_BYPASS must NEVER be true in staging build env.
+ * 5. Dev-bypass guard: ENABLE_ACCESS_DEV_BYPASS must NEVER be true in deployed environments.
  * 6. Environment isolation: verifies bindings never point to the other environment.
  *
  * Parses wrangler.jsonc using jsonc-parser (never raw JSON.parse) and fails loudly on syntax errors.
@@ -117,12 +117,12 @@ export function parseWranglerJsonc(configPath) {
  */
 export function verifyBindings({
   configPath = path.resolve(process.cwd(), 'wrangler.jsonc'),
-  envName = 'staging',
+  envName = 'production',
   env = process.env,
   dryRun = false,
   log = console.log,
 } = {}) {
-  if (envName !== 'staging' && envName !== 'production') {
+  if (envName !== 'local' && envName !== 'production') {
     throw new BindingVerificationError(`Unsupported deployment environment: ${envName}`, 'missing-env');
   }
 
@@ -139,8 +139,8 @@ export function verifyBindings({
   // so an empty GitHub vars/secrets resolution stops the pre-flight immediately.
   // Legacy names remain temporary, explicitly identified fallback sources.
   const cloudflareAccountId = requiredSsotVariable(env, 'CLOUDFLARE_ACCOUNT_ID', ['CF_ACCOUNT_ID']);
-  const expectedD1DbId = requiredSsotVariable(env, 'CF_D1_DATABASE_ID', ['STAGING_D1_DATABASE_ID']);
-  const expectedR2BucketName = requiredSsotVariable(env, 'CF_R2_BUCKET_NAME', ['STAGING_R2_BUCKET_NAME']);
+  const expectedD1DbId = requiredSsotVariable(env, 'CF_D1_DATABASE_ID');
+  const expectedR2BucketName = requiredSsotVariable(env, 'CF_R2_BUCKET_NAME');
   const cfAccessTeamDomain = requiredSsotVariable(env, 'CF_ACCESS_TEAM_DOMAIN');
   const cfAccessAud = requiredSsotVariable(env, 'CF_ACCESS_AUD');
 
@@ -148,7 +148,7 @@ export function verifyBindings({
   const config = parseWranglerJsonc(configPath);
 
   // Ensure target env section exists
-  const targetEnvConfig = config.env?.[envName];
+  const targetEnvConfig = envName === 'local' ? config : config.env?.[envName];
   if (!targetEnvConfig || typeof targetEnvConfig !== 'object') {
     throw new BindingVerificationError(
       `Missing "env.${envName}" configuration block in ${configPath}`,
@@ -207,10 +207,11 @@ export function verifyBindings({
   }
 
   // Keep the two named environments independent in both deployment directions.
-  const otherEnvName = envName === 'staging' ? 'production' : envName === 'production' ? 'staging' : null;
-  if (otherEnvName && config.env?.[otherEnvName]) {
-    const otherD1Databases = Array.isArray(config.env[otherEnvName].d1_databases)
-      ? config.env[otherEnvName].d1_databases
+  const otherEnvName = envName === 'local' ? 'production' : 'local';
+  const otherEnvConfig = otherEnvName === 'local' ? config : config.env?.production;
+  if (otherEnvConfig) {
+    const otherD1Databases = Array.isArray(otherEnvConfig.d1_databases)
+      ? otherEnvConfig.d1_databases
       : [];
     for (const d1 of d1Databases) {
       if (otherD1Databases.some((p) => p.database_id === d1.database_id)) {
@@ -221,8 +222,8 @@ export function verifyBindings({
       }
     }
 
-    const otherR2Buckets = Array.isArray(config.env[otherEnvName].r2_buckets)
-      ? config.env[otherEnvName].r2_buckets
+    const otherR2Buckets = Array.isArray(otherEnvConfig.r2_buckets)
+      ? otherEnvConfig.r2_buckets
       : [];
     for (const r2 of r2Buckets) {
       if (otherR2Buckets.some((p) => p.bucket_name === r2.bucket_name)) {
@@ -237,12 +238,12 @@ export function verifyBindings({
   // Names are an additional safeguard against pasting the wrong resource ID.
   for (const d1 of d1Databases) {
     const dbName = (d1.database_name ?? '').toLowerCase();
-    const wrongName = envName === 'staging'
+    const wrongName = envName === 'local'
       ? dbName.includes('production') || dbName.endsWith('-prod')
-      : envName === 'production' && dbName.includes('staging');
+      : envName === 'production' && dbName.includes('local');
     if (wrongName) {
       throw new BindingVerificationError(
-        `Environment isolation failure: ${envName} D1 database name "${d1.database_name}" points at ${envName === 'staging' ? 'production' : 'staging'}!`,
+        `Environment isolation failure: ${envName} D1 database name "${d1.database_name}" points at ${envName === 'local' ? 'production' : 'local'}!`,
         'prod-isolation'
       );
     }
@@ -250,12 +251,12 @@ export function verifyBindings({
 
   for (const r2 of r2Buckets) {
     const bName = (r2.bucket_name ?? '').toLowerCase();
-    const wrongName = envName === 'staging'
+    const wrongName = envName === 'local'
       ? bName.includes('production') || bName.endsWith('-prod')
-      : envName === 'production' && bName.includes('staging');
+      : envName === 'production' && bName.includes('local');
     if (wrongName) {
       throw new BindingVerificationError(
-        `Environment isolation failure: ${envName} R2 bucket name "${r2.bucket_name}" points at ${envName === 'staging' ? 'production' : 'staging'}!`,
+        `Environment isolation failure: ${envName} R2 bucket name "${r2.bucket_name}" points at ${envName === 'local' ? 'production' : 'local'}!`,
         'prod-isolation'
       );
     }

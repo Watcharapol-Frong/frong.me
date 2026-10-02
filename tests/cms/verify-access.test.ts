@@ -2,24 +2,23 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import {
-  verifyAccessStaging,
+  verifyAccess,
   parseCliArgs,
   normalizeHost,
   createMockAccessServer,
   AccessVerificationError,
-  DEFAULT_STAGING_HOST,
-} from '../../scripts/build/verify-access-staging.mjs';
+} from '../../scripts/build/verify-access.mjs';
 
-describe('scripts/build/verify-access-staging.mjs', () => {
+describe('scripts/build/verify-access.mjs', () => {
   it('rejects retired mutation flags instead of silently ignoring them', () => {
     assert.throws(() => parseCliArgs(['--callback', 'confirm']), AccessVerificationError);
     assert.throws(() => parseCliArgs(['--release-id', 'old-release']), AccessVerificationError);
   });
 
   it('dry-run ignores configured remote hosts and uses a local mock', async () => {
-    const result = await verifyAccessStaging({
+    const result = await verifyAccess({
       dryRun: true,
-      env: { CMS_STAGING_HOST: 'https://do-not-contact.invalid' },
+      env: { CMS_VERIFY_HOST: 'https://do-not-contact.invalid' },
       log: () => {},
     });
     assert.equal(result.success, true);
@@ -28,7 +27,7 @@ describe('scripts/build/verify-access-staging.mjs', () => {
 
   it('parses CLI arguments correctly', () => {
     const args = [
-      '--host', 'https://custom-staging.frong.me',
+      '--host', 'https://custom-local.frong.me',
       '--dry-run',
       '--client-id', 'test-id',
       '--client-secret', 'test-secret',
@@ -36,7 +35,7 @@ describe('scripts/build/verify-access-staging.mjs', () => {
       '--public-path', '/articles/test-article',
     ];
     const options = parseCliArgs(args);
-    assert.equal(options.host, 'https://custom-staging.frong.me');
+    assert.equal(options.host, 'https://custom-local.frong.me');
     assert.equal(options.dryRun, true);
     assert.equal(options.clientId, 'test-id');
     assert.equal(options.clientSecret, 'test-secret');
@@ -45,22 +44,21 @@ describe('scripts/build/verify-access-staging.mjs', () => {
   });
 
   it('normalizes host URLs properly', () => {
-    assert.equal(DEFAULT_STAGING_HOST, '');
     assert.equal(normalizeHost('example.test'), 'https://example.test');
     assert.equal(normalizeHost('example.test/'), 'https://example.test');
     assert.equal(normalizeHost('http://localhost:8787///'), 'http://localhost:8787');
-    assert.equal(normalizeHost('https://cms-staging.frong.me'), 'https://cms-staging.frong.me');
+    assert.equal(normalizeHost('https://cms-local.frong.me'), 'https://cms-local.frong.me');
   });
 
   it('requires an explicit host instead of contacting the retired Worker', async () => {
-    await assert.rejects(verifyAccessStaging({
+    await assert.rejects(verifyAccess({
       env: {}, clientId: 'test-id', clientSecret: 'test-secret', log: () => {},
     }), (error: any) => error.caseName === 'missing-host');
   });
 
   it('completes all 3 cases in --dry-run mode against mock server', async () => {
     const logs: string[] = [];
-    const result = await verifyAccessStaging({
+    const result = await verifyAccess({
       dryRun: true,
       log: (msg: string) => logs.push(msg),
     });
@@ -76,7 +74,7 @@ describe('scripts/build/verify-access-staging.mjs', () => {
     assert.ok(logs.some((l) => l.includes('Case 1: Unauthenticated Admin/API Access')));
     assert.ok(logs.some((l) => l.includes('Case 2: Authenticated via Access Service Token / Assertion')));
     assert.ok(logs.some((l) => l.includes('Case 3: Public Route Bypass')));
-    assert.ok(logs.some((l) => l.includes('All Zero Trust staging access verifications PASSED successfully')));
+    assert.ok(logs.some((l) => l.includes('All Zero Trust access verifications PASSED successfully')));
   });
 
   it('fails Case 1 if /earth is accessible without authentication (returns 200)', async () => {
@@ -92,7 +90,7 @@ describe('scripts/build/verify-access-staging.mjs', () => {
     try {
       await assert.rejects(
         async () => {
-          await verifyAccessStaging({
+          await verifyAccess({
             host,
             dryRun: true,
             log: () => {},
@@ -128,7 +126,7 @@ describe('scripts/build/verify-access-staging.mjs', () => {
     try {
       await assert.rejects(
         async () => {
-          await verifyAccessStaging({
+          await verifyAccess({
             host,
             dryRun: true,
             log: () => {},
@@ -149,8 +147,8 @@ describe('scripts/build/verify-access-staging.mjs', () => {
   it('fails in live mode if credentials are missing', async () => {
     await assert.rejects(
       async () => {
-        await verifyAccessStaging({
-          host: 'https://cms-staging.frong.me',
+        await verifyAccess({
+          host: 'https://cms-local.frong.me',
           dryRun: false,
           env: {}, // no CF_ACCESS_CLIENT_ID or secret
           log: () => {},
@@ -184,7 +182,7 @@ describe('scripts/build/verify-access-staging.mjs', () => {
     try {
       await assert.rejects(
         async () => {
-          await verifyAccessStaging({
+          await verifyAccess({
             host,
             dryRun: false,
             clientId: 'bad-id',
@@ -239,7 +237,7 @@ describe('scripts/build/verify-access-staging.mjs', () => {
     try {
       await assert.rejects(
         async () => {
-          await verifyAccessStaging({
+          await verifyAccess({
             host,
             dryRun: false,
             clientId: 'id',
@@ -288,7 +286,7 @@ describe('scripts/build/verify-access-staging.mjs', () => {
 
     try {
       const logs: string[] = [];
-      const result = await verifyAccessStaging({
+      const result = await verifyAccess({
         host,
         dryRun: false,
         clientId: 'valid-id',

@@ -39,7 +39,7 @@ for local D1 setup and the development-only Access bypass.
 | `src/lib/cms/` | Shared contracts, validation, Markdown, media and client calls |
 | `src/server/cms/` | Authentication, AI, database access and repositories |
 | `src/types/` | Shared application types |
-| `db/` | Append-only migration history and local staging fixtures |
+| `db/` | Append-only migration history and local fixtures |
 | `scripts/`, `tests/cms/` | Operational checks and regression tests |
 | `docs/` | Current English maintainer documentation |
 | `archive/sanity/` | Historical data exports; never runtime input |
@@ -57,11 +57,11 @@ Git history preserves removed source and superseded planning documents.
 GitHub Actions uses one workflow: pull requests to `main` run checks, and
 pushes/merges to `main` deploy production automatically after verification.
 Use short-lived branches for changes, then remove them after merging.
-Development uses isolated local bindings; staging Worker and D1 are retired.
+Development uses isolated local bindings and production is the only deployed environment.
 See [operations](docs/cms/environment-map.md) for configuration, recovery and
 backup limitations. Code deployments never apply remote migrations or seeds.
 
 ## Current deployment
 
 Production is `https://frong.me`. Deployment history and verification evidence
-are recorded in [the current handoff](docs/plan.md). The owner deleted the staging Worker and D1 on 2026-10-02.
+are recorded in [the current handoff](docs/plan.md). The owner confirmed removal of the former test infrastructure on 2026-10-02.

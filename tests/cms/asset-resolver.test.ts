@@ -66,7 +66,7 @@ function revisionAsset(overrides: Partial<PostRevisionAssetRow> = {}): PostRevis
     usage_id: 'usg_en_body_0001',
     asset_id: 'asset_chart_00002',
     role: 'body',
-    public_r2_key: 'staging/benchmark-latency.png',
+    public_r2_key: 'local/benchmark-latency.png',
     mime_type: 'image/png',
     width: 1200,
     height: 675,
@@ -161,14 +161,14 @@ test('buildRevisionAssetMap indexes rows by asset_id', () => {
 
 test('publicAssetUrl builds canonical HTTPS URL from public_r2_key', () => {
   const url = publicAssetUrl(revisionAsset(), 'https://images.frong.me');
-  assert.equal(url, 'https://images.frong.me/staging/benchmark-latency.png');
+  assert.equal(url, 'https://images.frong.me/local/benchmark-latency.png');
 });
 
 test('publicAssetUrl normalizes trailing slash and encodes key segments', () => {
-  const asset = revisionAsset({ public_r2_key: 'staging/my image/key (1).png' });
+  const asset = revisionAsset({ public_r2_key: 'local/my image/key (1).png' });
   const url = publicAssetUrl(asset, 'https://images.frong.me/');
   // Spaces are percent-encoded; the URL parser keeps parentheses literal.
-  assert.equal(url, 'https://images.frong.me/staging/my%20image/key%20(1).png');
+  assert.equal(url, 'https://images.frong.me/local/my%20image/key%20(1).png');
 });
 
 test('publicAssetUrl rejects non-HTTPS base URLs', () => {
@@ -189,7 +189,7 @@ test('resolveAssetTokens replaces asset:// tokens with canonical R2 URLs', () =>
     [
       'Intro paragraph.',
       '',
-      '![Benchmark chart](https://images.frong.me/staging/benchmark-latency.png)',
+      '![Benchmark chart](https://images.frong.me/local/benchmark-latency.png)',
       '',
       'Outro.',
     ].join('\n'),
@@ -202,12 +202,12 @@ test('resolveAssetTokens resolves multiple tokens in one body', () => {
     '![Chart](asset://asset_chart_00002)',
   ].join('\n');
   const map = buildRevisionAssetMap([
-    revisionAsset({ asset_id: 'asset_cover_00001', public_r2_key: 'staging/cover.webp' }),
+    revisionAsset({ asset_id: 'asset_cover_00001', public_r2_key: 'local/cover.webp' }),
     revisionAsset({ asset_id: 'asset_chart_00002' }),
   ]);
   const resolved = resolveAssetTokens(body, map);
-  assert.match(resolved, /!\[Cover\]\(https:\/\/images\.frong\.me\/staging\/cover\.webp\)/);
-  assert.match(resolved, /!\[Chart\]\(https:\/\/images\.frong\.me\/staging\/benchmark-latency\.png\)/);
+  assert.match(resolved, /!\[Cover\]\(https:\/\/images\.frong\.me\/local\/cover\.webp\)/);
+  assert.match(resolved, /!\[Chart\]\(https:\/\/images\.frong\.me\/local\/benchmark-latency\.png\)/);
 });
 
 test('resolveAssetTokens leaves ordinary markdown links untouched', () => {
@@ -231,12 +231,12 @@ test('resolveAssetTokens throws when public_r2_key is empty', () => {
   assert.throws(() => resolveAssetTokens(body, map), /empty public_r2_key/);
 });
 
-test('resolveAssetTokens uses the default staging base URL', () => {
+test('resolveAssetTokens uses the default local base URL', () => {
   const resolved = resolveAssetTokens(
     '![alt](asset://asset_chart_00002)',
     buildRevisionAssetMap([revisionAsset()]),
   );
-  assert.equal(resolved, `![alt](${PUBLIC_ASSET_BASE_URL}/staging/benchmark-latency.png)`);
+  assert.equal(resolved, `![alt](${PUBLIC_ASSET_BASE_URL}/local/benchmark-latency.png)`);
 });
 
 test('extractAssetReferences returns unique asset ids in order', () => {

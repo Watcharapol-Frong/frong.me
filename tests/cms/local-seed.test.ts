@@ -19,9 +19,9 @@ function createMigratedDb(): DatabaseSync {
   return db;
 }
 
-test('staging seed script executes cleanly and is strictly idempotent', () => {
+test('local seed script executes cleanly and is strictly idempotent', () => {
   const db = createMigratedDb();
-  const seedSql = readFileSync('db/seeds/staging.sql', 'utf8');
+  const seedSql = readFileSync('db/seeds/local.sql', 'utf8');
 
   // First run
   db.exec(seedSql);
@@ -86,7 +86,7 @@ test('staging seed script executes cleanly and is strictly idempotent', () => {
 
 test('partial index idx_one_cover_per_post strictly enforces one cover per post', () => {
   const db = createMigratedDb();
-  const seedSql = readFileSync('db/seeds/staging.sql', 'utf8');
+  const seedSql = readFileSync('db/seeds/local.sql', 'utf8');
   db.exec(seedSql);
 
   // Attempting to add a SECOND cover image to post_th_00000001 must violate the partial unique index
@@ -110,7 +110,7 @@ test('partial index idx_one_cover_per_post strictly enforces one cover per post'
 
 test('partial index idx_one_active_release strictly enforces at most one active release', () => {
   const db = createMigratedDb();
-  const seedSql = readFileSync('db/seeds/staging.sql', 'utf8');
+  const seedSql = readFileSync('db/seeds/local.sql', 'utf8');
   db.exec(seedSql);
 
   // Seeded release is status='live' (terminal). Adding ONE active release ('queued') must succeed:
@@ -155,7 +155,7 @@ test('partial index idx_one_active_release strictly enforces at most one active 
 
 test('partial index idx_release_visible_routes strictly enforces visible route uniqueness', () => {
   const db = createMigratedDb();
-  const seedSql = readFileSync('db/seeds/staging.sql', 'utf8');
+  const seedSql = readFileSync('db/seeds/local.sql', 'utf8');
   db.exec(seedSql);
 
   // In seeded release 'rel_20260910_live001', (th, 'cloudflare-cms-architecture') is visible.

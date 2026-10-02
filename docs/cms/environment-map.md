@@ -7,13 +7,12 @@ This describes repository configuration, not a live account audit.
 | Environment | Worker | D1 database | R2 bucket |
 | --- | --- | --- | --- |
 | Local | Development runtime | Local D1 state | Local R2 state |
-| Retired staging | Deleted by owner | Deleted by owner | Not confirmed deleted |
 | Production | `frong-me` | `portfolio-db-prod` | `portfolio-media-prod` |
 
 `wrangler.jsonc` is the source of truth. Default bindings use local-only placeholder names and an all-zero D1 ID; select
 named environments explicitly for deployment. All declare `DB`, `MEDIA_BUCKET`
-and `AI`. Production is served at `https://frong.me`. The owner reported deleting the
-staging Worker and D1 on 2026-10-02. The top-level `frong-me-local` bindings
+and `AI`. Production is served at `https://frong.me`. The owner confirmed removing the former test Worker, D1, R2, Access application
+and both test GitHub Environments on 2026-10-02. The top-level `frong-me-local` bindings
 have no remote production identity; local development uses Wrangler's local
 D1/R2 state. Production retains its exact named bindings and `keep_vars`.
 GitHub's production required-reviewer rule was removed after owner approval;
@@ -29,7 +28,7 @@ including production upload and public/anonymous-Access smoke checks.
 | `CF_ACCESS_TEAM_DOMAIN`, `CF_ACCESS_AUD` | Main Worker runtime and production preflight |
 | `ENABLE_ACCESS_DEV_BYPASS` | Local development only; false/unset elsewhere |
 | `CF_ACCOUNT_ID`, `CF_D1_DATABASE_NAME`, `CF_D1_READ_TOKEN` | Optional read-only D1 HTTP verifier; database ID also required |
-| `CMS_STAGING_HOST` | Optional Access verifier target |
+| `CMS_VERIFY_HOST` | Optional Access verifier target |
 | `CF_ACCESS_CLIENT_ID`, `CF_ACCESS_CLIENT_SECRET` | Authorized Access service-token verification |
 | `CF_ACCESS_JWT_ASSERTION` | Alternative Access verifier credential |
 | `GEMINI_API_KEY`, `OPENROUTER_API_KEY` | Optional Worker fallback keys for embedded AI |
@@ -41,10 +40,8 @@ Workers AI uses `AI`; Earth can also store provider keys in D1.
 `PUBLIC_GA_MEASUREMENT_ID` is not a secret. It must be supplied to each build;
 leaving it unset disables both the Google tag and analytics-consent UI.
 
-Operational scripts retain tested compatibility aliases, including
-`CF_ACCOUNT_ID`, `STAGING_D1_DATABASE_ID`, `STAGING_R2_BUCKET_NAME`,
-`STAGING_HOST`, `CMS_STAGING_URL` and `CF_API_TOKEN`. Use canonical names for
-new setups; these aliases are not a second architecture.
+Use canonical storage variables. Read-only HTTP/database checks retain their
+account variable and explicit credentials; there are no retired-host defaults.
 
 Sanity variables, standalone AI URLs/secrets, GitHub dispatch settings and release
 callback secrets are not required. Do not provision them. Access membership is
@@ -70,7 +67,7 @@ deployment bindings. Dry-run checks are mocks, not live-account verification.
 pull request for each change; remove the branch after merging. The single
 `.github/workflows/cms-ci.yml` workflow verifies pull requests and pushes to
 `main`. A successful push or merge to `main` then deploys production automatically.
-There is no staging promotion or separate production dispatch. Manual dispatch
+There is one production deployment path. Manual dispatch
 on `main` is available for retrying the current release.
 
 Verification runs without deployment credentials. Only the production job uses
@@ -94,12 +91,12 @@ Configure only the production environment for the maintained workflow:
 | Secret or variable: `CF_ACCESS_AUD` | Production `/earth` Access application AUD |
 | Optional variable: `PUBLIC_GA_MEASUREMENT_ID` | Production measurement ID |
 
-Staging has no workflow, Wrangler environment or deploy command. Its Worker
-and D1 were deleted by the owner. R2, Access applications and GitHub staging
-Environment settings are not confirmed deleted. Do not delete those as part of
-code cleanup. Historical tests/fixtures and verifier filenames containing
-`staging` remain for local checks and migration reproduction. Live Access
-verification now requires an explicitly supplied host and credentials.
+Local fixtures live in `db/seeds/local.sql`. Operational helpers are
+`scripts/db/verify-database.mjs`, `scripts/db/verify-r2.mjs` and
+`scripts/build/verify-access.mjs`. Live Access checks require `--host` or
+`CMS_VERIFY_HOST` plus explicit credentials; dry runs use mocks. Former test
+infrastructure is removed, based on the owner's report; the branch inventory
+was checked independently and contains only `main` before this change.
 
 For `CF_ACCESS_AUD`, the workflows read an Environment secret first and then an
 Environment variable. The secret is suitable if the AUD is already stored there;
@@ -122,7 +119,7 @@ search routes and anonymous Earth denial. No remote migrations or seeds run.
 Review migration changes separately; apply approved migrations explicitly,
 with a data recovery plan, before deploying code that needs them.
 For larger risky changes, test locally or provision a separately approved
-temporary environment; no staging deploy helper remains.
+temporary environment; only the production deploy job is maintained.
 
 For a code rollback, revert the faulty change in a short-lived branch, pass CI,
 and merge the revert to `main`; that automatically deploys the reverted code.
@@ -143,5 +140,5 @@ objects before any operation that overwrites/deletes media. Routine code
 releases neither migrate D1 nor delete R2 objects.
 
 A D1/R2 backup and restore drill is still unverified. Historical Sanity archives are not backups of current production data.
-Deleting remote staging services or rotating credentials requires a separate
+Deleting remote services or rotating credentials requires a separate
 explicitly scoped operation after dependency and data checks.

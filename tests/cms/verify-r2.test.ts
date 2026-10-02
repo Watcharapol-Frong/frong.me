@@ -13,8 +13,8 @@ import {
   sha256Hex,
   smokeFixtureBytes,
   parseArgs,
-  verifyR2Staging,
-} from '../../scripts/db/verify-r2-staging.mjs';
+  verifyR2,
+} from '../../scripts/db/verify-r2.mjs';
 
 // ---------------------------------------------------------------------------
 // Canonical hash / key / URL helpers
@@ -88,12 +88,12 @@ test('createMemoryBucket supports put/get/head/delete lifecycle', async () => {
 });
 
 // ---------------------------------------------------------------------------
-// verifyR2Staging — dry-run (default) mode
+// verifyR2 — dry-run (default) mode
 // ---------------------------------------------------------------------------
 
-test('verifyR2Staging dry-run passes all steps and cleans up', async () => {
+test('verifyR2 dry-run passes all steps and cleans up', async () => {
   const logs = [];
-  const results = await verifyR2Staging({ dryRun: true, log: (m) => logs.push(m) });
+  const results = await verifyR2({ dryRun: true, log: (m) => logs.push(m) });
 
   assert.equal(results.ok, true);
   assert.equal(results.urlPatternMatch, true);
@@ -105,19 +105,19 @@ test('verifyR2Staging dry-run passes all steps and cleans up', async () => {
   assert.ok(logs.length > 0);
 });
 
-test('verifyR2Staging dry-run leaves no objects behind', async () => {
+test('verifyR2 dry-run leaves no objects behind', async () => {
   // Dry-run uses its own internal mock bucket; verify via a custom fixture
   // that the routine is deterministic and repeatable.
-  const first = await verifyR2Staging({ dryRun: true, log: () => {} });
-  const second = await verifyR2Staging({ dryRun: true, log: () => {} });
+  const first = await verifyR2({ dryRun: true, log: () => {} });
+  const second = await verifyR2({ dryRun: true, log: () => {} });
   assert.equal(first.sha256, second.sha256);
   assert.equal(first.url, second.url);
   assert.equal(first.key, second.key);
 });
 
-test('verifyR2Staging accepts a custom fixture and filename', async () => {
+test('verifyR2 accepts a custom fixture and filename', async () => {
   const fixture = new TextEncoder().encode('custom-fixture-bytes');
-  const results = await verifyR2Staging({
+  const results = await verifyR2({
     dryRun: true,
     fixture,
     filename: 'custom.png',
@@ -130,20 +130,20 @@ test('verifyR2Staging accepts a custom fixture and filename', async () => {
   );
 });
 
-test('verifyR2Staging rejects an empty fixture', async () => {
+test('verifyR2 rejects an empty fixture', async () => {
   await assert.rejects(
-    () => verifyR2Staging({ dryRun: true, fixture: new Uint8Array(0), log: () => {} }),
+    () => verifyR2({ dryRun: true, fixture: new Uint8Array(0), log: () => {} }),
     /must not be empty/,
   );
 });
 
 // ---------------------------------------------------------------------------
-// verifyR2Staging — remote mode with an injected binding
+// verifyR2 — remote mode with an injected binding
 // ---------------------------------------------------------------------------
 
-test('verifyR2Staging remote mode exercises the provided bucket binding and cleans up', async () => {
+test('verifyR2 remote mode exercises the provided bucket binding and cleans up', async () => {
   const bucket = createMemoryBucket();
-  const results = await verifyR2Staging({ remote: true, bucket, log: () => {} });
+  const results = await verifyR2({ remote: true, bucket, log: () => {} });
 
   assert.equal(results.ok, true);
   assert.equal(results.cleanedUp, true);
@@ -152,9 +152,9 @@ test('verifyR2Staging remote mode exercises the provided bucket binding and clea
   assert.equal(await bucket.head(results.key), null);
 });
 
-test('verifyR2Staging remote mode without a bucket binding fails fast', async () => {
+test('verifyR2 remote mode without a bucket binding fails fast', async () => {
   await assert.rejects(
-    () => verifyR2Staging({ remote: true, log: () => {} }),
+    () => verifyR2({ remote: true, log: () => {} }),
     /requires an R2 bucket binding/,
   );
 });

@@ -1,6 +1,6 @@
 # Article SEO: editor review and discovery
 
-Updated: 2026-10-01. Scope: editor review, article discovery, metadata and safe
+Updated: 2026-10-02. Scope: editor review, article discovery, metadata and safe
 public search access. Public design and homepage content are owned separately.
 
 ## Goal and limits
@@ -33,7 +33,7 @@ search queries and indexing after deployment.
 3. **Search boundaries.** Host-aware robots permits public content on `frong.me`
    and excludes Earth for every named search bot. Other hosts disallow crawling,
    advertise no sitemaps and return an empty article sitemap. SSR headers and
-   host-scoped static headers mark staging and Worker aliases as noindex.
+   host-scoped static headers mark noncanonical hosts and Worker aliases as noindex.
    Access remains the private-data boundary. Training policy is unchanged.
 4. **Article metadata.** Canonicals normalize trailing slashes to match sitemap
    entries. Articles show the author/profile and machine-readable published
@@ -48,8 +48,7 @@ On 2026-10-01, direct HTTP checks returned 200 for production home, robots,
 static sitemap index, article sitemap and `/articles/line-stock-checker`.
 Browser, Googlebot, OAI-SearchBot, ChatGPT-User and Claude-SearchBot user-agent
 strings received the expected article heading. Anonymous Earth redirected to
-Cloudflare Access. Staging still emitted `index, follow` without an X-Robots-Tag
-before this change. These checks establish reachability from this test origin,
+Cloudflare Access. These checks establish reachability from this test origin,
 not from verified crawler IP ranges. The search tool's direct-open attempts
 failed despite successful HTTP reads; that alone does not establish a WAF block.
 
@@ -60,7 +59,7 @@ Cloudflare verified-bot facilities or providers' published IP ranges, then
 adjust only the specific blocking/challenge rule for public GET/HEAD requests.
 Never disable WAF, DDoS protection, rate limits or Access globally. A spoofable
 user-agent is insufficient evidence for a security exception. Keep Earth
-excluded from every exception. Existing indexed staging URLs may need Search
+excluded from every exception. Existing indexed retired-host URLs may need Search
 Console removal: disallow can prevent crawlers from seeing noindex headers.
 
 Search and training access are separate preferences. This change preserves
@@ -78,17 +77,12 @@ After an authorized deployment, run:
 
 ```sh
 node scripts/build/verify-search.mjs
-node scripts/build/verify-search.mjs --origin https://frong-me-staging.frongbook.workers.dev
 ```
 
 These read-only checks cover production robots, combined sitemap index,
-article HTML/metadata under three search user-agent strings, staging discovery
-and SSR/static noindex, plus anonymous Earth denial. They do not follow Access
+article HTML/metadata under three search user-agent strings, production discovery, plus anonymous Earth denial. They do not follow Access
 redirects, write content, invoke AI, verify source IPs or establish indexing.
 Production verification passed after deployment of `9b01aca` on 2026-10-01.
-Staging browser/curl checks passed for robots exclusions, empty article sitemap,
-and SSR/static noindex. The Node script timed out on staging and default urllib
-requests received 403, so its full staging run is not claimed as passing.
 Production's Node check passed, including three article search user-agents and
 anonymous Earth denial. Actual verified crawler access and indexing still need
 Cloudflare event review and Search Console inspection. See the deployment links

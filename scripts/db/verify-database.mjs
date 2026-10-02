@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Staging database verification script for frong.me CMS.
+ * Local database verification script for frong.me CMS.
  *
  * Verifies relational integrity and partial index enforcement using:
  * 1. PRAGMA foreign_key_check
@@ -245,17 +245,17 @@ export function createSqliteExecutor(db) {
 export async function runVerification(queryFn, options = {}) {
   const logger = options.logger ?? console;
 
-  logger.log('[verify-staging] 1/3 Checking foreign key integrity...');
+  logger.log('[verify-database] 1/3 Checking foreign key integrity...');
   const fkResult = await verifyForeignKeys(queryFn);
-  logger.log(`[verify-staging] ✓ Foreign keys OK: ${fkResult.violationsCount} violations found.`);
+  logger.log(`[verify-database] ✓ Foreign keys OK: ${fkResult.violationsCount} violations found.`);
 
-  logger.log('[verify-staging] 2/3 Checking partial index definitions and data constraints...');
+  logger.log('[verify-database] 2/3 Checking partial index definitions and data constraints...');
   const partialResult = await verifyPartialIndexes(queryFn);
   for (const idx of partialResult.indexes) {
-    logger.log(`[verify-staging] ✓ Partial index ${idx.name} verified on ${idx.table} (${idx.description})`);
+    logger.log(`[verify-database] ✓ Partial index ${idx.name} verified on ${idx.table} (${idx.description})`);
   }
 
-  logger.log('[verify-staging] 3/3 Checking basic staging table population...');
+  logger.log('[verify-database] 3/3 Checking basic local table population...');
   const counts = await queryFn(`
     SELECT
       (SELECT COUNT(*) FROM posts) AS posts_count,
@@ -267,11 +267,11 @@ export async function runVerification(queryFn, options = {}) {
 
   const summary = counts[0] ?? {};
   logger.log(
-    `[verify-staging] ✓ Staging rows: posts=${summary.posts_count}, categories=${summary.categories_count}, ` +
+    `[verify-database] ✓ Local rows: posts=${summary.posts_count}, categories=${summary.categories_count}, ` +
     `tags=${summary.tags_count}, assets=${summary.assets_count}, live_releases=${summary.live_releases_count}`,
   );
 
-  logger.log('[verify-staging] ✓ All staging database verifications PASSED successfully.');
+  logger.log('[verify-database] ✓ All local database verifications PASSED successfully.');
   return { ok: true, fkResult, partialResult, summary };
 }
 
@@ -316,7 +316,7 @@ async function main() {
 
   if (args.help) {
     console.log(`
-Usage: node scripts/db/verify-staging.mjs [options]
+Usage: node scripts/db/verify-database.mjs [options]
 
 Options:
   --http               Force D1 HTTP API mode (requires CF_ACCOUNT_ID, CF_D1_DATABASE_ID, CF_D1_READ_TOKEN)
@@ -341,7 +341,7 @@ Options:
     args.mode === 'http' ||
     (args.mode === 'auto' && process.env.CF_ACCOUNT_ID && process.env.CF_D1_DATABASE_ID && (process.env.CF_D1_READ_TOKEN || process.env.CLOUDFLARE_API_TOKEN))
   ) {
-    console.log('[verify-staging] Connecting via Cloudflare D1 HTTP API...');
+    console.log('[verify-database] Connecting via Cloudflare D1 HTTP API...');
     queryFn = createD1HttpExecutor({
       accountId: process.env.CF_ACCOUNT_ID,
       databaseId: process.env.CF_D1_DATABASE_ID,
@@ -349,7 +349,7 @@ Options:
       apiBaseUrl: process.env.CF_D1_API_BASE_URL,
     });
   } else {
-    console.log(`[verify-staging] Connecting via Wrangler CLI (database: ${args.databaseName}, env: ${args.env ?? '(none)'}, local: ${args.local})...`);
+    console.log(`[verify-database] Connecting via Wrangler CLI (database: ${args.databaseName}, env: ${args.env ?? '(none)'}, local: ${args.local})...`);
     queryFn = createWranglerExecutor({
       databaseName: args.databaseName,
       local: args.local,
@@ -362,7 +362,7 @@ Options:
 
 if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
   main().catch((err) => {
-    console.error(`[verify-staging] ✗ Verification failed: ${err.message}`);
+    console.error(`[verify-database] ✗ Verification failed: ${err.message}`);
     process.exitCode = 1;
   });
 }

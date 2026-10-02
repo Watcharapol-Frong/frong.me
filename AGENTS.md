@@ -28,7 +28,7 @@ git diff --check
 ```
 
 For database work, also apply migrations locally and run
-`node scripts/db/verify-staging.mjs --wrangler --local`.
+`node scripts/db/verify-database.mjs --wrangler --local`.
 Use background development: `npm run dev -- --background`. Manage with
 `npm run astro -- dev status`, `npm run astro -- dev logs`,
 and `npm run astro -- dev stop`.
@@ -38,7 +38,7 @@ and `npm run astro -- dev stop`.
 The maintained branch is `main`. The single CMS CI workflow verifies pull
 requests and pushes; after successful checks, a push to `main` automatically
 deploys production using the `production` GitHub Environment. Merging to `main`
-is therefore a production action. The staging Worker and D1 were retired by the owner on 2026-10-02. Do not run remote migrations/seeds, delete services,
+is therefore a production action. Production is the only deployed environment. Do not run remote migrations/seeds, delete services,
 revoke credentials or destroy data without explicit approval.
 Never edit applied migrations. Default bindings are isolated local placeholders; production
 is a separate named environment in `wrangler.jsonc`.
