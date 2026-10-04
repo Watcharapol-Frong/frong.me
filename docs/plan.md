@@ -43,12 +43,16 @@ logs remain in Git history instead of the current instructions.
 The table size dialog now shares Image's centered card width, padding and
 white blurred backdrop; it remains a native modal with Escape/focus handling.
 The standalone Table creation button is removed; /table opens the picker.
-The contextual toolbar appears only inside an existing table and stays visible
-while scrolling the writing surface. Clicking
+Each table node view owns a compact toolbar immediately above its cells,
+visible only for that selected table. + Row/+ Column stay in the toolbar;
+secondary actions live in ⋯. An inner cell container handles horizontal
+scrolling independently. The toolbar sticks only within its own table. Clicking
 an existing cell reveals explicit + Row/+ Column buttons and live dimensions;
 these insert after the selected row/column without replacing existing content.
 The interaction regression creates six rows, adds a seventh and a column,
-checks existing text, then saves/reopens and exercises deletion.
+checks existing text, then saves/reopens and exercises deletion. A two-table
+regression verifies menu placement, selected-table visibility and mutation
+isolation; toolbar text never enters saved Markdown.
 Local CMS tests, TypeScript and diff checks pass. Local Cloudflare prerender
 remains restricted by uv_interface_addresses; require full GitHub CI.
 Actual browser/mobile visual acceptance is pending. No database changes.

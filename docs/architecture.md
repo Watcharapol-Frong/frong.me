@@ -74,7 +74,11 @@ width; paragraph boundaries and intentional line breaks do not.
 The rich editor provides simple tables through `/table`.
 The size picker is centered with the same card and blurred backdrop as Image.
 Authors choose initial rows/columns and a header row, then click a cell to use
-the contextual sticky toolbar (hidden outside tables): + Row/+ Column insert after the selected row/column.
+that table’s own compact toolbar above its cells (hidden when another block
+is selected): + Row/+ Column insert after the selected row/column. The toolbar
+can stick within its table while the article scrolls; a separate inner container
+scrolls wide cells without moving the controls. The ⋯ menu holds secondary
+row/column/header/delete actions.
 Live dimensions make later additions visible. Other contextual controls to add/remove rows/columns, toggle the first header row or delete the
 table. Tab moves between cells; Shift+Enter inserts an intentional line break.
 Cells contain paragraphs and supported inline marks, not nested tables or media.

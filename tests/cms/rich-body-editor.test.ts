@@ -337,3 +337,31 @@ test('standard Markdown tables import into the rich editor and convert to lossle
     assert.match(renderMarkdown(saved).html, /<a href="https:\/\/example.com"/);
   } finally { editor.destroy(); }
 });
+
+test('each table owns its nearby controls and changes only the selected table', () => {
+  const editor = createEditor('Before\n\n| First |\n| --- |\n| Keep first |\n\nBetween\n\n| Second |\n| --- |\n| Keep second |\n\nAfter');
+  try {
+    const wrappers = Array.from(editor.view.dom.querySelectorAll('.tableWrapper'));
+    assert.equal(wrappers.length, 2);
+    const toolbars = wrappers.map(wrapper => wrapper.querySelector('.rich-table-toolbar') as HTMLElement);
+    wrappers.forEach((wrapper, index) => {
+      assert.equal(wrapper.firstElementChild, toolbars[index]);
+      assert.ok(toolbars[index].hidden);
+      assert.equal(wrapper.querySelector('.editor-table-scroll')?.querySelector('table')?.parentElement?.className, 'editor-table-scroll');
+    });
+    const positions: number[] = [];
+    editor.state.doc.descendants((node, position) => { if (node.type.name === 'table') positions.push(position); });
+    editor.commands.setTextSelection(positions[1] + 4);
+    assert.ok(toolbars[0].hidden);
+    assert.equal(toolbars[1].hidden, false);
+    const button = Array.from(toolbars[1].querySelectorAll('button')).find(button => button.textContent === '+ Row')!;
+    button.click();
+    assert.equal(wrappers[0].querySelectorAll('tr').length, 2);
+    assert.equal(wrappers[1].querySelectorAll('tr').length, 3);
+    assert.match(editor.storage.markdown.getMarkdown(), /Keep first/);
+    assert.match(editor.storage.markdown.getMarkdown(), /Keep second/);
+    assert.doesNotMatch(editor.storage.markdown.getMarkdown(), /Table controls|\+ Row/);
+    editor.commands.setTextSelection(1);
+    assert.ok(toolbars.every(toolbar => toolbar.hidden));
+  } finally { editor.destroy(); }
+});
