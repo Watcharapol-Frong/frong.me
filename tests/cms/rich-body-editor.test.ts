@@ -230,3 +230,99 @@ test('an image followed by a saved divider reopens as an image and horizontal ru
   beforeSave.destroy();
   afterReopen.destroy();
 });
+
+test('tables preserve headerless cells, empty cells, marks, pipes and paragraph breaks across save/reopen', () => {
+  for (const header of [true, false]) {
+    const editor = createEditor();
+    try {
+      const cell = (content: any[], first = false) => ({ type: first && header ? 'tableHeader' : 'tableCell', content });
+      const paragraph = (content: any[] = []) => ({ type: 'paragraph', content });
+      editor.commands.setContent({ type: 'doc', content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'Before' }] },
+        { type: 'table', content: [
+          { type: 'tableRow', content: [
+            cell([paragraph([{ type: 'text', text: 'หัวข้อ | value', marks: [{ type: 'bold' }] }])], true),
+            cell([paragraph()], true),
+          ] },
+          { type: 'tableRow', content: [
+            cell([paragraph([
+              { type: 'text', text: 'Example', marks: [{ type: 'link', attrs: { href: 'https://example.com' } }] },
+              { type: 'hardBreak' }, { type: 'hardBreak' }, { type: 'text', text: '<script> & \\ file' }, { type: 'hardBreak' },
+            ]), paragraph([{ type: 'text', text: 'Next paragraph' }])]),
+            cell([paragraph([{ type: 'text', text: 'a|b <code> &lt;', marks: [{ type: 'code' }] }])]),
+          ] },
+        ] },
+        { type: 'paragraph', content: [{ type: 'text', text: 'After' }] },
+      ] });
+      const saved = editor.storage.markdown.getMarkdown();
+      const reopened = createEditor(saved);
+      try {
+        assert.deepEqual(reopened.getJSON(), editor.getJSON());
+        const publicDoc = new JSDOM(renderMarkdown(saved).html).window.document;
+        assert.equal(publicDoc.querySelectorAll('tr').length, 2);
+        assert.equal(publicDoc.querySelectorAll('th').length, header ? 2 : 0);
+        assert.equal(publicDoc.querySelector('strong')?.textContent, 'หัวข้อ | value');
+        assert.equal(publicDoc.querySelector('a')?.getAttribute('href'), 'https://example.com');
+        assert.equal(publicDoc.querySelector('code')?.textContent, 'a|b <code> &lt;');
+        assert.equal(publicDoc.querySelectorAll('td p').length, header ? 3 : 5);
+        assert.equal(publicDoc.querySelectorAll('br').length, 3);
+        assert.equal(publicDoc.querySelector('script'), null);
+        assert.match(publicDoc.body.textContent ?? '', /<script> & \\ file/);
+      } finally { reopened.destroy(); }
+    } finally { editor.destroy(); }
+  }
+});
+
+test('rendered table controls insert, edit, mirror and remove a table', async () => {
+  const host = document.createElement('div');
+  document.body.append(host);
+  const root = createRoot(host);
+  try {
+    await act(async () => { root.render(createElement(RichBodyEditor)); });
+    const surface = host.querySelector('[data-earth-body-editor]') as any;
+    async function click(label: string) {
+      const button = Array.from(host.querySelectorAll('button')).find(button => button.textContent === label)!;
+      assert.ok(button, label);
+      await act(async () => { button.click(); });
+    }
+    await click('▦ Table');
+    assert.ok(host.querySelector('.table-dialog[open]'));
+    await act(async () => { host.querySelector('form')!.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true })); });
+    assert.equal(host.querySelectorAll('tr').length, 3);
+    assert.equal(host.querySelectorAll('th').length, 3);
+    await click('Row below');
+    await click('Column right');
+    assert.equal(host.querySelectorAll('tr').length, 4);
+    assert.equal(host.querySelector('tr')?.children.length, 4);
+    await click('Header row');
+    assert.equal(host.querySelectorAll('th').length, 0);
+    const saved = surface.bodyEditor.getMarkdown();
+    assert.equal((host.querySelector('[data-earth-field="body"]') as HTMLTextAreaElement).value, saved);
+    await act(async () => { surface.bodyEditor.setMarkdown(saved); });
+    assert.equal(host.querySelectorAll('tr').length, 4);
+    assert.equal(host.querySelectorAll('th').length, 0);
+    await click('Delete row');
+    await click('Delete column');
+    assert.equal(host.querySelectorAll('tr').length, 3);
+    assert.equal(host.querySelector('tr')?.children.length, 3);
+    await click('Delete table');
+    assert.equal(host.querySelector('table'), null);
+    assert.doesNotMatch(surface.bodyEditor.getMarkdown(), /earth-table/);
+  } finally {
+    await act(async () => { root.unmount(); });
+    host.remove();
+  }
+});
+
+test('standard Markdown tables import into the rich editor and convert to lossless tables on save', () => {
+  const editor = createEditor('| Header | Value |\n| --- | --- |\n| ไทย | [Link](https://example.com) |');
+  try {
+    assert.equal(editor.state.doc.firstChild?.type.name, 'table');
+    const saved = editor.storage.markdown.getMarkdown();
+    assert.match(saved, /```earth-table/);
+    const reopened = createEditor(saved);
+    try { assert.deepEqual(reopened.getJSON(), editor.getJSON()); }
+    finally { reopened.destroy(); }
+    assert.match(renderMarkdown(saved).html, /<a href="https:\/\/example.com"/);
+  } finally { editor.destroy(); }
+});

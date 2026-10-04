@@ -1,3 +1,5 @@
+import { isTableStart, parseTablePayload, splitTableRow, TABLE_FENCE, type MarkdownTable } from './table';
+
 /**
  * Minimal Markdown -> HTML renderer for public article bodies and the Zen
  * Editor's preview.
@@ -106,8 +108,8 @@ const FENCE_OPEN_PATTERN = /^```(\S*)/;
 const FENCE_CLOSE_PATTERN = /^```\s*$/;
 const HR_PATTERN = /^(-{3,}|\*{3,}|_{3,})$/;
 
-function startsBlock(line: string): boolean {
-  return line.trim() === '' || HEADING_PATTERN.test(line) || BLOCKQUOTE_PATTERN.test(line)
+function startsBlock(line: string, next = ''): boolean {
+  return isTableStart(line, next) || line.trim() === '' || HEADING_PATTERN.test(line) || BLOCKQUOTE_PATTERN.test(line)
     || UNORDERED_ITEM_PATTERN.test(line) || ORDERED_ITEM_PATTERN.test(line)
     || FENCE_OPEN_PATTERN.test(line) || HR_PATTERN.test(line.trim()) || YOUTUBE_PATTERN.test(line.trim());
 }
@@ -127,6 +129,25 @@ function renderLines(lines: string[]): string {
   return renderInline(content);
 }
 
+function renderTableInline(line: string): string {
+  // Decode serializer entities once, outside code, then escape before emitting tags.
+  const entities: Record<string, string> = { amp: '&', lt: '<', gt: '>' };
+  const escaped = line.split(/(`[^`]+`)/g).map(part => escapeHtml(
+    part.startsWith('`') && part.endsWith('`') ? part
+      : part.replace(/&(amp|lt|gt);/g, (_match, entity: string) => entities[entity]),
+  )).join('');
+  return renderInline(escaped);
+}
+
+function renderTable(rows: MarkdownTable): string {
+  return '<div class="article-table-scroll" role="region" aria-label="Table" tabindex="0"><table><tbody>'
+    + rows.map(row => '<tr>' + row.map(cell => {
+      const tag = cell.header ? 'th' : 'td';
+      return `<${tag}${cell.header ? ' scope="col"' : ''}>`
+        + cell.paragraphs.map(paragraph => `<p>${paragraph.map(renderTableInline).join('<br />')}</p>`).join('') + `</${tag}>`;
+    }).join('') + '</tr>').join('') + '</tbody></table></div>';
+}
+
 export function renderMarkdown(markdown: string): RenderedMarkdown {
   const lines = markdown.replace(/\r\n/g, '\n').split('\n');
   const html: string[] = [];
@@ -139,7 +160,9 @@ export function renderMarkdown(markdown: string): RenderedMarkdown {
   const fenceLines: string[] = [];
 
   function flushFence() {
-    html.push(
+    const table = fenceLang === TABLE_FENCE ? parseTablePayload(fenceLines.join('\n')) : null;
+    if (table) html.push(renderTable(table));
+    else html.push(
       `<pre><code${fenceLang ? ` class="language-${escapeHtml(fenceLang)}"` : ''}>${fenceLines.map(escapeHtml).join('\n')}</code></pre>`,
     );
     fenceLines.length = 0;
@@ -179,6 +202,20 @@ export function renderMarkdown(markdown: string): RenderedMarkdown {
         continue;
       }
       fenceLines.push(rawLine);
+      continue;
+    }
+
+    if (isTableStart(rawLine, lines[lineIndex + 1])) {
+      closeList();
+      const headers = splitTableRow(rawLine);
+      const rows: MarkdownTable = [headers.map(markdown => ({ header: true, paragraphs: [[markdown]] }))];
+      lineIndex++;
+      while (lineIndex + 1 < lines.length && lines[lineIndex + 1].includes('|')
+        && !startsBlock(lines[lineIndex + 1], lines[lineIndex + 2])) {
+        const cells = splitTableRow(lines[++lineIndex]);
+        rows.push(headers.map((_, index) => ({ header: false, paragraphs: [[cells[index] ?? '']] })));
+      }
+      html.push(renderTable(rows));
       continue;
     }
 
@@ -268,7 +305,7 @@ export function renderMarkdown(markdown: string): RenderedMarkdown {
 
     closeList();
     const paragraphLines = [rawLine];
-    while (lineIndex + 1 < lines.length && !startsBlock(lines[lineIndex + 1])) {
+    while (lineIndex + 1 < lines.length && !startsBlock(lines[lineIndex + 1], lines[lineIndex + 2])) {
       paragraphLines.push(lines[++lineIndex]);
     }
     html.push(`<p>${renderLines(paragraphLines)}</p>`);
