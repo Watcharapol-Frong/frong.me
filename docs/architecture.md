@@ -71,6 +71,26 @@ scrollable blocks, and uses narrower gutters, smaller titles and tighter paragra
 spacing below the small-screen breakpoint. Actual line lengths depend on screen
 width; paragraph boundaries and intentional line breaks do not.
 
+The rich editor provides simple tables through the Table button or `/table`.
+Authors choose initial rows/columns and a header row, then use contextual
+controls to add/remove rows/columns, toggle the first header row or delete the
+table. Tab moves between cells; Shift+Enter inserts an intentional line break.
+Cells contain paragraphs and supported inline marks, not nested tables or media.
+Both author and public tables use bordered cells and an internal horizontal
+scroll area, keeping narrow pages from overflowing; public colors follow the theme.
+
+Bodies remain Markdown strings in the same database/API/backup fields. Earth
+serializes tables as a validated `earth-table` fenced JSON payload: rectangular
+rows, per-cell header flags, and arrays of paragraph/line Markdown strings.
+This retains empty cells, headerless tables, paragraph boundaries, terminal and
+consecutive hard breaks, escaped pipes and inline marks. Standard pipe tables
+cannot express all of those, and the package's default raw-HTML fallback is
+incompatible with this application's disabled raw HTML. The editor parser and
+public renderer recognize this explicit dialect without enabling raw HTML.
+Malformed payloads remain escaped code. Standard GFM pipe tables also import
+into the editor and render publicly; an editor save converts them to the lossless
+format. No migration or content rewrite is required.
+
 Article discovery has two distinct taxonomy levels. `posts.primary_topic` is
 nullable for legacy content and restricted to `data`, `technology`, or
 `business`; these fixed values drive the homepage navigation. Free-form tags

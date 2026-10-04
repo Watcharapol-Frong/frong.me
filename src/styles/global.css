@@ -322,3 +322,33 @@ html {
   height: 100%;
   border: 0;
 }
+
+/* Tables share cell geometry with Earth; scrolling stays inside the table. */
+.article-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  margin-block: 1.5em;
+  border-radius: 6px;
+}
+.article-content .article-table-scroll table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0;
+  font-size: inherit;
+  line-height: inherit;
+}
+.article-content .article-table-scroll :is(td, th) {
+  min-width: 140px;
+  padding: 10px 14px;
+  border: 1px solid hsl(var(--border));
+  vertical-align: top;
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+.article-content .article-table-scroll th {
+  background: hsl(var(--muted));
+  color: hsl(var(--foreground));
+  font-weight: 600;
+}
+.article-content .article-table-scroll :is(td, th) p { margin: 0; }
+.article-content .article-table-scroll :is(td, th) p + p { margin-top: .75em; }

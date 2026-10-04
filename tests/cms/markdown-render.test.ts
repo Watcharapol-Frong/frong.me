@@ -136,3 +136,20 @@ test('a malformed or hostile youtube token stays inert text instead of building 
     assert.ok(!html.includes('<iframe'), `must not emit an iframe for: ${source}`);
   }
 });
+
+test('GFM tables render escaped pipes and inline marks without swallowing neighboring blocks', () => {
+  const result = renderMarkdown('Intro\n| Name | Value |\n| --- | --- |\n| **Thai** | a\\|b |\n\n## After');
+  assert.match(result.html, /^<p>Intro<\/p>\n<div class="article-table-scroll"/);
+  assert.match(result.html, /<th scope="col"><p>Name<\/p><\/th>/);
+  assert.match(result.html, /<td><p><strong>Thai<\/strong><\/p><\/td>/);
+  assert.match(result.html, /a&#124;b/);
+  assert.match(result.html, /<h2 id="after">After<\/h2>$/);
+});
+
+test('invalid table payloads remain escaped code and never pass raw HTML through', () => {
+  for (const payload of ['not json', '[]', '[[{"header":true,"markdown":"x"}],[]]', '[[{"header":"onclick","markdown":"<script>x</script>"}]]']) {
+    const html = renderMarkdown('```earth-table\n' + payload + '\n```').html;
+    assert.match(html, /^<pre><code/);
+    assert.doesNotMatch(html, /<table|<script>/);
+  }
+});

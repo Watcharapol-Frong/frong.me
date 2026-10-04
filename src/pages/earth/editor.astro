@@ -776,6 +776,21 @@ const tagCatalog = {
       }
 
       .body-input .ProseMirror:focus { outline: none; }
+      .rich-body-editor { min-width: 0; }
+      .rich-table-toolbar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; align-items: center; }
+      .rich-table-toolbar button { font: inherit; font-size: 12px; border: 1px solid #ddd; border-radius: 5px; padding: 7px 10px; background: #fff; cursor: pointer; }
+      .rich-table-toolbar button:hover { background: #f5f5f5; }
+      .rich-table-toolbar button:disabled { opacity: .45; cursor: default; }
+      .rich-table-toolbar span { font-size: 11px; color: #666; }
+      .table-dialog label { display: block; margin-block: 12px; }
+      .body-input .ProseMirror .tableWrapper { max-width: 100%; overflow-x: auto; margin-block: 1.5em; }
+      .body-input .ProseMirror table { width: 100%; border-collapse: collapse; table-layout: auto; }
+      .body-input .ProseMirror :is(td, th) { position: relative; min-width: 140px; padding: 10px 14px; border: 1px solid #ddd; vertical-align: top; text-align: start; overflow-wrap: anywhere; }
+      .body-input .ProseMirror th { background: #f5f5f5; font-weight: 600; }
+      .body-input .ProseMirror :is(td, th) p { margin: 0; }
+      .body-input .ProseMirror :is(td, th) p + p { margin-top: .75em; }
+      .body-input .ProseMirror .selectedCell::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: rgba(100, 140, 220, .15); }
+
 
       /* Placeholder extension's own convention: an empty first paragraph
          gets `is-editor-empty` + `data-placeholder`, styled via ::before

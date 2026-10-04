@@ -1,6 +1,6 @@
 # Current handoff
 
-Updated: 2026-10-02. Scope: local development and main-only production operations.
+Updated: 2026-10-04. Scope: local development and main-only production operations.
 
 ## Current system
 
@@ -38,20 +38,32 @@ logs remain in Git history instead of the current instructions.
 
 ## Latest completed release
 
-### Pending article rendering repair (2026-10-04)
+### Pending simple editor tables (2026-10-04)
 
-Actual rich-editor serialization reproduced backslashes and spurious paragraph
-gaps outside quotes, including indented list continuation lines. The shared
-renderer now groups paragraph lines, distinguishes soft wraps/hard breaks, keeps
-list continuations in their items, and displays escaped punctuation literally.
-Inline/fenced code retains literal characters. Public mobile typography uses
-tighter paragraph spacing, responsive titles/gutters, wrapping long text/links
-and horizontally scrollable code blocks. No database changes or resaves are needed.
-Local regression/TypeScript checks pass; full local build remains blocked by
-Cloudflare's `uv_interface_addresses` restriction after successful bundling.
-The cloud browser cannot open the local responsive fixture (file URLs are
-blocked), so an actual-device visual acceptance check remains pending. Require
-full GitHub CI before merge; merging to main automatically deploys production.
+The Table button and `/table` open a rows/columns/header picker. Contextual
+controls add/remove rows and columns, toggle headers and delete the table.
+Cells support paragraphs, intentional hard breaks and existing inline marks.
+A validated Markdown table fence preserves save/reopen structure; standard GFM
+pipe tables are supported for import/public rendering. Public tables scroll
+within their container and use theme colors. No database or API changes.
+Regression coverage includes the rendered React controls, hidden body mirror,
+headerless/empty cells, Thai text, pipes/code/links, multiple/terminal breaks,
+HTML escaping, invalid payloads and neighboring Markdown blocks.
+Local CMS tests: 286 passed. TypeScript and diff checks passed. Full local build
+bundles successfully but Cloudflare prerendering fails with the runtime
+`uv_interface_addresses` restriction. Require the complete GitHub CI build.
+Authenticated browser/device acceptance remains pending; the cloud browser
+cannot open local file fixtures. This change is not deployed.
+
+### Completed article rendering repair (2026-10-04)
+
+[PR #28](https://github.com/Watcharapol-Frong/frong.me/pull/28) merged as
+`4aa0b175ea1024ba2c7f907b06b7dbeff1b83b75`.
+[Production run](https://github.com/Watcharapol-Frong/frong.me/actions/runs/37170156771)
+passed tests, TypeScript, build, deployment and read-only public smoke checks.
+Public article DOM showed correct multiline quotes with no stray backslashes.
+The owner confirmed on an actual mobile device that layout is good and the
+backslashes are gone. Existing article rows did not require resaving.
 
 [PR #26](https://github.com/Watcharapol-Frong/frong.me/pull/26) merged as `cd2b851`.
 [Production run](https://github.com/Watcharapol-Frong/frong.me/actions/runs/36949723886)

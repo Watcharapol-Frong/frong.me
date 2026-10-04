@@ -29,6 +29,7 @@ import { Markdown } from 'tiptap-markdown';
 import Suggestion from '@tiptap/suggestion';
 import { Extension } from '@tiptap/core';
 import markdownItMark from 'markdown-it-mark';
+import { editorTableExtensions } from './EditorTable';
 
 /**
  * StarterKit's Bold/Italic/Code/Strike marks default to Mod-B/I/E/S — this
@@ -273,6 +274,11 @@ const SLASH_ITEMS: SlashCommandItem[] = [
     run: (editor, range) => editor.chain().focus().deleteRange(range).setHorizontalRule().run() },
   { id: 'code', label: 'Code block', hint: '```', icon: '{ }', keywords: ['code', 'codeblock', 'snippet'],
     run: (editor, range) => editor.chain().focus().deleteRange(range).toggleCodeBlock().run() },
+  { id: 'table', label: 'Table', hint: 'Choose rows and columns', icon: '▦', keywords: ['table', 'grid', 'ตาราง'],
+    run: (editor, range) => {
+      editor.chain().focus().deleteRange(range).run();
+      document.dispatchEvent(new CustomEvent('earth:open-table-dialog'));
+    } },
   { id: 'image', label: 'Image', hint: 'Upload a file', icon: '🖼', keywords: ['image', 'picture', 'photo', 'upload'],
     run: (editor, range) => {
       editor.chain().focus().deleteRange(range).run();
@@ -519,6 +525,26 @@ function SelectionToolbar({ editor, onEditLink }: { editor: Editor; onEditLink: 
   );
 }
 
+function TableToolbar({ editor, onInsert }: { editor: Editor; onInsert: () => void }) {
+  const inTable = useEditorState({ editor, selector: ctx => ctx.editor.isActive('table') });
+  const actions = [
+    ['Row above', () => editor.chain().focus().addRowBefore().run()],
+    ['Row below', () => editor.chain().focus().addRowAfter().run()],
+    ['Column left', () => editor.chain().focus().addColumnBefore().run()],
+    ['Column right', () => editor.chain().focus().addColumnAfter().run()],
+    ['Delete row', () => editor.chain().focus().deleteRow().run()],
+    ['Delete column', () => editor.chain().focus().deleteColumn().run()],
+    ['Header row', () => editor.chain().focus().toggleHeaderRow().run()],
+    ['Delete table', () => editor.chain().focus().deleteTable().run()],
+  ] as const;
+  return <div className="rich-table-toolbar" role="group" aria-label="Table controls">
+    <button type="button" disabled={inTable} onMouseDown={event => event.preventDefault()} onClick={onInsert}>▦ Table</button>
+    {inTable && actions.map(([label, action]) => <button type="button" key={label}
+      onMouseDown={event => event.preventDefault()} onClick={action}>{label}</button>)}
+    {inTable && <span>Tab: next cell · Shift+Enter: new line</span>}
+  </div>;
+}
+
 interface RichBodyEditorProps {
   initial?: string;
   placeholder?: string;
@@ -541,6 +567,7 @@ export function createRichBodyEditorExtensions(placeholder?: string, onEditLink?
     CodeNoShortcut,
     StrikeNoShortcut,
     Highlight,
+    ...editorTableExtensions,
     BlockImage,
     YoutubeEmbed,
     SlashCommand,
@@ -553,6 +580,9 @@ export default function RichBodyEditor({ initial = '', placeholder }: RichBodyEd
   const wrapperRef = useRef<HTMLDivElement>(null);
   const hiddenTextareaRef = useRef<HTMLTextAreaElement>(null);
   const [isEmpty, setIsEmpty] = useState(!initial.trim());
+  const tableDialogRef = useRef<HTMLDialogElement>(null);
+  const [tableSize, setTableSize] = useState({ rows: 3, cols: 3, withHeaderRow: true });
+  const tableSelectionRef = useRef<{ from: number; to: number } | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [linkDraft, setLinkDraft] = useState<{ from: number; to: number; text: string; href: string; originalHref: string } | null>(null);
   const [linkError, setLinkError] = useState('');
@@ -583,6 +613,30 @@ export default function RichBodyEditor({ initial = '', placeholder }: RichBodyEd
       }
     },
   });
+
+  function openTableDialog() {
+    if (!editor) return;
+    tableSelectionRef.current = { from: editor.state.selection.from, to: editor.state.selection.to };
+    tableDialogRef.current?.showModal();
+  }
+
+  useEffect(() => {
+    document.addEventListener('earth:open-table-dialog', openTableDialog);
+    return () => document.removeEventListener('earth:open-table-dialog', openTableDialog);
+  }, [editor]);
+
+  function closeTableDialog() {
+    tableDialogRef.current?.close();
+    editor?.commands.focus();
+  }
+
+  function insertTable() {
+    if (!editor || !tableSelectionRef.current || !Number.isInteger(tableSize.rows)
+      || !Number.isInteger(tableSize.cols) || tableSize.rows < 1 || tableSize.rows > 20
+      || tableSize.cols < 1 || tableSize.cols > 10) return;
+    editor.chain().setTextSelection(tableSelectionRef.current).insertTable(tableSize).run();
+    closeTableDialog();
+  }
 
   function closeLinkEditor() {
     dialogRef.current?.close();
@@ -654,8 +708,24 @@ export default function RichBodyEditor({ initial = '', placeholder }: RichBodyEd
   return (
     <div ref={wrapperRef} className="rich-body-editor" data-earth-body-editor data-empty={isEmpty}>
       {editor && <SelectionToolbar editor={editor} onEditLink={openLinkEditor} />}
+      {editor && <TableToolbar editor={editor} onInsert={openTableDialog} />}
       <EditorContent editor={editor} className="body-input" />
       <textarea data-earth-field="body" hidden defaultValue={initial} ref={hiddenTextareaRef} />
+      <dialog ref={tableDialogRef} className="modal table-dialog" aria-labelledby="earth-table-title" onCancel={closeTableDialog}>
+        <form onSubmit={event => { event.preventDefault(); insertTable(); }}>
+          <h2 id="earth-table-title" className="modal-title">Insert table</h2>
+          <label>Rows <input className="form-input" type="number" min="1" max="20" required value={tableSize.rows}
+            onChange={event => setTableSize({ ...tableSize, rows: Number(event.target.value) })} /></label>
+          <label>Columns <input className="form-input" type="number" min="1" max="10" required value={tableSize.cols}
+            onChange={event => setTableSize({ ...tableSize, cols: Number(event.target.value) })} /></label>
+          <label><input type="checkbox" checked={tableSize.withHeaderRow}
+            onChange={event => setTableSize({ ...tableSize, withHeaderRow: event.target.checked })} /> Header row</label>
+          <div className="modal-actions">
+            <button type="button" className="modal-btn modal-btn-cancel" onClick={closeTableDialog}>Cancel</button>
+            <button type="submit" className="modal-btn modal-btn-confirm">Insert</button>
+          </div>
+        </form>
+      </dialog>
       {linkDraft && (
         <dialog ref={dialogRef} className="modal link-dialog" aria-labelledby="earth-link-title" onCancel={closeLinkEditor} onKeyDown={event => {
           if (event.key === 'Enter' && (event.target as HTMLElement).tagName === 'INPUT') {
