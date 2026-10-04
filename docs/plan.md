@@ -42,7 +42,9 @@ logs remain in Git history instead of the current instructions.
 
 The table size dialog now shares Image's centered card width, padding and
 white blurred backdrop; it remains a native modal with Escape/focus handling.
-The table toolbar stays visible while scrolling the writing surface. Clicking
+The standalone Table creation button is removed; /table opens the picker.
+The contextual toolbar appears only inside an existing table and stays visible
+while scrolling the writing surface. Clicking
 an existing cell reveals explicit + Row/+ Column buttons and live dimensions;
 these insert after the selected row/column without replacing existing content.
 The interaction regression creates six rows, adds a seventh and a column,

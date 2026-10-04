@@ -525,7 +525,7 @@ function SelectionToolbar({ editor, onEditLink }: { editor: Editor; onEditLink: 
   );
 }
 
-function TableToolbar({ editor, onInsert }: { editor: Editor; onInsert: () => void }) {
+function TableToolbar({ editor }: { editor: Editor }) {
   const tableState = useEditorState({ editor, selector: ctx => {
     const { $from } = ctx.editor.state.selection;
     for (let depth = $from.depth; depth > 0; depth--) {
@@ -534,7 +534,7 @@ function TableToolbar({ editor, onInsert }: { editor: Editor; onInsert: () => vo
     }
     return null;
   } });
-  const inTable = tableState !== null;
+  if (!tableState) return null;
   const actions = [
     ['+ Row', () => editor.chain().focus().addRowAfter().run()],
     ['+ Column', () => editor.chain().focus().addColumnAfter().run()],
@@ -546,11 +546,9 @@ function TableToolbar({ editor, onInsert }: { editor: Editor; onInsert: () => vo
     ['Delete table', () => editor.chain().focus().deleteTable().run()],
   ] as const;
   return <div className="rich-table-toolbar" role="group" aria-label="Table controls">
-    <button type="button" disabled={inTable} onMouseDown={event => event.preventDefault()} onClick={onInsert}>▦ Table</button>
-    {inTable && actions.map(([label, action]) => <button type="button" key={label}
+    {actions.map(([label, action]) => <button type="button" key={label}
       onMouseDown={event => event.preventDefault()} onClick={action}>{label}</button>)}
-    {tableState ? <span aria-live="polite">{tableState.rows} rows × {tableState.cols} columns</span>
-      : <span>Click a table cell to add or remove rows and columns.</span>}
+    <span aria-live="polite">{tableState.rows} rows × {tableState.cols} columns</span>
   </div>;
 }
 
@@ -717,7 +715,7 @@ export default function RichBodyEditor({ initial = '', placeholder }: RichBodyEd
   return (
     <div ref={wrapperRef} className="rich-body-editor" data-earth-body-editor data-empty={isEmpty}>
       {editor && <SelectionToolbar editor={editor} onEditLink={openLinkEditor} />}
-      {editor && <TableToolbar editor={editor} onInsert={openTableDialog} />}
+      {editor && <TableToolbar editor={editor} />}
       <EditorContent editor={editor} className="body-input" />
       <textarea data-earth-field="body" hidden defaultValue={initial} ref={hiddenTextareaRef} />
       <dialog ref={tableDialogRef} className="modal modal--wide table-dialog" aria-labelledby="earth-table-title" onCancel={closeTableDialog}>

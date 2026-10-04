@@ -71,10 +71,10 @@ scrollable blocks, and uses narrower gutters, smaller titles and tighter paragra
 spacing below the small-screen breakpoint. Actual line lengths depend on screen
 width; paragraph boundaries and intentional line breaks do not.
 
-The rich editor provides simple tables through the Table button or `/table`.
+The rich editor provides simple tables through `/table`.
 The size picker is centered with the same card and blurred backdrop as Image.
 Authors choose initial rows/columns and a header row, then click a cell to use
-the sticky toolbar: + Row/+ Column insert after the selected row/column.
+the contextual sticky toolbar (hidden outside tables): + Row/+ Column insert after the selected row/column.
 Live dimensions make later additions visible. Other contextual controls to add/remove rows/columns, toggle the first header row or delete the
 table. Tab moves between cells; Shift+Enter inserts an intentional line break.
 Cells contain paragraphs and supported inline marks, not nested tables or media.

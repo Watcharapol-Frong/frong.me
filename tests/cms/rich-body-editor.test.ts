@@ -285,7 +285,9 @@ test('rendered table controls insert, edit, mirror and remove a table', async ()
       assert.ok(button, label);
       await act(async () => { button.click(); });
     }
-    await click('▦ Table');
+    assert.equal(host.querySelector('.rich-table-toolbar'), null);
+    assert.equal(Array.from(host.querySelectorAll('button')).some(button => button.textContent === '▦ Table'), false);
+    await act(async () => { document.dispatchEvent(new dom.window.CustomEvent('earth:open-table-dialog')); });
     assert.ok(host.querySelector('.table-dialog[open]'));
     await act(async () => {
       const input = host.querySelector('.table-dialog input[type=number]') as HTMLInputElement;
@@ -315,6 +317,7 @@ test('rendered table controls insert, edit, mirror and remove a table', async ()
     assert.equal(host.querySelector('tr')?.children.length, 3);
     await click('Delete table');
     assert.equal(host.querySelector('table'), null);
+    assert.equal(host.querySelector('.rich-table-toolbar'), null);
     assert.doesNotMatch(surface.bodyEditor.getMarkdown(), /earth-table/);
   } finally {
     await act(async () => { root.unmount(); });
