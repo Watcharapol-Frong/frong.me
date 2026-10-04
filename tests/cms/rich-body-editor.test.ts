@@ -285,28 +285,39 @@ test('rendered table controls insert, edit, mirror and remove a table', async ()
       assert.ok(button, label);
       await act(async () => { button.click(); });
     }
-    await click('▦ Table');
+    assert.equal(host.querySelector('.rich-table-toolbar'), null);
+    assert.equal(Array.from(host.querySelectorAll('button')).some(button => button.textContent === '▦ Table'), false);
+    await act(async () => { document.dispatchEvent(new dom.window.CustomEvent('earth:open-table-dialog')); });
     assert.ok(host.querySelector('.table-dialog[open]'));
+    await act(async () => {
+      const input = host.querySelector('.table-dialog input[type=number]') as HTMLInputElement;
+      Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, 'value')!.set!.call(input, '6');
+      input.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+    });
     await act(async () => { host.querySelector('form')!.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true })); });
-    assert.equal(host.querySelectorAll('tr').length, 3);
+    assert.equal(host.querySelectorAll('tr').length, 6);
     assert.equal(host.querySelectorAll('th').length, 3);
-    await click('Row below');
-    await click('Column right');
-    assert.equal(host.querySelectorAll('tr').length, 4);
+    const view = (host.querySelector('.ProseMirror') as any).editor.view;
+    await act(async () => { view.dispatch(view.state.tr.insertText('Keep this cell')); });
+    await click('+ Row');
+    await click('+ Column');
+    assert.equal(host.querySelectorAll('tr').length, 7);
     assert.equal(host.querySelector('tr')?.children.length, 4);
     await click('Header row');
     assert.equal(host.querySelectorAll('th').length, 0);
     const saved = surface.bodyEditor.getMarkdown();
+    assert.match(saved, /Keep this cell/);
     assert.equal((host.querySelector('[data-earth-field="body"]') as HTMLTextAreaElement).value, saved);
     await act(async () => { surface.bodyEditor.setMarkdown(saved); });
-    assert.equal(host.querySelectorAll('tr').length, 4);
+    assert.equal(host.querySelectorAll('tr').length, 7);
     assert.equal(host.querySelectorAll('th').length, 0);
     await click('Delete row');
     await click('Delete column');
-    assert.equal(host.querySelectorAll('tr').length, 3);
+    assert.equal(host.querySelectorAll('tr').length, 6);
     assert.equal(host.querySelector('tr')?.children.length, 3);
     await click('Delete table');
     assert.equal(host.querySelector('table'), null);
+    assert.equal(host.querySelector('.rich-table-toolbar'), null);
     assert.doesNotMatch(surface.bodyEditor.getMarkdown(), /earth-table/);
   } finally {
     await act(async () => { root.unmount(); });
@@ -324,5 +335,33 @@ test('standard Markdown tables import into the rich editor and convert to lossle
     try { assert.deepEqual(reopened.getJSON(), editor.getJSON()); }
     finally { reopened.destroy(); }
     assert.match(renderMarkdown(saved).html, /<a href="https:\/\/example.com"/);
+  } finally { editor.destroy(); }
+});
+
+test('each table owns its nearby controls and changes only the selected table', () => {
+  const editor = createEditor('Before\n\n| First |\n| --- |\n| Keep first |\n\nBetween\n\n| Second |\n| --- |\n| Keep second |\n\nAfter');
+  try {
+    const wrappers = Array.from(editor.view.dom.querySelectorAll('.tableWrapper'));
+    assert.equal(wrappers.length, 2);
+    const toolbars = wrappers.map(wrapper => wrapper.querySelector('.rich-table-toolbar') as HTMLElement);
+    wrappers.forEach((wrapper, index) => {
+      assert.equal(wrapper.firstElementChild, toolbars[index]);
+      assert.ok(toolbars[index].hidden);
+      assert.equal(wrapper.querySelector('.editor-table-scroll')?.querySelector('table')?.parentElement?.className, 'editor-table-scroll');
+    });
+    const positions: number[] = [];
+    editor.state.doc.descendants((node, position) => { if (node.type.name === 'table') positions.push(position); });
+    editor.commands.setTextSelection(positions[1] + 4);
+    assert.ok(toolbars[0].hidden);
+    assert.equal(toolbars[1].hidden, false);
+    const button = Array.from(toolbars[1].querySelectorAll('button')).find(button => button.textContent === '+ Row')!;
+    button.click();
+    assert.equal(wrappers[0].querySelectorAll('tr').length, 2);
+    assert.equal(wrappers[1].querySelectorAll('tr').length, 3);
+    assert.match(editor.storage.markdown.getMarkdown(), /Keep first/);
+    assert.match(editor.storage.markdown.getMarkdown(), /Keep second/);
+    assert.doesNotMatch(editor.storage.markdown.getMarkdown(), /Table controls|\+ Row/);
+    editor.commands.setTextSelection(1);
+    assert.ok(toolbars.every(toolbar => toolbar.hidden));
   } finally { editor.destroy(); }
 });

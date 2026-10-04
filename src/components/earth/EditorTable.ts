@@ -1,10 +1,76 @@
 import { Fragment } from '@tiptap/pm/model';
-import { Table, TableCell, TableHeader, TableRow } from '@tiptap/extension-table';
+import { Table, TableCell, TableHeader, TableRow, TableView } from '@tiptap/extension-table';
 import type { MarkdownTable } from '../../lib/cms/markdown/table';
 import { parseTablePayload, TABLE_FENCE } from '../../lib/cms/markdown/table';
 
 /** The package's default serializer falls back to raw HTML and loses headerless tables. */
 const EditorTable = Table.extend({
+  addNodeView() {
+    return ({ node, editor, view, getPos }) => {
+      const tableView = new TableView(node, 140, view);
+      const scroll = document.createElement('div');
+      scroll.className = 'editor-table-scroll';
+      scroll.appendChild(tableView.table);
+      const toolbar = document.createElement('div');
+      toolbar.className = 'rich-table-toolbar';
+      toolbar.contentEditable = 'false';
+      toolbar.setAttribute('role', 'group');
+      toolbar.setAttribute('aria-label', 'Table controls');
+      const more = document.createElement('details');
+      more.className = 'rich-table-more';
+      const summary = document.createElement('summary');
+      summary.textContent = '⋯';
+      summary.setAttribute('aria-label', 'More table controls');
+      more.appendChild(summary);
+      const menu = document.createElement('div');
+      menu.className = 'rich-table-more-menu';
+      more.appendChild(menu);
+      const actions = [
+        ['+ Row', () => editor.chain().focus().addRowAfter().run()],
+        ['+ Column', () => editor.chain().focus().addColumnAfter().run()],
+        ['Row above', () => editor.chain().focus().addRowBefore().run()],
+        ['Column left', () => editor.chain().focus().addColumnBefore().run()],
+        ['Delete row', () => editor.chain().focus().deleteRow().run()],
+        ['Delete column', () => editor.chain().focus().deleteColumn().run()],
+        ['Header row', () => editor.chain().focus().toggleHeaderRow().run()],
+        ['Delete table', () => editor.chain().focus().deleteTable().run()],
+      ] as const;
+      actions.forEach(([label, command], index) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = label;
+        button.addEventListener('click', () => { command(); more.open = false; });
+        (index < 2 ? toolbar : menu).appendChild(button);
+      });
+      toolbar.appendChild(more);
+      const dimensions = document.createElement('span');
+      dimensions.setAttribute('aria-live', 'polite');
+      toolbar.appendChild(dimensions);
+      toolbar.addEventListener('mousedown', event => event.preventDefault());
+      tableView.dom.replaceChildren(toolbar, scroll);
+      const sync = () => {
+        const position = getPos();
+        const { from, to } = editor.state.selection;
+        const active = typeof position === 'number' && from > position
+          && to < position + tableView.node.nodeSize;
+        toolbar.hidden = !active;
+        if (!active) more.open = false;
+        dimensions.textContent = `${tableView.node.childCount} rows × ${tableView.node.firstChild?.childCount ?? 0} columns`;
+      };
+      editor.on('selectionUpdate', sync);
+      editor.on('update', sync);
+      sync();
+      return {
+        dom: tableView.dom,
+        contentDOM: tableView.contentDOM,
+        update(updated) { const accepted = tableView.update(updated); if (accepted) sync(); return accepted; },
+        ignoreMutation: mutation => tableView.ignoreMutation(mutation),
+        stopEvent: event => toolbar.contains(event.target as globalThis.Node),
+        destroy() { editor.off('selectionUpdate', sync); editor.off('update', sync); },
+      };
+    };
+  },
+
   addStorage() {
     return { markdown: {
       serialize(state: any, node: any) {

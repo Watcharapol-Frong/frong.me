@@ -525,26 +525,6 @@ function SelectionToolbar({ editor, onEditLink }: { editor: Editor; onEditLink: 
   );
 }
 
-function TableToolbar({ editor, onInsert }: { editor: Editor; onInsert: () => void }) {
-  const inTable = useEditorState({ editor, selector: ctx => ctx.editor.isActive('table') });
-  const actions = [
-    ['Row above', () => editor.chain().focus().addRowBefore().run()],
-    ['Row below', () => editor.chain().focus().addRowAfter().run()],
-    ['Column left', () => editor.chain().focus().addColumnBefore().run()],
-    ['Column right', () => editor.chain().focus().addColumnAfter().run()],
-    ['Delete row', () => editor.chain().focus().deleteRow().run()],
-    ['Delete column', () => editor.chain().focus().deleteColumn().run()],
-    ['Header row', () => editor.chain().focus().toggleHeaderRow().run()],
-    ['Delete table', () => editor.chain().focus().deleteTable().run()],
-  ] as const;
-  return <div className="rich-table-toolbar" role="group" aria-label="Table controls">
-    <button type="button" disabled={inTable} onMouseDown={event => event.preventDefault()} onClick={onInsert}>▦ Table</button>
-    {inTable && actions.map(([label, action]) => <button type="button" key={label}
-      onMouseDown={event => event.preventDefault()} onClick={action}>{label}</button>)}
-    {inTable && <span>Tab: next cell · Shift+Enter: new line</span>}
-  </div>;
-}
-
 interface RichBodyEditorProps {
   initial?: string;
   placeholder?: string;
@@ -708,12 +688,12 @@ export default function RichBodyEditor({ initial = '', placeholder }: RichBodyEd
   return (
     <div ref={wrapperRef} className="rich-body-editor" data-earth-body-editor data-empty={isEmpty}>
       {editor && <SelectionToolbar editor={editor} onEditLink={openLinkEditor} />}
-      {editor && <TableToolbar editor={editor} onInsert={openTableDialog} />}
       <EditorContent editor={editor} className="body-input" />
       <textarea data-earth-field="body" hidden defaultValue={initial} ref={hiddenTextareaRef} />
-      <dialog ref={tableDialogRef} className="modal table-dialog" aria-labelledby="earth-table-title" onCancel={closeTableDialog}>
+      <dialog ref={tableDialogRef} className="modal modal--wide table-dialog" aria-labelledby="earth-table-title" onCancel={closeTableDialog}>
         <form onSubmit={event => { event.preventDefault(); insertTable(); }}>
           <h2 id="earth-table-title" className="modal-title">Insert table</h2>
+          <p className="modal-text">Choose a starting size. Add more rows and columns anytime.</p>
           <label>Rows <input className="form-input" type="number" min="1" max="20" required value={tableSize.rows}
             onChange={event => setTableSize({ ...tableSize, rows: Number(event.target.value) })} /></label>
           <label>Columns <input className="form-input" type="number" min="1" max="10" required value={tableSize.cols}
@@ -724,6 +704,7 @@ export default function RichBodyEditor({ initial = '', placeholder }: RichBodyEd
             <button type="button" className="modal-btn modal-btn-cancel" onClick={closeTableDialog}>Cancel</button>
             <button type="submit" className="modal-btn modal-btn-confirm">Insert</button>
           </div>
+          <div className="modal-hint">Press Esc to close</div>
         </form>
       </dialog>
       {linkDraft && (
