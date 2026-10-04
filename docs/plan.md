@@ -38,6 +38,21 @@ logs remain in Git history instead of the current instructions.
 
 ## Latest completed release
 
+### Pending article rendering repair (2026-10-04)
+
+Actual rich-editor serialization reproduced backslashes and spurious paragraph
+gaps outside quotes, including indented list continuation lines. The shared
+renderer now groups paragraph lines, distinguishes soft wraps/hard breaks, keeps
+list continuations in their items, and displays escaped punctuation literally.
+Inline/fenced code retains literal characters. Public mobile typography uses
+tighter paragraph spacing, responsive titles/gutters, wrapping long text/links
+and horizontally scrollable code blocks. No database changes or resaves are needed.
+Local regression/TypeScript checks pass; full local build remains blocked by
+Cloudflare's `uv_interface_addresses` restriction after successful bundling.
+The cloud browser cannot open the local responsive fixture (file URLs are
+blocked), so an actual-device visual acceptance check remains pending. Require
+full GitHub CI before merge; merging to main automatically deploys production.
+
 [PR #26](https://github.com/Watcharapol-Frong/frong.me/pull/26) merged as `cd2b851`.
 [Production run](https://github.com/Watcharapol-Frong/frong.me/actions/runs/36949723886)
 passed CMS tests, TypeScript, build, binding verification, deployment and the

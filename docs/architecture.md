@@ -60,11 +60,16 @@ Markdown links, including URL-as-label links, because the public renderer does
 not understand CommonMark `<URL>` autolinks. URL parentheses/quotes are encoded
 for the public renderer's supported link syntax.
 
-Quote rendering recognizes both TipTap's trailing-backslash hard breaks and
-Markdown's two-space hard breaks. Consecutive quote lines share one blockquote;
-blank quote lines separate paragraphs and soft line wraps remain spaces.
-The public reader and Zen preview use the same renderer, so existing saved
-quotes receive this behavior without rewriting article rows.
+Public/preview Markdown rendering recognizes TipTap's trailing-backslash and
+Markdown's two-space hard breaks in paragraphs, list continuations and quotes.
+Blank lines separate paragraphs; soft line wraps remain spaces. Escaped Markdown
+punctuation displays literally without activating formatting. Inline/fenced code
+preserves literal backslashes. The public reader and Zen preview share this
+renderer, so existing saved bodies receive the fix without rewriting article rows.
+Public article typography allows long links/text to wrap, confines long code to
+scrollable blocks, and uses narrower gutters, smaller titles and tighter paragraph
+spacing below the small-screen breakpoint. Actual line lengths depend on screen
+width; paragraph boundaries and intentional line breaks do not.
 
 Article discovery has two distinct taxonomy levels. `posts.primary_topic` is
 nullable for legacy content and restricted to `data`, `technology`, or

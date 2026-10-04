@@ -23,7 +23,7 @@
   /* Article page title only — a notch above the prose h1 (2.25rem/36px by
      Tailwind Typography's default scale) so it reads as the title without
      towering over the article's own headings the way `--text-headline` did. */
-  --text-article-title: clamp(2.25rem, 3vw, 2.75rem);
+  --text-article-title: clamp(1.875rem, 5vw, 2.75rem);
 
   --breakpoint-3xl: 1920px;
 
@@ -191,6 +191,33 @@
 }
 
 /* Match Markdown dividers to the lighter borders used by article sections. */
+.article-content {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+/* Long code lines scroll within their block instead of widening the page. */
+.article-content pre {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-wrap: normal;
+}
+
+@media (max-width: 639px) {
+  .article-content {
+    line-height: 1.8;
+  }
+
+  .article-content p {
+    margin-block: 1em;
+  }
+
+  .article-content :is(ul, ol) {
+    padding-inline-start: 1.4em;
+  }
+}
+
 .article-content hr {
   border: 0;
   border-top: 1px solid hsl(var(--border));
