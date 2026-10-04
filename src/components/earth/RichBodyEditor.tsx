@@ -526,12 +526,20 @@ function SelectionToolbar({ editor, onEditLink }: { editor: Editor; onEditLink: 
 }
 
 function TableToolbar({ editor, onInsert }: { editor: Editor; onInsert: () => void }) {
-  const inTable = useEditorState({ editor, selector: ctx => ctx.editor.isActive('table') });
+  const tableState = useEditorState({ editor, selector: ctx => {
+    const { $from } = ctx.editor.state.selection;
+    for (let depth = $from.depth; depth > 0; depth--) {
+      const node = $from.node(depth);
+      if (node.type.name === 'table') return { rows: node.childCount, cols: node.firstChild?.childCount ?? 0 };
+    }
+    return null;
+  } });
+  const inTable = tableState !== null;
   const actions = [
+    ['+ Row', () => editor.chain().focus().addRowAfter().run()],
+    ['+ Column', () => editor.chain().focus().addColumnAfter().run()],
     ['Row above', () => editor.chain().focus().addRowBefore().run()],
-    ['Row below', () => editor.chain().focus().addRowAfter().run()],
     ['Column left', () => editor.chain().focus().addColumnBefore().run()],
-    ['Column right', () => editor.chain().focus().addColumnAfter().run()],
     ['Delete row', () => editor.chain().focus().deleteRow().run()],
     ['Delete column', () => editor.chain().focus().deleteColumn().run()],
     ['Header row', () => editor.chain().focus().toggleHeaderRow().run()],
@@ -541,7 +549,8 @@ function TableToolbar({ editor, onInsert }: { editor: Editor; onInsert: () => vo
     <button type="button" disabled={inTable} onMouseDown={event => event.preventDefault()} onClick={onInsert}>▦ Table</button>
     {inTable && actions.map(([label, action]) => <button type="button" key={label}
       onMouseDown={event => event.preventDefault()} onClick={action}>{label}</button>)}
-    {inTable && <span>Tab: next cell · Shift+Enter: new line</span>}
+    {tableState ? <span aria-live="polite">{tableState.rows} rows × {tableState.cols} columns</span>
+      : <span>Click a table cell to add or remove rows and columns.</span>}
   </div>;
 }
 
@@ -711,9 +720,10 @@ export default function RichBodyEditor({ initial = '', placeholder }: RichBodyEd
       {editor && <TableToolbar editor={editor} onInsert={openTableDialog} />}
       <EditorContent editor={editor} className="body-input" />
       <textarea data-earth-field="body" hidden defaultValue={initial} ref={hiddenTextareaRef} />
-      <dialog ref={tableDialogRef} className="modal table-dialog" aria-labelledby="earth-table-title" onCancel={closeTableDialog}>
+      <dialog ref={tableDialogRef} className="modal modal--wide table-dialog" aria-labelledby="earth-table-title" onCancel={closeTableDialog}>
         <form onSubmit={event => { event.preventDefault(); insertTable(); }}>
           <h2 id="earth-table-title" className="modal-title">Insert table</h2>
+          <p className="modal-text">Choose a starting size. Add more rows and columns anytime.</p>
           <label>Rows <input className="form-input" type="number" min="1" max="20" required value={tableSize.rows}
             onChange={event => setTableSize({ ...tableSize, rows: Number(event.target.value) })} /></label>
           <label>Columns <input className="form-input" type="number" min="1" max="10" required value={tableSize.cols}
@@ -724,6 +734,7 @@ export default function RichBodyEditor({ initial = '', placeholder }: RichBodyEd
             <button type="button" className="modal-btn modal-btn-cancel" onClick={closeTableDialog}>Cancel</button>
             <button type="submit" className="modal-btn modal-btn-confirm">Insert</button>
           </div>
+          <div className="modal-hint">Press Esc to close</div>
         </form>
       </dialog>
       {linkDraft && (

@@ -38,22 +38,28 @@ logs remain in Git history instead of the current instructions.
 
 ## Latest completed release
 
-### Pending simple editor tables (2026-10-04)
+### Pending table controls refinement (2026-10-04)
 
-The Table button and `/table` open a rows/columns/header picker. Contextual
-controls add/remove rows and columns, toggle headers and delete the table.
-Cells support paragraphs, intentional hard breaks and existing inline marks.
-A validated Markdown table fence preserves save/reopen structure; standard GFM
-pipe tables are supported for import/public rendering. Public tables scroll
-within their container and use theme colors. No database or API changes.
-Regression coverage includes the rendered React controls, hidden body mirror,
-headerless/empty cells, Thai text, pipes/code/links, multiple/terminal breaks,
-HTML escaping, invalid payloads and neighboring Markdown blocks.
-Local CMS tests: 286 passed. TypeScript and diff checks passed. Full local build
-bundles successfully but Cloudflare prerendering fails with the runtime
-`uv_interface_addresses` restriction. Require the complete GitHub CI build.
-Authenticated browser/device acceptance remains pending; the cloud browser
-cannot open local file fixtures. This change is not deployed.
+The table size dialog now shares Image's centered card width, padding and
+white blurred backdrop; it remains a native modal with Escape/focus handling.
+The table toolbar stays visible while scrolling the writing surface. Clicking
+an existing cell reveals explicit + Row/+ Column buttons and live dimensions;
+these insert after the selected row/column without replacing existing content.
+The interaction regression creates six rows, adds a seventh and a column,
+checks existing text, then saves/reopens and exercises deletion.
+Local CMS tests, TypeScript and diff checks pass. Local Cloudflare prerender
+remains restricted by uv_interface_addresses; require full GitHub CI.
+Actual browser/mobile visual acceptance is pending. No database changes.
+
+### Completed simple editor tables (2026-10-04)
+
+[PR #29](https://github.com/Watcharapol-Frong/frong.me/pull/29) merged as
+`da4099a7b92c3bee6a650f658951532c80db6854`.
+[Production run](https://github.com/Watcharapol-Frong/frong.me/actions/runs/37172388421)
+passed verification, build, deployment and read-only public smoke checks.
+The Table button and /table create editable simple tables; validated Markdown
+payloads preserve cells, inline marks and paragraph/line breaks. Public tables
+scroll internally on narrow screens. No migrations or article rewrites.
 
 ### Completed article rendering repair (2026-10-04)
 

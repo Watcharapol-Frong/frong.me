@@ -777,12 +777,16 @@ const tagCatalog = {
 
       .body-input .ProseMirror:focus { outline: none; }
       .rich-body-editor { min-width: 0; }
-      .rich-table-toolbar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; align-items: center; }
+      .rich-table-toolbar { position: sticky; top: 0; z-index: 20; background: #fff; padding-block: 10px; border-bottom: 1px solid #eee; display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; align-items: center; }
       .rich-table-toolbar button { font: inherit; font-size: 12px; border: 1px solid #ddd; border-radius: 5px; padding: 7px 10px; background: #fff; cursor: pointer; }
       .rich-table-toolbar button:hover { background: #f5f5f5; }
       .rich-table-toolbar button:disabled { opacity: .45; cursor: default; }
       .rich-table-toolbar span { font-size: 11px; color: #666; }
-      .table-dialog label { display: block; margin-block: 12px; }
+      .table-dialog { margin: auto; max-height: calc(100dvh - 32px); overflow-y: auto; }
+      .table-dialog::backdrop { background: rgba(255, 255, 255, .92); backdrop-filter: blur(10px); }
+      .table-dialog label { display: block; margin-block: 12px; text-align: left; font-size: 12px; }
+      .table-dialog label .form-input { margin-top: 6px; }
+      @media (max-width: 639px) { .table-dialog { padding: 24px; } }
       .body-input .ProseMirror .tableWrapper { max-width: 100%; overflow-x: auto; margin-block: 1.5em; }
       .body-input .ProseMirror table { width: 100%; border-collapse: collapse; table-layout: auto; }
       .body-input .ProseMirror :is(td, th) { position: relative; min-width: 140px; padding: 10px 14px; border: 1px solid #ddd; vertical-align: top; text-align: start; overflow-wrap: anywhere; }

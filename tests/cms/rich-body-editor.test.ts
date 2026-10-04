@@ -287,23 +287,31 @@ test('rendered table controls insert, edit, mirror and remove a table', async ()
     }
     await click('▦ Table');
     assert.ok(host.querySelector('.table-dialog[open]'));
+    await act(async () => {
+      const input = host.querySelector('.table-dialog input[type=number]') as HTMLInputElement;
+      Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, 'value')!.set!.call(input, '6');
+      input.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+    });
     await act(async () => { host.querySelector('form')!.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true })); });
-    assert.equal(host.querySelectorAll('tr').length, 3);
+    assert.equal(host.querySelectorAll('tr').length, 6);
     assert.equal(host.querySelectorAll('th').length, 3);
-    await click('Row below');
-    await click('Column right');
-    assert.equal(host.querySelectorAll('tr').length, 4);
+    const view = (host.querySelector('.ProseMirror') as any).editor.view;
+    await act(async () => { view.dispatch(view.state.tr.insertText('Keep this cell')); });
+    await click('+ Row');
+    await click('+ Column');
+    assert.equal(host.querySelectorAll('tr').length, 7);
     assert.equal(host.querySelector('tr')?.children.length, 4);
     await click('Header row');
     assert.equal(host.querySelectorAll('th').length, 0);
     const saved = surface.bodyEditor.getMarkdown();
+    assert.match(saved, /Keep this cell/);
     assert.equal((host.querySelector('[data-earth-field="body"]') as HTMLTextAreaElement).value, saved);
     await act(async () => { surface.bodyEditor.setMarkdown(saved); });
-    assert.equal(host.querySelectorAll('tr').length, 4);
+    assert.equal(host.querySelectorAll('tr').length, 7);
     assert.equal(host.querySelectorAll('th').length, 0);
     await click('Delete row');
     await click('Delete column');
-    assert.equal(host.querySelectorAll('tr').length, 3);
+    assert.equal(host.querySelectorAll('tr').length, 6);
     assert.equal(host.querySelector('tr')?.children.length, 3);
     await click('Delete table');
     assert.equal(host.querySelector('table'), null);
