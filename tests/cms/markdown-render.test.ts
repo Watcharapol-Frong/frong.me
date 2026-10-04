@@ -86,12 +86,37 @@ test('a @[youtube] token on its own line becomes a privacy-preserving embed', ()
   assert.match(html, /<p>After<\/p>/);
 });
 
+test('paragraphs distinguish soft wraps, hard breaks and paragraph boundaries', () => {
+  assert.equal(renderMarkdown('first\nsecond\n\nthird  \nfourth').html,
+    '<p>first second</p>\n<p>third<br />fourth</p>');
+  assert.equal(renderMarkdown('first\\\r\nsecond\n## Heading\nnext').html,
+    '<p>first<br />second</p>\n<h2 id="heading">Heading</h2>\n<p>next</p>');
+  assert.equal(renderMarkdown('escaped\\\\\nnext\n\nfinal\\').html,
+    '<p>escaped&#92; next</p>\n<p>final\\</p>');
+  assert.equal(renderMarkdown('**first\\\nsecond**').html,
+    '<p><strong>first<br />second</strong></p>');
+});
+
+test('numbered list continuations stay in their item and stop before the next block', () => {
+  assert.equal(renderMarkdown('10. first\\\n    second\n11. next\n\n---\n\nAfter').html,
+    '<ol>\n<li>first<br />second</li>\n<li>next</li>\n</ol>\n<hr />\n<p>After</p>');
+  assert.equal(renderMarkdown('- first\n  continuation\n- second').html,
+    '<ul>\n<li>first continuation</li>\n<li>second</li>\n</ul>');
+});
+
+test('Markdown escapes stay literal while code preserves its backslashes and markup characters', () => {
+  assert.equal(renderMarkdown('\\*literal\\* and `\\*code\\* <script>`').html,
+    '<p>&#42;literal&#42; and <code>\\*code\\* &lt;script&gt;</code></p>');
+  assert.equal(renderMarkdown('```txt\nline\\\nnext\n```').html,
+    '<pre><code class="language-txt">line\\\nnext</code></pre>');
+});
+
 test('quote backslash breaks preserve formatting and do not consume escaped or final backslashes', () => {
   assert.equal(
     renderMarkdown('> **กาแฟ**\\\n> จำนวนคงเหลือ = 12').html,
     '<blockquote><p><strong>กาแฟ</strong><br />จำนวนคงเหลือ = 12</p></blockquote>',
   );
-  assert.equal(renderMarkdown('> escaped\\\\\n> next').html, '<blockquote><p>escaped\\\\ next</p></blockquote>');
+  assert.equal(renderMarkdown('> escaped\\\\\n> next').html, '<blockquote><p>escaped&#92; next</p></blockquote>');
   assert.equal(renderMarkdown('> final\\').html, '<blockquote><p>final\\</p></blockquote>');
   assert.equal(
     renderMarkdown('> first\\\n> second\n>\n> final paragraph').html,

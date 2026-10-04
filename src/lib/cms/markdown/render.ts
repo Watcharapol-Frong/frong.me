@@ -66,7 +66,12 @@ function safeUrl(url: string): string {
 
 /** Bold, italic, inline code, links, and images within one line of already-escaped text. */
 function renderInline(escapedLine: string): string {
-  return escapedLine
+  // Protect code and escaped punctuation before recognizing Markdown marks.
+  // Numeric entities display literal characters without becoming mark syntax.
+  return escapedLine.split(/(`[^`]+`)/g).map(part => {
+    if (part.startsWith('`') && part.endsWith('`')) return `<code>${part.slice(1, -1)}</code>`;
+    return part.replace(/\\([\\`*{}\[\]()#+\-.!_>~|=])/g,
+      (_match, punctuation: string) => `&#${punctuation.charCodeAt(0)};`)
     .replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, (_m, alt: string, url: string) =>
       `<img src="${safeUrl(url)}" alt="${alt}" loading="lazy" />`)
     .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_m, text: string, url: string) =>
@@ -74,8 +79,8 @@ function renderInline(escapedLine: string): string {
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
     .replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>')
     .replace(/~~([^~]+)~~/g, '<del>$1</del>')
-    .replace(/==([^=]+)==/g, '<mark>$1</mark>')
-    .replace(/`([^`]+)`/g, '<code>$1</code>');
+    .replace(/==([^=]+)==/g, '<mark>$1</mark>');
+  }).join('');
 }
 
 /**
@@ -100,6 +105,27 @@ const FENCE_OPEN_PATTERN = /^```(\S*)/;
 /** Closing fence: strict, since a bare ``` alone must end the block, not start a new label-less one. */
 const FENCE_CLOSE_PATTERN = /^```\s*$/;
 const HR_PATTERN = /^(-{3,}|\*{3,}|_{3,})$/;
+
+function startsBlock(line: string): boolean {
+  return line.trim() === '' || HEADING_PATTERN.test(line) || BLOCKQUOTE_PATTERN.test(line)
+    || UNORDERED_ITEM_PATTERN.test(line) || ORDERED_ITEM_PATTERN.test(line)
+    || FENCE_OPEN_PATTERN.test(line) || HR_PATTERN.test(line.trim()) || YOUTUBE_PATTERN.test(line.trim());
+}
+
+/** Keep saved hard breaks inside their paragraph; soft wraps remain spaces. */
+function renderLines(lines: string[]): string {
+  let content = '';
+  lines.forEach((line, index) => {
+    const hasNextLine = index < lines.length - 1;
+    const trailingBackslashes = line.match(/\\+$/)?.[0].length ?? 0;
+    const backslashBreak = hasNextLine && trailingBackslashes % 2 === 1;
+    const hardBreak = / {2,}$/.test(line) || backslashBreak;
+    const text = backslashBreak ? line.slice(0, -1) : line.replace(/ {2,}$/, '');
+    content += escapeHtml(text);
+    if (hasNextLine) content += hardBreak ? '<br />' : ' ';
+  });
+  return renderInline(content);
+}
 
 export function renderMarkdown(markdown: string): RenderedMarkdown {
   const lines = markdown.replace(/\r\n/g, '\n').split('\n');
@@ -217,41 +243,35 @@ export function renderMarkdown(markdown: string): RenderedMarkdown {
         lineIndex++;
       }
       lineIndex--;
-      const paragraphs = quoteParagraphs.map((paragraph) => {
-        let content = '';
-        paragraph.forEach((line, index) => {
-          const hasNextLine = index < paragraph.length - 1;
-          // TipTap serializes hard breaks as a trailing backslash. An even
-          // number of backslashes is escaped text, not a line-break marker.
-          const trailingBackslashes = line.match(/\\+$/)?.[0].length ?? 0;
-          const backslashBreak = hasNextLine && trailingBackslashes % 2 === 1;
-          const hardBreak = / {2,}$/.test(line) || backslashBreak;
-          const text = backslashBreak ? line.slice(0, -1) : line.replace(/ {2,}$/, '');
-          content += escapeHtml(text);
-          if (hasNextLine) content += hardBreak ? '<br />' : ' ';
-        });
-        return `<p>${renderInline(content)}</p>`;
-      });
+      const paragraphs = quoteParagraphs.map(paragraph => `<p>${renderLines(paragraph)}</p>`);
       html.push(`<blockquote>${paragraphs.join('')}</blockquote>`);
       continue;
     }
 
     const unordered = rawLine.match(UNORDERED_ITEM_PATTERN);
-    if (unordered) {
-      openList('ul');
-      html.push(`<li>${renderInline(escapeHtml(unordered[1]))}</li>`);
-      continue;
-    }
-
     const ordered = rawLine.match(ORDERED_ITEM_PATTERN);
-    if (ordered) {
-      openList('ol');
-      html.push(`<li>${renderInline(escapeHtml(ordered[1]))}</li>`);
+    const item = unordered ?? ordered;
+    if (item) {
+      openList(unordered ? 'ul' : 'ol');
+      const itemLines = [item[1]];
+      // TipTap indents continuation lines to the list marker's content column.
+      const indent = rawLine.length - item[1].length;
+      while (lineIndex + 1 < lines.length) {
+        const next = lines[lineIndex + 1];
+        if (!next.startsWith(' '.repeat(indent)) || startsBlock(next.trimStart())) break;
+        itemLines.push(next.slice(indent));
+        lineIndex++;
+      }
+      html.push(`<li>${renderLines(itemLines)}</li>`);
       continue;
     }
 
     closeList();
-    html.push(`<p>${renderInline(escapeHtml(rawLine))}</p>`);
+    const paragraphLines = [rawLine];
+    while (lineIndex + 1 < lines.length && !startsBlock(lines[lineIndex + 1])) {
+      paragraphLines.push(lines[++lineIndex]);
+    }
+    html.push(`<p>${renderLines(paragraphLines)}</p>`);
   }
 
   closeList();

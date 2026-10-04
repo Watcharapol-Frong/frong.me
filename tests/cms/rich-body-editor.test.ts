@@ -69,6 +69,37 @@ test('a quote hard break keeps the editor line break when published and reopened
   } finally { editor.destroy(); }
 });
 
+test('paragraph and list hard breaks publish as line breaks rather than backslashes or extra paragraphs', () => {
+  const editor = createEditor();
+  try {
+    const content = [
+      { type: 'text', text: 'บรรทัดแรก' },
+      { type: 'hardBreak' },
+      { type: 'text', text: 'บรรทัดถัดไป' },
+    ];
+    editor.commands.setContent({ type: 'doc', content: [
+      { type: 'paragraph', content },
+      { type: 'bulletList', content: [{ type: 'listItem', content: [{ type: 'paragraph', content }] }] },
+    ] });
+    const saved = editor.storage.markdown.getMarkdown();
+    assert.equal(renderMarkdown(saved).html,
+      '<p>บรรทัดแรก<br />บรรทัดถัดไป</p>\n<ul>\n<li>บรรทัดแรก<br />บรรทัดถัดไป</li>\n</ul>', saved);
+  } finally { editor.destroy(); }
+});
+
+test('plain editor punctuation does not publish Markdown escape backslashes', () => {
+  const editor = createEditor();
+  try {
+    editor.commands.setContent({ type: 'doc', content: [{ type: 'paragraph', content: [
+      { type: 'text', text: 'API_KEY [ชื่อสินค้า] *ข้อความธรรมดา*' },
+    ] }] });
+    const published = new JSDOM(renderMarkdown(editor.storage.markdown.getMarkdown()).html);
+    assert.equal(published.window.document.querySelector('p')?.textContent,
+      'API_KEY [ชื่อสินค้า] *ข้อความธรรมดา*');
+    assert.equal(published.window.document.querySelector('em'), null);
+  } finally { editor.destroy(); }
+});
+
 test('typing Markdown link syntax converts the label to a real link and survives reopening', () => {
   const editor = createEditor();
   try {

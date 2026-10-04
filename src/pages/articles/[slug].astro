@@ -99,10 +99,10 @@ const publishedAtIso = new Date(post.published_at ?? post.created_at).toISOStrin
   <main class="min-h-screen bg-background page-transition">
     <Navbar client:load />
 
-    <section class="pt-28 pb-24 px-6">
+    <section class="pt-24 sm:pt-28 pb-24 px-5 sm:px-6">
       <div class="max-w-2xl mx-auto">
         {coverUrl && (
-          <div class="w-full aspect-[1.91/1] overflow-hidden rounded-[10px] bg-muted mb-14 fade-in-up">
+          <div class="w-full aspect-[1.91/1] overflow-hidden rounded-[10px] bg-muted mb-8 sm:mb-14 fade-in-up">
             <img
               src={coverUrl}
               alt={post.title}
