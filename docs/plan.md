@@ -1,6 +1,6 @@
 # Current handoff
 
-Updated: 2026-11-07. Scope: local development and main-only production operations.
+Updated: 2026-11-07 (cover replace). Scope: local development and main-only production operations.
 
 ## Current system
 
@@ -37,6 +37,17 @@ and real production content are unchanged. Historical designs and deployment
 logs remain in Git history instead of the current instructions.
 
 ## Latest completed release
+
+### Cover replacement sync (2026-11-07)
+
+Replacing a cover updated `posts.cover_image_url` but attaching the new asset
+failed on `idx_one_cover_per_post` because attach only inserted. The reader
+prefers the cover usage row, so Khon Tong Pok kept showing the first upload
+(`aa09731a…`) while the URL column already pointed at `IMG_1044.jpeg`. Cover
+attach now replaces the previous cover usage; `updatePostBundle` also syncs the
+cover usage from the saved `/media/` URL (and clears it for external/empty
+covers). After deploy, open the article in Earth and click Update once — no
+re-upload required. Cache may take up to the HTML edge TTL to refresh.
 
 ### Cover image delivery via `/media/` (2026-11-07)
 

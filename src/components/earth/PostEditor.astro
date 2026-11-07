@@ -771,10 +771,15 @@ const seed = {
           currentPost = result.data;
           pendingCoverAssetId = null;
           if (coverStatus) coverStatus.textContent = 'Attached';
+          return;
         }
-      } catch {
-        // Non-fatal: the post itself saved, and the cover URL is already
-        // stored on it. The attach retries on the next save.
+        // Save already wrote cover_image_url; the bundle sync on that path
+        // also realigns the cover usage. Keep the pending id for an explicit retry.
+        if (coverStatus) coverStatus.textContent = 'Cover saved; attachment will retry on next save';
+      } catch (error) {
+        if (coverStatus) {
+          coverStatus.textContent = `Cover saved; attachment retry needed (${(error as Error).message})`;
+        }
       }
     }
 

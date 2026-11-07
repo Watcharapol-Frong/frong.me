@@ -9,6 +9,12 @@ import {
   updatePostDraft,
 } from '../../src/server/cms/repositories/posts.ts';
 import {
+  addPostAssetUsage,
+  listPostAssetUsages,
+  publicR2KeyFromMediaUrl,
+  registerUploadedAsset,
+} from '../../src/server/cms/repositories/assets.ts';
+import {
   getPostTaxonomy,
   replacePostTaxonomy,
   replacePostSources,
@@ -78,6 +84,158 @@ test('draft writes use optimistic locking and stale taxonomy batches roll back',
   assert.deepEqual(taxonomy.categories.map((item) => item.id), ['category_000001']);
   assert.deepEqual(taxonomy.tags.map((item) => item.id), ['tag_0000000001']);
   assert.equal((await getPostDraft(db, POST_ID)).draft_version, 3);
+});
+
+test('publicR2KeyFromMediaUrl accepts site media covers and rejects externals', () => {
+  assert.equal(
+    publicR2KeyFromMediaUrl(
+      'https://frong.me/media/assets/4d532306e3949a64b8b2e07c6a7feb780e6a79ccb46605ef29bbf7d4ba310e6b/IMG_1044.jpeg',
+    ),
+    'assets/4d532306e3949a64b8b2e07c6a7feb780e6a79ccb46605ef29bbf7d4ba310e6b/IMG_1044.jpeg',
+  );
+  assert.equal(publicR2KeyFromMediaUrl('https://images.unsplash.com/photo-1'), null);
+  assert.equal(publicR2KeyFromMediaUrl(null), null);
+});
+
+test('attaching a second cover replaces the previous cover usage', async (t) => {
+  const { binding, db } = createCmsDbFixture();
+  t.after(() => binding.close());
+
+  await createPost(db, {
+    id: POST_ID,
+    lang: 'th',
+    slug: 'cover-replace',
+    title: 'Cover replace',
+    bodyMarkdown: '# Body',
+  }, NOW);
+
+  const first = await registerUploadedAsset(db, {
+    id: 'asset_cover_old001',
+    mediaKind: 'photo',
+    privateR2Key: `assets/${'a'.repeat(64)}/old.png`,
+    originalName: 'old.png',
+    mimeType: 'image/png',
+    width: 100,
+    height: 100,
+    byteSize: 128,
+    sha256: 'a'.repeat(64),
+  }, NOW);
+  const second = await registerUploadedAsset(db, {
+    id: 'asset_cover_new001',
+    mediaKind: 'photo',
+    privateR2Key: `assets/${'b'.repeat(64)}/new.jpeg`,
+    originalName: 'new.jpeg',
+    mimeType: 'image/jpeg',
+    width: 200,
+    height: 200,
+    byteSize: 256,
+    sha256: 'b'.repeat(64),
+  }, NOW + 1);
+
+  await addPostAssetUsage(db, {
+    id: 'usage_cover_old001',
+    postId: POST_ID,
+    assetId: first.id,
+    role: 'cover',
+    altText: 'Old cover',
+    expectedDraftVersion: 1,
+  }, NOW + 2);
+  await addPostAssetUsage(db, {
+    id: 'usage_cover_new001',
+    postId: POST_ID,
+    assetId: second.id,
+    role: 'cover',
+    altText: 'New cover',
+    expectedDraftVersion: 2,
+  }, NOW + 3);
+
+  const usages = await listPostAssetUsages(db, POST_ID);
+  assert.equal(usages.length, 1);
+  assert.equal(usages[0]?.asset_id, second.id);
+  assert.equal(usages[0]?.role, 'cover');
+});
+
+test('updatePostBundle syncs cover usage from a /media cover URL and clears it for externals', async (t) => {
+  const { binding, db } = createCmsDbFixture();
+  t.after(() => binding.close());
+
+  const digest = 'c'.repeat(64);
+  const key = `assets/${digest}/IMG_1044.jpeg`;
+  const asset = await registerUploadedAsset(db, {
+    id: 'asset_cover_sync001',
+    mediaKind: 'photo',
+    privateR2Key: key,
+    originalName: 'IMG_1044.jpeg',
+    mimeType: 'image/jpeg',
+    width: 6000,
+    height: 4000,
+    byteSize: 1810992,
+    sha256: digest,
+  }, NOW);
+
+  await createPost(db, {
+    id: POST_ID,
+    lang: 'th',
+    slug: 'cover-sync',
+    title: 'Cover sync',
+    bodyMarkdown: '# Body',
+    coverImageUrl: `https://frong.me/media/${key}`,
+  }, NOW + 1);
+
+  // Stale cover usage pointing at a different asset — mirrors production drift.
+  const stale = await registerUploadedAsset(db, {
+    id: 'asset_cover_stale01',
+    mediaKind: 'photo',
+    privateR2Key: `assets/${'d'.repeat(64)}/stale.png`,
+    originalName: 'stale.png',
+    mimeType: 'image/png',
+    width: 10,
+    height: 10,
+    byteSize: 64,
+    sha256: 'd'.repeat(64),
+  }, NOW + 2);
+  await addPostAssetUsage(db, {
+    id: 'usage_cover_stale01',
+    postId: POST_ID,
+    assetId: stale.id,
+    role: 'cover',
+    altText: 'Stale',
+    expectedDraftVersion: 1,
+  }, NOW + 3);
+
+  const synced = await updatePostBundle(db, POST_ID, {
+    draft: {
+      expectedDraftVersion: 2,
+      lang: 'th',
+      slug: 'cover-sync',
+      title: 'Cover sync',
+      bodyMarkdown: '# Body',
+      coverImageUrl: `https://frong.me/media/${key}`,
+    },
+    categoryIds: [],
+    tagIds: [],
+    sources: [],
+  }, NOW + 4);
+  assert.equal(synced.cover_image_url, `https://frong.me/media/${key}`);
+  const afterSync = await listPostAssetUsages(db, POST_ID);
+  assert.equal(afterSync.length, 1);
+  assert.equal(afterSync[0]?.asset_id, asset.id);
+
+  const cleared = await updatePostBundle(db, POST_ID, {
+    draft: {
+      expectedDraftVersion: 3,
+      lang: 'th',
+      slug: 'cover-sync',
+      title: 'Cover sync',
+      bodyMarkdown: '# Body',
+      coverImageUrl: 'https://images.unsplash.com/photo-external',
+    },
+    categoryIds: [],
+    tagIds: [],
+    sources: [],
+  }, NOW + 5);
+  assert.equal(cleared.cover_image_url, 'https://images.unsplash.com/photo-external');
+  assert.deepEqual(await listPostAssetUsages(db, POST_ID), []);
 });
 
 test('cover_image_url persists through create, update, and the bundled update, and clearing it stores null', async (t) => {

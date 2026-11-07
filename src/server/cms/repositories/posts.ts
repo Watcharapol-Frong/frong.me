@@ -15,6 +15,10 @@ import {
 import { MAX_DRAFT_POSTS } from '../../../lib/cms/contracts.ts';
 import { type CmsDatabase, requireChanged } from '../db.ts';
 import { CmsConflictError, CmsDraftLimitError, CmsNotFoundError } from '../errors.ts';
+import {
+  findPublicAssetByR2Key,
+  publicR2KeyFromMediaUrl,
+} from './assets.ts';
 import { resolveTagIds } from './taxonomy.ts';
 
 const POST_COLUMNS = `
@@ -201,7 +205,13 @@ export async function updatePostBundle(
   // post_tags.tag_id is a real foreign key, so it must be resolved to actual
   // rows (upserted by lang+slug) before the batch below can write it.
   const resolvedTagIds = await resolveTagIds(db, input.draft.lang, input.tagIds, now);
-  const results = await db.batch<PostRow>([
+  // Keep post_asset_usages.role='cover' aligned with cover_image_url. The reader
+  // prefers the usage row over the URL column, so a replaced upload that only
+  // updated the URL left the old cover visible until this sync ran.
+  const coverKey = publicR2KeyFromMediaUrl(input.draft.coverImageUrl);
+  const coverAsset = coverKey ? await findPublicAssetByR2Key(db, coverKey) : null;
+  const coverUsageId = `usage_${crypto.randomUUID().replace(/-/g, '')}`;
+  const statements = [
     {
       sql: `UPDATE posts
             SET lang = ?1, translation_group_id = ?2, slug = ?3, title = ?4,
@@ -274,15 +284,42 @@ export async function updatePostBundle(
       params: [postId, sourcesJson, version],
     },
     {
+      sql: `DELETE FROM post_asset_usages
+            WHERE post_id = ?1 AND role = 'cover'
+              AND EXISTS (
+                SELECT 1 FROM posts WHERE id = ?1 AND draft_version = ?2 AND lifecycle <> 'archived'
+              )`,
+      params: [postId, version],
+    },
+    ...(coverAsset
+      ? [{
+          sql: `INSERT INTO post_asset_usages (
+                  id, post_id, asset_id, role, alt_text, caption, crop_json, position
+                )
+                SELECT ?1, ?2, ?3, 'cover', ?4, NULL, NULL, 0
+                FROM posts
+                WHERE id = ?2 AND draft_version = ?5 AND lifecycle <> 'archived'`,
+          params: [
+            coverUsageId,
+            postId,
+            coverAsset.id,
+            input.draft.title.trim() || 'Cover image',
+            version,
+          ],
+        }]
+      : []),
+    {
       sql: `UPDATE posts
             SET draft_version = draft_version + 1, updated_at = ?1
             WHERE id = ?2 AND draft_version = ?3 AND lifecycle <> 'archived'
             RETURNING ${POST_COLUMNS}`,
       params: [now, postId, version],
     },
-  ]);
-  requireChanged(results[7], 'The post draft changed after it was loaded', 'DRAFT_VERSION_CONFLICT');
-  return requiredReturnedRow(results[7].results[0], 'post', postId);
+  ];
+  const results = await db.batch<PostRow>(statements);
+  const versionResult = results[results.length - 1];
+  requireChanged(versionResult, 'The post draft changed after it was loaded', 'DRAFT_VERSION_CONFLICT');
+  return requiredReturnedRow(versionResult.results[0], 'post', postId);
 }
 
 export async function archivePost(
