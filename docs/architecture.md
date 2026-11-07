@@ -145,9 +145,10 @@ New uploads return an absolute URL under the current site's `/media/assets/`
 route. Delivery reads that Worker's own D1/R2 bindings and serves only registered
 public assets with immutable caching. Private, unknown and unsafe keys return
 uncached 404 responses. Local test data does not depend on production media.
-Historical content using `https://images.frong.me` is not rewritten by this change;
-its external routing still needs separate verification. A passing storage test
-is not proof of live delivery.
+Reader cover URLs are built from the same `/media/` base (`Astro.site` +
+`/media/`). Stored absolute `https://images.frong.me/...` fallbacks are rewritten
+onto `/media/` at render time because that hostname has no DNS record and is not
+a live CDN. A passing storage test is not proof of live delivery.
 
 ## Historical material is not architecture
 

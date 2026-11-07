@@ -14,7 +14,7 @@ test('buildSeoMetadata centralizes canonical, social, and article structured dat
     type: 'article',
     title: 'Data Story',
     description: 'A practical data story.',
-    image: 'https://images.frong.me/data-story.jpg',
+    image: 'https://frong.me/media/data-story.jpg',
     language: 'th',
     publishedAt: '2026-09-20T00:00:00.000Z',
     modifiedAt: '2026-09-21T00:00:00.000Z',
@@ -25,7 +25,7 @@ test('buildSeoMetadata centralizes canonical, social, and article structured dat
   assert.equal(metadata.canonicalUrl, 'https://frong.me/articles/data-story');
   assert.equal(metadata.openGraphType, 'article');
   assert.equal(metadata.locale, 'th_TH');
-  assert.equal(metadata.imageUrl, 'https://images.frong.me/data-story.jpg');
+  assert.equal(metadata.imageUrl, 'https://frong.me/media/data-story.jpg');
 
   const graph = metadata.structuredData['@graph'] as Array<Record<string, unknown>>;
   const article = graph.find((entry) => entry['@type'] === 'BlogPosting');
