@@ -148,7 +148,11 @@ uncached 404 responses. Local test data does not depend on production media.
 Reader cover URLs are built from the same `/media/` base (`Astro.site` +
 `/media/`). Stored absolute `https://images.frong.me/...` fallbacks are rewritten
 onto `/media/` at render time because that hostname has no DNS record and is not
-a live CDN. A passing storage test is not proof of live delivery.
+a live CDN. Public readers prefer the single `post_asset_usages` cover row over
+`posts.cover_image_url`; saving a post replaces that cover usage from the saved
+media URL (or clears it for external/empty covers) so a replaced upload cannot
+leave a stale cover asset visible. A passing storage test is not proof of live
+delivery.
 
 ## Historical material is not architecture
 

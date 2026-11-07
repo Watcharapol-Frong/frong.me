@@ -201,7 +201,21 @@ export async function addPostAssetUsage(
 ): Promise<PostAssetUsageRow> {
   validateUsage(input);
   const cropJson = serializeCrop(input.crop);
-  const results = await db.batch<PostAssetUsageRow>([
+  // One cover per post (`idx_one_cover_per_post`). Replacing a cover must
+  // delete the previous usage in the same locked batch or the insert fails
+  // and the editor silently keeps serving the old cover asset.
+  const statements = [
+    ...(input.role === 'cover'
+      ? [{
+          sql: `DELETE FROM post_asset_usages
+                WHERE post_id = ?1 AND role = 'cover'
+                  AND EXISTS (
+                    SELECT 1 FROM posts
+                    WHERE id = ?1 AND draft_version = ?2 AND lifecycle <> 'archived'
+                  )`,
+          params: [input.postId, input.expectedDraftVersion],
+        }]
+      : []),
     {
       sql: `INSERT INTO post_asset_usages (
               id, post_id, asset_id, role, alt_text, caption, crop_json, position
@@ -227,13 +241,46 @@ export async function addPostAssetUsage(
             WHERE id = ?2 AND draft_version = ?3 AND lifecycle <> 'archived'`,
       params: [now, input.postId, input.expectedDraftVersion],
     },
-  ]);
+  ];
+  const results = await db.batch<PostAssetUsageRow>(statements);
   requireChanged(
-    results[1],
+    results[results.length - 1],
     'The post draft changed before the asset could be attached',
     'DRAFT_VERSION_CONFLICT',
   );
   return getPostAssetUsage(db, input.postId, input.id);
+}
+
+/**
+ * Extract the R2 object key from a site `/media/...` cover URL.
+ * External covers (Unsplash, etc.) return null so their usage row can be cleared.
+ */
+export function publicR2KeyFromMediaUrl(url: string | null | undefined): string | null {
+  if (typeof url !== 'string' || !url.trim()) return null;
+  let parsed: URL;
+  try {
+    parsed = new URL(url.trim());
+  } catch {
+    return null;
+  }
+  if (parsed.protocol !== 'https:') return null;
+  const match = parsed.pathname.match(
+    /^\/media\/(assets\/[a-f0-9]{64}\/[A-Za-z0-9_][A-Za-z0-9._-]*)$/,
+  );
+  return match?.[1] ?? null;
+}
+
+/** Look up a public asset by its `public_r2_key`, or null when absent. */
+export async function findPublicAssetByR2Key(
+  db: CmsDatabase,
+  publicR2Key: string,
+): Promise<AssetRow | null> {
+  return db.first<AssetRow>(
+    `SELECT * FROM assets
+     WHERE public_r2_key = ?1 AND lifecycle = 'public'
+     LIMIT 1`,
+    [publicR2Key],
+  );
 }
 
 export async function updatePostAssetUsage(
