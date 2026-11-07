@@ -8,7 +8,10 @@ import Layout from "@/layouts/Layout.astro";
 import HomeIsland from "@/components/HomeIsland";
 import { resolveCmsDatabase } from "@/server/cms/api.ts";
 import { listPublishedPostCards } from "@/server/cms/repositories/public.ts";
-import { publicAssetUrl } from "@/lib/cms/markdown/asset-resolver.ts";
+import {
+  publicAssetUrl,
+  rewriteLegacyPublicAssetUrl,
+} from "@/lib/cms/markdown/asset-resolver.ts";
 import { PRIMARY_TOPICS } from "@/lib/cms/contracts.ts";
 
 export const prerender = false;
@@ -20,14 +23,15 @@ Astro.response.headers.set(
 
 const db = await resolveCmsDatabase(Astro.locals);
 const cards = await listPublishedPostCards(db, { limit: 60 });
+const mediaBase = new URL("/media/", Astro.site).href;
 const articles = cards.map((card) => ({
   slug: card.slug,
   title: card.title,
   tags: card.tags,
   primaryTopic: card.primaryTopic,
   cover: card.coverAsset
-    ? publicAssetUrl(card.coverAsset, "https://images.frong.me")
-    : card.coverImageUrl ?? "",
+    ? publicAssetUrl(card.coverAsset, mediaBase)
+    : rewriteLegacyPublicAssetUrl(card.coverImageUrl, mediaBase) ?? "",
   coverWidth: card.coverAsset?.width,
   coverHeight: card.coverAsset?.height,
 }));

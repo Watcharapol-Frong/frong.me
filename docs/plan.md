@@ -1,6 +1,6 @@
 # Current handoff
 
-Updated: 2026-10-04. Scope: local development and main-only production operations.
+Updated: 2026-11-07. Scope: local development and main-only production operations.
 
 ## Current system
 
@@ -37,6 +37,18 @@ and real production content are unchanged. Historical designs and deployment
 logs remain in Git history instead of the current instructions.
 
 ## Latest completed release
+
+### Cover image delivery via `/media/` (2026-11-07)
+
+Public listing and article covers were still rendered with absolute
+`https://images.frong.me/...` URLs after CMS uploads. That hostname has no DNS
+record in the frong.me zone (NXDOMAIN), while the same R2 object is already
+served correctly at `https://frong.me/media/assets/<sha>/<filename>`. Reader
+routes now build cover URLs from `Astro.site` + `/media/`, rewrite stored
+legacy `images.frong.me` fallbacks at render time, and keep upload/delivery on
+the existing Worker media route without weakening access controls. No
+migration or re-upload is required for the broken Khon Tong Pok cover once
+this change is deployed.
 
 ### Pending table controls refinement (2026-10-04)
 

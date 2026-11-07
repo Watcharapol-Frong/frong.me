@@ -8,6 +8,7 @@ import {
   extractAssetReferences,
   publicAssetUrl,
   resolveAssetTokens,
+  rewriteLegacyPublicAssetUrl,
 } from '../../src/lib/cms/markdown/asset-resolver.ts';
 import type { PostRevisionAssetRow } from '../../src/lib/cms/contracts.ts';
 
@@ -160,19 +161,33 @@ test('buildRevisionAssetMap indexes rows by asset_id', () => {
 });
 
 test('publicAssetUrl builds canonical HTTPS URL from public_r2_key', () => {
-  const url = publicAssetUrl(revisionAsset(), 'https://images.frong.me');
-  assert.equal(url, 'https://images.frong.me/local/benchmark-latency.png');
+  const url = publicAssetUrl(revisionAsset(), 'https://frong.me/media');
+  assert.equal(url, 'https://frong.me/media/local/benchmark-latency.png');
 });
 
 test('publicAssetUrl normalizes trailing slash and encodes key segments', () => {
   const asset = revisionAsset({ public_r2_key: 'local/my image/key (1).png' });
-  const url = publicAssetUrl(asset, 'https://images.frong.me/');
+  const url = publicAssetUrl(asset, 'https://frong.me/media/');
   // Spaces are percent-encoded; the URL parser keeps parentheses literal.
-  assert.equal(url, 'https://images.frong.me/local/my%20image/key%20(1).png');
+  assert.equal(url, 'https://frong.me/media/local/my%20image/key%20(1).png');
 });
 
 test('publicAssetUrl rejects non-HTTPS base URLs', () => {
-  assert.throws(() => publicAssetUrl(revisionAsset(), 'http://images.frong.me'), CmsValidationError);
+  assert.throws(() => publicAssetUrl(revisionAsset(), 'http://frong.me/media'), CmsValidationError);
+});
+
+test('rewriteLegacyPublicAssetUrl maps images.frong.me onto /media/', () => {
+  assert.equal(
+    rewriteLegacyPublicAssetUrl(
+      'https://images.frong.me/assets/aa09731a5d16df9deaadb990480e3443a9bab82a1d0f3a2d33de454b6f13b002/Screenshot-2026-11-07-at-21.37.14.png',
+    ),
+    'https://frong.me/media/assets/aa09731a5d16df9deaadb990480e3443a9bab82a1d0f3a2d33de454b6f13b002/Screenshot-2026-11-07-at-21.37.14.png',
+  );
+  assert.equal(
+    rewriteLegacyPublicAssetUrl('https://images.unsplash.com/photo-123'),
+    'https://images.unsplash.com/photo-123',
+  );
+  assert.equal(rewriteLegacyPublicAssetUrl(null), null);
 });
 
 test('resolveAssetTokens replaces asset:// tokens with canonical R2 URLs', () => {
@@ -189,7 +204,7 @@ test('resolveAssetTokens replaces asset:// tokens with canonical R2 URLs', () =>
     [
       'Intro paragraph.',
       '',
-      '![Benchmark chart](https://images.frong.me/local/benchmark-latency.png)',
+      '![Benchmark chart](https://frong.me/media/local/benchmark-latency.png)',
       '',
       'Outro.',
     ].join('\n'),
@@ -206,8 +221,8 @@ test('resolveAssetTokens resolves multiple tokens in one body', () => {
     revisionAsset({ asset_id: 'asset_chart_00002' }),
   ]);
   const resolved = resolveAssetTokens(body, map);
-  assert.match(resolved, /!\[Cover\]\(https:\/\/images\.frong\.me\/local\/cover\.webp\)/);
-  assert.match(resolved, /!\[Chart\]\(https:\/\/images\.frong\.me\/local\/benchmark-latency\.png\)/);
+  assert.match(resolved, /!\[Cover\]\(https:\/\/frong\.me\/media\/local\/cover\.webp\)/);
+  assert.match(resolved, /!\[Chart\]\(https:\/\/frong\.me\/media\/local\/benchmark-latency\.png\)/);
 });
 
 test('resolveAssetTokens leaves ordinary markdown links untouched', () => {

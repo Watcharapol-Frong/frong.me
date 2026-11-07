@@ -123,16 +123,19 @@ test('buildAssetKey rejects malformed digests', () => {
 // publicAssetUrl
 // ---------------------------------------------------------------------------
 
-test('publicAssetUrl builds CDN URLs on the images.frong.me origin', () => {
+test('publicAssetUrl builds site /media/ URLs for public delivery', () => {
   assert.equal(
     publicAssetUrl(DIGEST, 'photo.png'),
     `${PUBLIC_ASSET_BASE_URL}/${R2_ASSET_PREFIX}/${DIGEST}/photo.png`,
   );
-  assert.equal(PUBLIC_ASSET_BASE_URL, 'https://images.frong.me');
+  assert.equal(PUBLIC_ASSET_BASE_URL, 'https://frong.me/media');
 });
 
 test('publicAssetUrl matches the object key', () => {
-  assert.equal(publicAssetUrl(OTHER_DIGEST, 'hero.webp'), `https://images.frong.me/${buildAssetKey(OTHER_DIGEST, 'hero.webp')}`);
+  assert.equal(
+    publicAssetUrl(OTHER_DIGEST, 'hero.webp'),
+    `https://frong.me/media/${buildAssetKey(OTHER_DIGEST, 'hero.webp')}`,
+  );
 });
 
 // ---------------------------------------------------------------------------

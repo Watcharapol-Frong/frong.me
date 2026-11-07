@@ -7,7 +7,7 @@
  * contract shared with `src/lib/cms/assets/r2.ts`:
  *
  * 1. Canonical URL & hash — SHA-256 of the fixture must produce the URL
- *    `https://images.frong.me/assets/<sha256>/smoke-test-asset.png`.
+ *    `https://frong.me/media/assets/<sha256>/smoke-test-asset.png`.
  * 2. Idempotency — re-hashing the identical payload must yield the strictly
  *    identical key/URL (content addressing, no duplication).
  * 3. Storage lifecycle — `put` -> `get` -> `delete` against a bucket binding,
@@ -32,8 +32,8 @@ export const SMOKE_FILENAME = 'smoke-test-asset.png';
 export const SMOKE_PNG_BASE64 =
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
 
-/** Public CDN origin that fronts the R2 bucket (mirrors r2.ts). */
-export const PUBLIC_ASSET_BASE_URL = 'https://images.frong.me';
+/** Public media base for content-addressed asset URLs (mirrors r2.ts). */
+export const PUBLIC_ASSET_BASE_URL = 'https://frong.me/media';
 
 /** Prefix for all CMS media objects stored in R2 (mirrors r2.ts). */
 export const R2_ASSET_PREFIX = 'assets';
@@ -43,10 +43,10 @@ export const ASSET_CACHE_CONTROL = 'public, max-age=31536000, immutable';
 
 /**
  * The canonical public URL contract for the smoke fixture:
- * `https://images.frong.me/assets/<64-char lowercase hex sha256>/smoke-test-asset.png`
+ * `https://frong.me/media/assets/<64-char lowercase hex sha256>/smoke-test-asset.png`
  */
 export const CANONICAL_URL_PATTERN = new RegExp(
-  `^https:\\/\\/images\\.frong\\.me\\/${R2_ASSET_PREFIX}\\/[0-9a-f]{64}\\/smoke-test-asset\\.png$`,
+  `^https:\\/\\/frong\\.me\\/media\\/${R2_ASSET_PREFIX}\\/[0-9a-f]{64}\\/smoke-test-asset\\.png$`,
 );
 
 function toBytes(input) {
@@ -181,7 +181,7 @@ export async function verifyR2({
     throw new Error(`Canonical URL contract violated for the smoke fixture: ${url}`);
   }
   const genericPattern = new RegExp(
-    `^https:\\/\\/images\\.frong\\.me\\/${R2_ASSET_PREFIX}\\/[0-9a-f]{64}\\/[^/]+$`,
+    `^https:\\/\\/frong\\.me\\/media\\/${R2_ASSET_PREFIX}\\/[0-9a-f]{64}\\/[^/]+$`,
   );
   if (!genericPattern.test(url)) {
     throw new Error(`URL ${url} does not match the canonical pattern ${genericPattern}`);

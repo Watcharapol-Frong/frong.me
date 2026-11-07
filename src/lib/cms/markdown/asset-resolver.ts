@@ -14,8 +14,12 @@
 import type { PostRevisionAssetRow } from '../contracts.ts';
 import { CmsValidationError } from '../validation.ts';
 
-/** Canonical public asset base URL for public media. */
-export const PUBLIC_ASSET_BASE_URL = 'https://images.frong.me';
+/**
+ * Canonical public asset base URL for reader/media delivery.
+ * Keys under this base are served by `/media/assets/[...key]` on the site Worker.
+ * Do not use `images.frong.me` — that hostname has no DNS and is not a CDN.
+ */
+export const PUBLIC_ASSET_BASE_URL = 'https://frong.me/media';
 
 const ASSET_SCHEME_PATTERN = /^asset:\/\/([A-Za-z0-9][A-Za-z0-9_-]{7,95})$/;
 const IMAGE_TOKEN_PATTERN = /!\[([^\]\n]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
@@ -59,6 +63,41 @@ export function publicAssetUrl(asset: PostRevisionAssetRow, baseUrl: string): st
     .map((segment) => encodeURIComponent(segment))
     .join('/');
   return new URL(encodedKey, base).href;
+}
+
+/**
+ * Map a stored absolute `https://images.frong.me/...` URL onto the live
+ * `/media/` delivery base. Other URLs (Unsplash, already-correct `/media/`
+ * links, relative paths) are returned unchanged. Nullish input stays nullish.
+ */
+export function rewriteLegacyPublicAssetUrl(
+  url: string | null | undefined,
+  baseUrl: string = PUBLIC_ASSET_BASE_URL,
+): string | null | undefined {
+  if (url == null) return url;
+  if (typeof url !== 'string') {
+    throw new CmsValidationError('coverImageUrl', 'must be a string when present');
+  }
+  const trimmed = url.trim();
+  if (!trimmed) return trimmed;
+
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return trimmed;
+  }
+  if (parsed.protocol !== 'https:' || parsed.hostname !== 'images.frong.me') {
+    return trimmed;
+  }
+
+  const base = validatePublicAssetBaseUrl(baseUrl);
+  const encodedPath = parsed.pathname
+    .split('/')
+    .filter(Boolean)
+    .map((segment) => encodeURIComponent(decodeURIComponent(segment)))
+    .join('/');
+  return new URL(encodedPath, base).href;
 }
 
 /**

@@ -17,7 +17,10 @@ import {
   listPublicPostAssets,
 } from "@/server/cms/repositories/public.ts";
 import { getPostTaxonomy, listPostSources } from "@/server/cms/repositories/taxonomy.ts";
-import { publicAssetUrl } from "@/lib/cms/markdown/asset-resolver.ts";
+import {
+  publicAssetUrl,
+  rewriteLegacyPublicAssetUrl,
+} from "@/lib/cms/markdown/asset-resolver.ts";
 import { renderMarkdown } from "@/lib/cms/markdown/render.ts";
 import { SITE_OWNER } from "@/lib/seo.ts";
 
@@ -44,10 +47,11 @@ const [assets, taxonomy, sources, otherPosts] = await Promise.all([
   listPublishedPosts(db, { limit: 60 }),
 ]);
 
+const mediaBase = new URL("/media/", Astro.site).href;
 const cover = assets.find((asset) => asset.role === "cover");
 const coverUrl = cover
-  ? publicAssetUrl(cover, "https://images.frong.me")
-  : post.cover_image_url ?? undefined;
+  ? publicAssetUrl(cover, mediaBase)
+  : rewriteLegacyPublicAssetUrl(post.cover_image_url, mediaBase) ?? undefined;
 
 // Focal point + zoom set by dragging/zooming the cover in the Earth editor.
 // Tolerant on purpose: malformed stored JSON should fall back to a plain,

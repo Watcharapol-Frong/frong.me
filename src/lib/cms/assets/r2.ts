@@ -20,8 +20,11 @@ export interface R2UploadBucket {
   }): Promise<unknown>;
 }
 
-/** Public CDN origin that fronts the R2 bucket. */
-export const PUBLIC_ASSET_BASE_URL = 'https://images.frong.me';
+/**
+ * Public media base for content-addressed asset URLs.
+ * Delivery is the site Worker route `/media/assets/...`, not a separate CDN host.
+ */
+export const PUBLIC_ASSET_BASE_URL = 'https://frong.me/media';
 
 /** Prefix for all CMS media objects stored in R2. */
 export const R2_ASSET_PREFIX = 'assets';
@@ -131,8 +134,8 @@ export function buildAssetKey(sha256: string, filename: string): string {
 }
 
 /**
- * Build the public CDN URL for an asset key or filename:
- * `https://images.frong.me/assets/${sha256}/${filename}`.
+ * Build the public media URL for an asset key or filename:
+ * `https://frong.me/media/assets/${sha256}/${filename}`.
  */
 export function publicAssetUrl(sha256: string, filename: string): string {
   return `${PUBLIC_ASSET_BASE_URL}/${buildAssetKey(sha256, filename)}`;
