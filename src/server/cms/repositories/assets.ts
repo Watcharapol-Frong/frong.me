@@ -251,8 +251,18 @@ export async function addPostAssetUsage(
   return getPostAssetUsage(db, input.postId, input.id);
 }
 
+/** Content-addressed public object key: `assets/<sha256>/<filename>`. */
+const PUBLIC_ASSET_KEY_PATTERN =
+  /^assets\/[a-f0-9]{64}\/[A-Za-z0-9_][A-Za-z0-9._-]*$/;
+
 /**
- * Extract the R2 object key from a site `/media/...` cover URL.
+ * Extract the R2 object key from a site media cover URL.
+ *
+ * Accepts:
+ * - Current delivery: `https://<any-host>/media/assets/<sha>/<filename>`
+ * - Legacy dead CDN: `https://images.frong.me/assets/<sha>/<filename>`
+ *   (same object key, no `/media/` prefix — that hostname is NXDOMAIN)
+ *
  * External covers (Unsplash, etc.) return null so their usage row can be cleared.
  */
 export function publicR2KeyFromMediaUrl(url: string | null | undefined): string | null {
@@ -264,10 +274,21 @@ export function publicR2KeyFromMediaUrl(url: string | null | undefined): string 
     return null;
   }
   if (parsed.protocol !== 'https:') return null;
-  const match = parsed.pathname.match(
+
+  const mediaMatch = parsed.pathname.match(
     /^\/media\/(assets\/[a-f0-9]{64}\/[A-Za-z0-9_][A-Za-z0-9._-]*)$/,
   );
-  return match?.[1] ?? null;
+  if (mediaMatch) return mediaMatch[1];
+
+  // Historical uploads stored absolute images.frong.me URLs whose path is the
+  // bare R2 key. Bundle/draft cover sync must still resolve those to assets
+  // instead of treating them as external and deleting the cover usage.
+  if (parsed.hostname === 'images.frong.me') {
+    const legacyKey = parsed.pathname.replace(/^\/+/, '');
+    if (PUBLIC_ASSET_KEY_PATTERN.test(legacyKey)) return legacyKey;
+  }
+
+  return null;
 }
 
 /** Look up a public asset by its `public_r2_key`, or null when absent. */

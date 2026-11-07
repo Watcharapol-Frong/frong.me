@@ -149,10 +149,11 @@ Reader cover URLs are built from the same `/media/` base (`Astro.site` +
 `/media/`). Stored absolute `https://images.frong.me/...` fallbacks are rewritten
 onto `/media/` at render time because that hostname has no DNS record and is not
 a live CDN. Public readers prefer the single `post_asset_usages` cover row over
-`posts.cover_image_url`; saving a post replaces that cover usage from the saved
-media URL (or clears it for external/empty covers) so a replaced upload cannot
-leave a stale cover asset visible. A passing storage test is not proof of live
-delivery.
+`posts.cover_image_url`; every draft and bundle save that writes the cover URL
+replaces that usage from the saved media URL (including legacy
+`images.frong.me/assets/…` keys) or clears it for external/empty covers so a
+replaced upload cannot leave a stale cover asset visible. A passing storage
+test is not proof of live delivery.
 
 ## Historical material is not architecture
 
