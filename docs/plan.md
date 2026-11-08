@@ -1,6 +1,6 @@
 # Current handoff
 
-Updated: 2026-11-07 (cover replace). Scope: local development and main-only production operations.
+Updated: 2026-11-07 (cover sync on all write paths). Scope: local development and main-only production operations.
 
 ## Current system
 
@@ -37,6 +37,18 @@ and real production content are unchanged. Historical designs and deployment
 logs remain in Git history instead of the current instructions.
 
 ## Latest completed release
+
+### Cover usage sync on draft/PATCH + legacy host keys (2026-11-07)
+
+Public readers still prefer `post_asset_usages` role=cover over
+`posts.cover_image_url`. Bundle saves already realigned that usage; draft/PATCH
+updates did not, so a cover URL change on that path could leave the old asset
+live (same class as the Khon Tong Pok replace bug). `updatePostDraft` now syncs
+or clears the cover usage in the same optimistic-lock batch as the URL write.
+`publicR2KeyFromMediaUrl` also accepts legacy `https://images.frong.me/assets/…`
+URLs so a save with a still-legacy cover column re-attaches the matching asset
+instead of deleting the usage and falling back. Medium/Low cover-class findings
+(body rewrite, soft attach failure, empty homepage img) are unchanged.
 
 ### Cover replacement sync (2026-11-07)
 

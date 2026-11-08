@@ -1,4 +1,5 @@
 import type {
+  AssetRow,
   CreatePostInput,
   Language,
   PostLifecycle,
@@ -13,7 +14,7 @@ import {
   CmsValidationError,
 } from '../../../lib/cms/validation.ts';
 import { MAX_DRAFT_POSTS } from '../../../lib/cms/contracts.ts';
-import { type CmsDatabase, requireChanged } from '../db.ts';
+import { type CmsDatabase, type SqlStatement, requireChanged } from '../db.ts';
 import { CmsConflictError, CmsDraftLimitError, CmsNotFoundError } from '../errors.ts';
 import {
   findPublicAssetByR2Key,
@@ -42,6 +43,56 @@ const POST_COLUMNS = `
 
 function serializeCoverCrop(crop: { x: number; y: number; zoom: number } | null | undefined): string | null {
   return crop ? JSON.stringify(crop) : null;
+}
+
+/**
+ * Keep `post_asset_usages.role='cover'` aligned with the cover URL being saved.
+ * The public reader prefers the usage row over `posts.cover_image_url`, so every
+ * write path that changes the URL must run this in the same optimistic-lock batch.
+ */
+async function resolveCoverAssetForSync(
+  db: CmsDatabase,
+  coverImageUrl: string | null | undefined,
+): Promise<AssetRow | null> {
+  const coverKey = publicR2KeyFromMediaUrl(coverImageUrl);
+  return coverKey ? findPublicAssetByR2Key(db, coverKey) : null;
+}
+
+function coverUsageSyncStatements(input: {
+  postId: string;
+  expectedDraftVersion: number;
+  coverAsset: AssetRow | null;
+  altText: string;
+}): SqlStatement[] {
+  const { postId, expectedDraftVersion, coverAsset, altText } = input;
+  const statements: SqlStatement[] = [
+    {
+      sql: `DELETE FROM post_asset_usages
+            WHERE post_id = ?1 AND role = 'cover'
+              AND EXISTS (
+                SELECT 1 FROM posts WHERE id = ?1 AND draft_version = ?2 AND lifecycle <> 'archived'
+              )`,
+      params: [postId, expectedDraftVersion],
+    },
+  ];
+  if (coverAsset) {
+    statements.push({
+      sql: `INSERT INTO post_asset_usages (
+              id, post_id, asset_id, role, alt_text, caption, crop_json, position
+            )
+            SELECT ?1, ?2, ?3, 'cover', ?4, NULL, NULL, 0
+            FROM posts
+            WHERE id = ?2 AND draft_version = ?5 AND lifecycle <> 'archived'`,
+      params: [
+        `usage_${crypto.randomUUID().replace(/-/g, '')}`,
+        postId,
+        coverAsset.id,
+        altText.trim() || 'Cover image',
+        expectedDraftVersion,
+      ],
+    });
+  }
+  return statements;
 }
 
 export interface ListDraftsOptions {
@@ -149,45 +200,63 @@ export async function updatePostDraft(
 ): Promise<PostRow> {
   const input: UpdatePostDraftInput = parseUpdatePostDraftInput(value);
   await assertBodyCanBeSaved(db, postId, input.bodyMarkdown);
-  const result = await db.run<PostRow>(
-    `UPDATE posts
-     SET lang = ?1,
-         translation_group_id = ?2,
-         slug = ?3,
-         title = ?4,
-         excerpt = ?5,
-         body_markdown = ?6,
-         cover_image_url = ?7,
-         cover_crop = ?8,
-         primary_topic = CASE WHEN ?9 = 1 THEN ?10 ELSE primary_topic END,
-         draft_version = draft_version + 1,
-         updated_at = ?11
-     WHERE id = ?12
-       AND draft_version = ?13
-       AND lifecycle <> 'archived'
-     RETURNING ${POST_COLUMNS}`,
-    [
-      input.lang,
-      input.translationGroupId ?? null,
-      input.slug,
-      input.title,
-      input.excerpt ?? null,
-      input.bodyMarkdown,
-      input.coverImageUrl ?? null,
-      serializeCoverCrop(input.coverCrop),
-      input.primaryTopic === undefined ? 0 : 1,
-      input.primaryTopic ?? null,
-      now,
+  const version = input.expectedDraftVersion;
+  const coverImageUrl = input.coverImageUrl ?? null;
+  // PATCH / draft updates must sync cover usage too — otherwise a stale
+  // role=cover row keeps winning on the public reader after the URL changes.
+  const coverAsset = await resolveCoverAssetForSync(db, coverImageUrl);
+  const statements: SqlStatement[] = [
+    {
+      sql: `UPDATE posts
+            SET lang = ?1,
+                translation_group_id = ?2,
+                slug = ?3,
+                title = ?4,
+                excerpt = ?5,
+                body_markdown = ?6,
+                cover_image_url = ?7,
+                cover_crop = ?8,
+                primary_topic = CASE WHEN ?9 = 1 THEN ?10 ELSE primary_topic END
+            WHERE id = ?11
+              AND draft_version = ?12
+              AND lifecycle <> 'archived'`,
+      params: [
+        input.lang,
+        input.translationGroupId ?? null,
+        input.slug,
+        input.title,
+        input.excerpt ?? null,
+        input.bodyMarkdown,
+        coverImageUrl,
+        serializeCoverCrop(input.coverCrop),
+        input.primaryTopic === undefined ? 0 : 1,
+        input.primaryTopic ?? null,
+        postId,
+        version,
+      ],
+    },
+    ...coverUsageSyncStatements({
       postId,
-      input.expectedDraftVersion,
-    ],
-  );
+      expectedDraftVersion: version,
+      coverAsset,
+      altText: input.title,
+    }),
+    {
+      sql: `UPDATE posts
+            SET draft_version = draft_version + 1, updated_at = ?1
+            WHERE id = ?2 AND draft_version = ?3 AND lifecycle <> 'archived'
+            RETURNING ${POST_COLUMNS}`,
+      params: [now, postId, version],
+    },
+  ];
+  const results = await db.batch<PostRow>(statements);
+  const versionResult = results[results.length - 1];
   requireChanged(
-    result,
+    versionResult,
     'The post draft changed after it was loaded',
     'DRAFT_VERSION_CONFLICT',
   );
-  return requiredReturnedRow(result.results[0], 'post', postId);
+  return requiredReturnedRow(versionResult.results[0], 'post', postId);
 }
 
 /** Atomically replaces the editor's post, taxonomy, and source state once. */
@@ -205,13 +274,8 @@ export async function updatePostBundle(
   // post_tags.tag_id is a real foreign key, so it must be resolved to actual
   // rows (upserted by lang+slug) before the batch below can write it.
   const resolvedTagIds = await resolveTagIds(db, input.draft.lang, input.tagIds, now);
-  // Keep post_asset_usages.role='cover' aligned with cover_image_url. The reader
-  // prefers the usage row over the URL column, so a replaced upload that only
-  // updated the URL left the old cover visible until this sync ran.
-  const coverKey = publicR2KeyFromMediaUrl(input.draft.coverImageUrl);
-  const coverAsset = coverKey ? await findPublicAssetByR2Key(db, coverKey) : null;
-  const coverUsageId = `usage_${crypto.randomUUID().replace(/-/g, '')}`;
-  const statements = [
+  const coverAsset = await resolveCoverAssetForSync(db, input.draft.coverImageUrl);
+  const statements: SqlStatement[] = [
     {
       sql: `UPDATE posts
             SET lang = ?1, translation_group_id = ?2, slug = ?3, title = ?4,
@@ -283,31 +347,12 @@ export async function updatePostBundle(
             )`,
       params: [postId, sourcesJson, version],
     },
-    {
-      sql: `DELETE FROM post_asset_usages
-            WHERE post_id = ?1 AND role = 'cover'
-              AND EXISTS (
-                SELECT 1 FROM posts WHERE id = ?1 AND draft_version = ?2 AND lifecycle <> 'archived'
-              )`,
-      params: [postId, version],
-    },
-    ...(coverAsset
-      ? [{
-          sql: `INSERT INTO post_asset_usages (
-                  id, post_id, asset_id, role, alt_text, caption, crop_json, position
-                )
-                SELECT ?1, ?2, ?3, 'cover', ?4, NULL, NULL, 0
-                FROM posts
-                WHERE id = ?2 AND draft_version = ?5 AND lifecycle <> 'archived'`,
-          params: [
-            coverUsageId,
-            postId,
-            coverAsset.id,
-            input.draft.title.trim() || 'Cover image',
-            version,
-          ],
-        }]
-      : []),
+    ...coverUsageSyncStatements({
+      postId,
+      expectedDraftVersion: version,
+      coverAsset,
+      altText: input.draft.title,
+    }),
     {
       sql: `UPDATE posts
             SET draft_version = draft_version + 1, updated_at = ?1

@@ -86,14 +86,12 @@ test('draft writes use optimistic locking and stale taxonomy batches roll back',
   assert.equal((await getPostDraft(db, POST_ID)).draft_version, 3);
 });
 
-test('publicR2KeyFromMediaUrl accepts site media covers and rejects externals', () => {
-  assert.equal(
-    publicR2KeyFromMediaUrl(
-      'https://frong.me/media/assets/4d532306e3949a64b8b2e07c6a7feb780e6a79ccb46605ef29bbf7d4ba310e6b/IMG_1044.jpeg',
-    ),
-    'assets/4d532306e3949a64b8b2e07c6a7feb780e6a79ccb46605ef29bbf7d4ba310e6b/IMG_1044.jpeg',
-  );
+test('publicR2KeyFromMediaUrl accepts site media and legacy images.frong.me covers', () => {
+  const key = 'assets/4d532306e3949a64b8b2e07c6a7feb780e6a79ccb46605ef29bbf7d4ba310e6b/IMG_1044.jpeg';
+  assert.equal(publicR2KeyFromMediaUrl(`https://frong.me/media/${key}`), key);
+  assert.equal(publicR2KeyFromMediaUrl(`https://images.frong.me/${key}`), key);
   assert.equal(publicR2KeyFromMediaUrl('https://images.unsplash.com/photo-1'), null);
+  assert.equal(publicR2KeyFromMediaUrl('https://evil.example/assets/aa09731a5d16df9deaadb990480e3443a9bab82a1d0f3a2d33de454b6f13b002/x.png'), null);
   assert.equal(publicR2KeyFromMediaUrl(null), null);
 });
 
@@ -236,6 +234,147 @@ test('updatePostBundle syncs cover usage from a /media cover URL and clears it f
   }, NOW + 5);
   assert.equal(cleared.cover_image_url, 'https://images.unsplash.com/photo-external');
   assert.deepEqual(await listPostAssetUsages(db, POST_ID), []);
+});
+
+test('updatePostDraft syncs cover usage so PATCH cannot leave a stale cover live', async (t) => {
+  const { binding, db } = createCmsDbFixture();
+  t.after(() => binding.close());
+
+  const digest = 'e'.repeat(64);
+  const key = `assets/${digest}/new-cover.webp`;
+  const asset = await registerUploadedAsset(db, {
+    id: 'asset_cover_patch01',
+    mediaKind: 'photo',
+    privateR2Key: key,
+    originalName: 'new-cover.webp',
+    mimeType: 'image/webp',
+    width: 1200,
+    height: 630,
+    byteSize: 4096,
+    sha256: digest,
+  }, NOW);
+
+  await createPost(db, {
+    id: POST_ID,
+    lang: 'en',
+    slug: 'patch-cover-sync',
+    title: 'Patch cover sync',
+    bodyMarkdown: '# Body',
+    coverImageUrl: `https://frong.me/media/${key}`,
+  }, NOW + 1);
+
+  const stale = await registerUploadedAsset(db, {
+    id: 'asset_cover_oldpatch',
+    mediaKind: 'photo',
+    privateR2Key: `assets/${'f'.repeat(64)}/old.png`,
+    originalName: 'old.png',
+    mimeType: 'image/png',
+    width: 10,
+    height: 10,
+    byteSize: 64,
+    sha256: 'f'.repeat(64),
+  }, NOW + 2);
+  await addPostAssetUsage(db, {
+    id: 'usage_cover_oldpatch',
+    postId: POST_ID,
+    assetId: stale.id,
+    role: 'cover',
+    altText: 'Stale cover',
+    expectedDraftVersion: 1,
+  }, NOW + 3);
+
+  const synced = await updatePostDraft(db, POST_ID, {
+    expectedDraftVersion: 2,
+    lang: 'en',
+    slug: 'patch-cover-sync',
+    title: 'Patch cover sync',
+    bodyMarkdown: '# Body',
+    coverImageUrl: `https://frong.me/media/${key}`,
+  }, NOW + 4);
+  assert.equal(synced.cover_image_url, `https://frong.me/media/${key}`);
+  assert.equal(synced.draft_version, 3);
+  const afterSync = await listPostAssetUsages(db, POST_ID);
+  assert.equal(afterSync.length, 1);
+  assert.equal(afterSync[0]?.asset_id, asset.id);
+
+  const cleared = await updatePostDraft(db, POST_ID, {
+    expectedDraftVersion: 3,
+    lang: 'en',
+    slug: 'patch-cover-sync',
+    title: 'Patch cover sync',
+    bodyMarkdown: '# Body',
+    coverImageUrl: null,
+  }, NOW + 5);
+  assert.equal(cleared.cover_image_url, null);
+  assert.deepEqual(await listPostAssetUsages(db, POST_ID), []);
+});
+
+test('updatePostBundle keeps cover usage when cover_image_url is still images.frong.me', async (t) => {
+  const { binding, db } = createCmsDbFixture();
+  t.after(() => binding.close());
+
+  const digest = 'a'.repeat(64);
+  const key = `assets/${digest}/Screenshot-legacy.png`;
+  const asset = await registerUploadedAsset(db, {
+    id: 'asset_cover_legacy1',
+    mediaKind: 'photo',
+    privateR2Key: key,
+    originalName: 'Screenshot-legacy.png',
+    mimeType: 'image/png',
+    width: 100,
+    height: 100,
+    byteSize: 128,
+    sha256: digest,
+  }, NOW);
+
+  const legacyUrl = `https://images.frong.me/${key}`;
+  await createPost(db, {
+    id: POST_ID,
+    lang: 'th',
+    slug: 'legacy-cover-sync',
+    title: 'Legacy cover sync',
+    bodyMarkdown: '# Body',
+    coverImageUrl: legacyUrl,
+  }, NOW + 1);
+
+  // Wrong usage that would remain live if legacy URLs were treated as external.
+  const stale = await registerUploadedAsset(db, {
+    id: 'asset_cover_legstale',
+    mediaKind: 'photo',
+    privateR2Key: `assets/${'b'.repeat(64)}/wrong.png`,
+    originalName: 'wrong.png',
+    mimeType: 'image/png',
+    width: 10,
+    height: 10,
+    byteSize: 32,
+    sha256: 'b'.repeat(64),
+  }, NOW + 2);
+  await addPostAssetUsage(db, {
+    id: 'usage_cover_legstale',
+    postId: POST_ID,
+    assetId: stale.id,
+    role: 'cover',
+    altText: 'Wrong',
+    expectedDraftVersion: 1,
+  }, NOW + 3);
+
+  const synced = await updatePostBundle(db, POST_ID, {
+    draft: {
+      expectedDraftVersion: 2,
+      lang: 'th',
+      slug: 'legacy-cover-sync',
+      title: 'Legacy cover sync',
+      bodyMarkdown: '# Body',
+      coverImageUrl: legacyUrl,
+    },
+    categoryIds: [],
+    tagIds: [],
+    sources: [],
+  }, NOW + 4);
+  assert.equal(synced.cover_image_url, legacyUrl);
+  const usages = await listPostAssetUsages(db, POST_ID);
+  assert.equal(usages.length, 1);
+  assert.equal(usages[0]?.asset_id, asset.id);
 });
 
 test('cover_image_url persists through create, update, and the bundled update, and clearing it stores null', async (t) => {
